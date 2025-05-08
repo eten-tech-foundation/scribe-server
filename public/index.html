@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Audio Recording with WebSockets</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      button {
+        padding: 10px 15px;
+        margin: 10px 5px;
+        cursor: pointer;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+      }
+      button:disabled {
+        background-color: #cccccc;
+      }
+      .status {
+        margin-top: 20px;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .recording {
+        background-color: #ffcccb;
+      }
+      .success {
+        background-color: #d4edda;
+      }
+      #recordings {
+        margin-top: 20px;
+      }
+      .recording-item {
+        padding: 10px;
+        margin: 5px 0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .actions {
+        margin-top: 10px;
+      }
+      .action-button {
+        background-color: #2196f3;
+        font-size: 12px;
+        padding: 5px 10px;
+      }
+      h2 {
+        margin-top: 30px;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 10px;
+      }
+      .recording-date {
+        font-size: 12px;
+        color: #777;
+        margin-bottom: 5px;
+      }
+      .recording-size {
+        font-size: 12px;
+        color: #777;
+        margin-bottom: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Audio Recording with WebSockets</h1>
+    <div>
+      <button id="startRecording">Start Recording</button>
+      <button id="stopRecording" disabled>Stop Recording</button>
+    </div>
+    <div id="status" class="status"></div>
+
+    <h2>New Recordings</h2>
+    <div id="recordings"></div>
+
+    <h2>Existing Recordings</h2>
+    <div id="existingRecordings"></div>
+
+    <script>
+      let socket;
+      let mediaRecorder;
+      let audioChunks = [];
+      let recordingStartTime;
+      const statusDiv = document.getElementById("status");
+      const recordingsDiv = document.getElementById("recordings");
+      const existingRecordingsDiv =
+        document.getElementById("existingRecordings");
+      const startButton = document.getElementById("startRecording");
+      const stopButton = document.getElementById("stopRecording");
+
+      // Load existing recordings when page loads
+      window.addEventListener("DOMContentLoaded", loadExistingRecordings);
+
+      async function loadExistingRecordings() {
+        try {
+          const response = await fetch("/api/list-recordings");
+          const data = await response.json();
+
+          if (data.status === "success") {
+            if (data.recordings.length === 0) {
+              existingRecordingsDiv.innerHTML = "<p>No recordings found.</p>";
+              return;
+            }
+
+            // Sort recordings by creation date (newest first)
+            data.recordings.sort(
+              (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+            );
+
+            // Clear existing content
+            existingRecordingsDiv.innerHTML = "";
+
+            // Add each recording to the list
+            data.recordings.forEach((recording) => {
+              const recordingItem = document.createElement("div");
+              recordingItem.className = "recording-item";
+
+              const creationDate = new Date(recording.createdAt);
+              const formattedDate = creationDate.toLocaleString();
+              const fileSize = formatFileSize(recording.size);
+
+              recordingItem.innerHTML = `
+                <div>${recording.filename}</div>
+                <div class="recording-date">Created: ${formattedDate}</div>
+                <div class="recording-size">Size: ${fileSize}</div>
+                <audio controls src="${recording.url}"></audio>
+                <div class="actions">
+                  <button class="action-button" onclick="swapHalves('${recording.filename}')">Swap Halves</button>
+                  <button class="action-button" onclick="convertToMp3('${recording.filename}')">Convert to MP3</button>
+                </div>
+              `;
+              existingRecordingsDiv.appendChild(recordingItem);
+            });
+          } else {
+            existingRecordingsDiv.innerHTML =
+              "<p>Error loading recordings.</p>";
+          }
+        } catch (error) {
+          console.error("Error loading recordings:", error);
+          existingRecordingsDiv.innerHTML = "<p>Failed to load recordings.</p>";
+        }
+      }
+
+      function formatFileSize(bytes) {
+        if (bytes < 1024) {
+          return bytes + " B";
+        } else if (bytes < 1024 * 1024) {
+          return (bytes / 1024).toFixed(2) + " KB";
+        } else {
+          return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+        }
+      }
+
+      startButton.addEventListener("click", startRecording);
+      stopButton.addEventListener("click", stopRecording);
+
+      async function swapHalves(filename) {
+        try {
+          const response = await fetch(`/api/swap-halves/${filename}`);
+          const data = await response.json();
+
+          if (data.status === "success") {
+            const recordingItem = document.createElement("div");
+            recordingItem.className = "recording-item";
+            recordingItem.innerHTML = `
+              <div>Swapped recording: ${data.outputFile}</div>
+              <audio controls src="${data.url}"></audio>
+              <div class="actions">
+                <button class="action-button" onclick="swapHalves('${data.outputFile}')">Swap Halves</button>
+                <button class="action-button" onclick="convertToMp3('${data.outputFile}')">Convert to MP3</button>
+              </div>
+            `;
+            recordingsDiv.prepend(recordingItem);
+
+            // Refresh existing recordings list
+            loadExistingRecordings();
+          } else {
+            statusDiv.textContent = `Error: ${data.error}`;
+          }
+        } catch (err) {
+          console.error("Error swapping halves:", err);
+          statusDiv.textContent = "Error processing audio";
+        }
+      }
+
+      async function convertToMp3(filename) {
+        try {
+          const response = await fetch(`/api/convert-to-mp3/${filename}`);
+          const data = await response.json();
+
+          if (data.status === "success") {
+            const recordingItem = document.createElement("div");
+            recordingItem.className = "recording-item";
+            recordingItem.innerHTML = `
+              <div>MP3 conversion: ${data.outputFile}</div>
+              <audio controls src="${data.url}"></audio>
+              <div class="actions">
+                <button class="action-button" onclick="swapHalves('${data.outputFile}')">Swap Halves</button>
+              </div>
+            `;
+            recordingsDiv.prepend(recordingItem);
+
+            // Refresh existing recordings list
+            loadExistingRecordings();
+          } else {
+            statusDiv.textContent = `Error: ${data.error}`;
+          }
+        } catch (err) {
+          console.error("Error converting to MP3:", err);
+          statusDiv.textContent = "Error converting audio";
+        }
+      }
+
+      function startRecording() {
+        // Initialize WebSocket connection
+        socket = new WebSocket(`ws://${window.location.host}/ws`);
+
+        socket.onopen = async () => {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+            });
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.ondataavailable = (event) => {
+              if (event.data.size > 0) {
+                socket.send(event.data);
+              }
+            };
+
+            mediaRecorder.onstop = () => {
+              stream.getTracks().forEach((track) => track.stop());
+            };
+
+            // Start recording
+            recordingStartTime = new Date();
+            mediaRecorder.start(100); // Send data every 100ms
+
+            // Update UI
+            startButton.disabled = true;
+            stopButton.disabled = false;
+            statusDiv.textContent = "Recording in progress...";
+            statusDiv.className = "status recording";
+          } catch (err) {
+            console.error("Error accessing microphone:", err);
+            statusDiv.textContent = "Error: " + err.message;
+          }
+        };
+
+        socket.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.status === "success") {
+            const duration = ((new Date() - recordingStartTime) / 1000).toFixed(
+              1
+            );
+
+            statusDiv.textContent = "Recording saved successfully!";
+            statusDiv.className = "status success";
+
+            // Add recording to list
+            const recordingItem = document.createElement("div");
+            recordingItem.className = "recording-item";
+            recordingItem.innerHTML = `
+              <div>Recording saved: ${data.filename}</div>
+              <div>Duration: ${duration} seconds</div>
+              <audio controls src="/uploads/${data.filename}"></audio>
+              <div class="actions">
+                <button class="action-button" onclick="swapHalves('${data.filename}')">Swap Halves</button>
+                <button class="action-button" onclick="convertToMp3('${data.filename}')">Convert to MP3</button>
+              </div>
+            `;
+            recordingsDiv.prepend(recordingItem);
+
+            // Refresh existing recordings list
+            loadExistingRecordings();
+          }
+        };
+
+        socket.onerror = (error) => {
+          console.error("WebSocket error:", error);
+          statusDiv.textContent = "WebSocket error occurred";
+        };
+
+        socket.onclose = () => {
+          console.log("WebSocket connection closed");
+        };
+      }
+
+      function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+          mediaRecorder.stop();
+        }
+
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          // Send end signal
+          socket.send(JSON.stringify({ action: "end" }));
+        }
+
+        // Update UI
+        startButton.disabled = false;
+        stopButton.disabled = true;
+        statusDiv.textContent = "Processing recording...";
+      }
+    </script>
+  </body>
+</html>
