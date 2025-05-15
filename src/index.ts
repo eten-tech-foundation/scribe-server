@@ -7,6 +7,12 @@ import path from "path";
 import type { ChildProcess } from "child_process";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
+import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
+import ffprobeInstaller from "@ffprobe-installer/ffprobe";
+import { PythonService } from "./modules/python.js";
+
+const FFMPEG_PATH = ffmpegInstaller.path;
+const FFPROBE_PATH = ffprobeInstaller.path;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, "..", "uploads");
@@ -82,7 +88,7 @@ app.get("/api/swap-halves/:filename", async (c) => {
   try {
     // Step 1: Get the duration of the audio file
     const duration = await new Promise<number>((resolve, reject) => {
-      const ffprobeProcess = spawn("ffprobe", [
+      const ffprobeProcess = spawn(FFPROBE_PATH, [
         "-v",
         "error",
         "-show_entries",
@@ -110,7 +116,7 @@ app.get("/api/swap-halves/:filename", async (c) => {
 
     // Step 2: Extract first half
     await new Promise<void>((resolve, reject) => {
-      const ffmpegProcess = spawn("ffmpeg", [
+      const ffmpegProcess = spawn(FFMPEG_PATH, [
         "-i",
         inputPath,
         "-ss",
@@ -139,7 +145,7 @@ app.get("/api/swap-halves/:filename", async (c) => {
 
     // Step 3: Extract second half
     await new Promise<void>((resolve, reject) => {
-      const ffmpegProcess = spawn("ffmpeg", [
+      const ffmpegProcess = spawn(FFMPEG_PATH, [
         "-i",
         inputPath,
         "-ss",
@@ -174,7 +180,7 @@ app.get("/api/swap-halves/:filename", async (c) => {
 file '${firstHalfPath.replace(/'/g, "'\\''")}'`
       );
 
-      const ffmpegProcess = spawn("ffmpeg", [
+      const ffmpegProcess = spawn(FFMPEG_PATH, [
         "-f",
         "concat",
         "-safe",
@@ -242,7 +248,7 @@ app.get("/api/convert-to-mp3/:filename", async (c) => {
 
   try {
     await new Promise<void>((resolve, reject) => {
-      const ffmpegProcess = spawn("ffmpeg", [
+      const ffmpegProcess = spawn(FFMPEG_PATH, [
         "-i",
         inputPath,
         "-c:a",
@@ -319,7 +325,7 @@ app.get(
             // Ensure ffmpeg is started the first time we receive audio data
             if (!ffmpegProcess) {
               console.log("Starting ffmpeg process for", filename);
-              ffmpegProcess = spawn("ffmpeg", [
+              ffmpegProcess = spawn(FFMPEG_PATH, [
                 "-i",
                 "pipe:0", // Read from stdin
                 "-c:a",
@@ -357,6 +363,152 @@ app.get(
     };
   })
 );
+
+// Python Service Endpoints
+const pythonService = new PythonService();
+
+// Initialize the Python service
+app.get("/python/init", async (c) => {
+  try {
+    await pythonService.init();
+    return c.json({
+      status: "success",
+      message: "Python service initialized successfully",
+    });
+  } catch (error) {
+    console.error("Error initializing Python service:", error);
+    return c.json(
+      {
+        status: "error",
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+});
+
+// Setup Python environment
+app.get("/python/setup", async (c) => {
+  try {
+    await pythonService.setupEnvironment();
+    return c.json({
+      status: "success",
+      message: "Python environment setup completed successfully",
+    });
+  } catch (error) {
+    console.error("Error setting up Python environment:", error);
+    return c.json(
+      {
+        status: "error",
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+});
+
+// Install Wildebeest NLP package
+app.get("/python/install-wildebeest", async (c) => {
+  try {
+    await pythonService.setupWildebeest();
+    return c.json({
+      status: "success",
+      message: "Wildebeest NLP package installed successfully",
+    });
+  } catch (error) {
+    console.error("Error installing Wildebeest:", error);
+    return c.json(
+      {
+        status: "error",
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+});
+
+// Analyze text with Wildebeest
+app.post("/python/analyze-text", async (c) => {
+  try {
+    const { text } = await c.req.json();
+
+    if (!text || typeof text !== "string") {
+      return c.json(
+        {
+          status: "error",
+          error: "Text is required and must be a string",
+        },
+        400
+      );
+    }
+
+    const result = await pythonService.executeWildebeest(text);
+    return c.json({
+      status: "success",
+      analysis: JSON.parse(result),
+    });
+  } catch (error) {
+    console.error("Error analyzing text with Wildebeest:", error);
+    return c.json(
+      {
+        status: "error",
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+});
+
+// Check installation status
+app.get("/python/status", async (c) => {
+  try {
+    await pythonService.init();
+
+    const scribeDir = pythonService.getScribeDir();
+    const pythonDir = pythonService.getPythonDir();
+    const venvDir = pythonService.getVenvDir();
+
+    const scribeDirExists = await fs.promises
+      .stat(scribeDir)
+      .then(() => true)
+      .catch(() => false);
+    const pythonDirExists = await fs.promises
+      .stat(pythonDir)
+      .then(() => true)
+      .catch(() => false);
+    const venvDirExists = await fs.promises
+      .stat(venvDir)
+      .then(() => true)
+      .catch(() => false);
+
+    return c.json({
+      status: "success",
+      installation: {
+        scribeDir: {
+          path: scribeDir,
+          exists: scribeDirExists,
+        },
+        pythonDir: {
+          path: pythonDir,
+          exists: pythonDirExists,
+        },
+        venvDir: {
+          path: venvDir,
+          exists: venvDirExists,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error checking Python installation status:", error);
+    return c.json(
+      {
+        status: "error",
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+});
 
 const server = serve(
   {

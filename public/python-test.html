@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Python Features Test</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f9f9f9;
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .section {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      h2 {
+        margin-top: 0;
+        color: #2c3e50;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+      }
+      button {
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-right: 10px;
+        margin-bottom: 10px;
+        transition: background-color 0.3s;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      button:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+      }
+      .output {
+        background-color: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 10px;
+        font-family: monospace;
+        white-space: pre-wrap;
+        min-height: 50px;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      textarea {
+        width: 100%;
+        min-height: 100px;
+        margin-bottom: 10px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        resize: vertical;
+        font-family: inherit;
+      }
+      .success {
+        color: #2ecc71;
+      }
+      .error {
+        color: #e74c3c;
+      }
+      .progress {
+        margin-top: 10px;
+        font-style: italic;
+        color: #3498db;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Python Service Test Page</h1>
+
+    <div class="section">
+      <h2>Installation Status</h2>
+      <button id="checkStatus">Check Python Status</button>
+      <div id="statusOutput" class="output"></div>
+    </div>
+
+    <div class="section">
+      <h2>Setup Python</h2>
+      <button id="initPython">1. Initialize Python Service</button>
+      <button id="setupPython">2. Setup Python Environment</button>
+      <button id="installWildebeest">3. Install Wildebeest</button>
+      <div id="setupOutput" class="output"></div>
+    </div>
+
+    <div class="section">
+      <h2>Text Analysis with Wildebeest</h2>
+      <textarea id="textInput" placeholder="Enter text to analyze...">
+The quick brown fox jumped over the lazy dog. I love natural language processing!</textarea
+      >
+      <button id="analyzeText">Analyze Text</button>
+      <div id="analysisOutput" class="output"></div>
+    </div>
+
+    <script>
+      // Function to display JSON in a more readable format
+      function formatJson(json) {
+        return JSON.stringify(json, null, 2);
+      }
+
+      // Generic function to handle API calls
+      async function callApi(url, method = "GET", data = null) {
+        try {
+          const options = {
+            method,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          };
+
+          if (data) {
+            options.body = JSON.stringify(data);
+          }
+
+          const response = await fetch(url, options);
+          const result = await response.json();
+
+          return {
+            success: response.ok,
+            data: result,
+          };
+        } catch (error) {
+          console.error(`Error calling ${url}:`, error);
+          return {
+            success: false,
+            error: error.message,
+          };
+        }
+      }
+
+      // Initialize elements
+      document.addEventListener("DOMContentLoaded", () => {
+        // Check Status
+        document
+          .getElementById("checkStatus")
+          .addEventListener("click", async () => {
+            const outputElement = document.getElementById("statusOutput");
+            outputElement.innerHTML =
+              '<span class="progress">Checking Python installation status...</span>';
+
+            const result = await callApi("/python/status");
+            if (result.success) {
+              outputElement.innerHTML = `<span class="success">Status retrieved successfully:</span>\n${formatJson(
+                result.data
+              )}`;
+            } else {
+              outputElement.innerHTML = `<span class="error">Error checking status:</span>\n${formatJson(
+                result
+              )}`;
+            }
+          });
+
+        // Initialize Python Service
+        document
+          .getElementById("initPython")
+          .addEventListener("click", async () => {
+            const outputElement = document.getElementById("setupOutput");
+            outputElement.innerHTML =
+              '<span class="progress">Initializing Python service...</span>';
+
+            const result = await callApi("/python/init");
+            if (result.success) {
+              outputElement.innerHTML = `<span class="success">Python service initialized:</span>\n${formatJson(
+                result.data
+              )}`;
+            } else {
+              outputElement.innerHTML = `<span class="error">Initialization error:</span>\n${formatJson(
+                result
+              )}`;
+            }
+          });
+
+        // Setup Python Environment
+        document
+          .getElementById("setupPython")
+          .addEventListener("click", async () => {
+            const outputElement = document.getElementById("setupOutput");
+            outputElement.innerHTML =
+              '<span class="progress">Setting up Python environment (this may take a while)...</span>';
+
+            const result = await callApi("/python/setup");
+            if (result.success) {
+              outputElement.innerHTML = `<span class="success">Environment setup complete:</span>\n${formatJson(
+                result.data
+              )}`;
+            } else {
+              outputElement.innerHTML = `<span class="error">Setup error:</span>\n${formatJson(
+                result
+              )}`;
+            }
+          });
+
+        // Install Wildebeest
+        document
+          .getElementById("installWildebeest")
+          .addEventListener("click", async () => {
+            const outputElement = document.getElementById("setupOutput");
+            outputElement.innerHTML =
+              '<span class="progress">Installing Wildebeest NLP package (this may take a while)...</span>';
+
+            const result = await callApi("/python/install-wildebeest");
+            if (result.success) {
+              outputElement.innerHTML = `<span class="success">Wildebeest installed successfully:</span>\n${formatJson(
+                result.data
+              )}`;
+            } else {
+              outputElement.innerHTML = `<span class="error">Installation error:</span>\n${formatJson(
+                result
+              )}`;
+            }
+          });
+
+        // Analyze Text
+        document
+          .getElementById("analyzeText")
+          .addEventListener("click", async () => {
+            const outputElement = document.getElementById("analysisOutput");
+            const textInput = document.getElementById("textInput").value;
+
+            if (!textInput.trim()) {
+              outputElement.innerHTML =
+                '<span class="error">Please enter some text to analyze</span>';
+              return;
+            }
+
+            outputElement.innerHTML =
+              '<span class="progress">Analyzing text with Wildebeest...</span>';
+
+            const result = await callApi("/python/analyze-text", "POST", {
+              text: textInput,
+            });
+            if (result.success) {
+              outputElement.innerHTML = `<span class="success">Analysis complete:</span>\n${formatJson(
+                result.data
+              )}`;
+            } else {
+              outputElement.innerHTML = `<span class="error">Analysis error:</span>\n${formatJson(
+                result
+              )}`;
+            }
+          });
+      });
+    </script>
+  </body>
+</html>
