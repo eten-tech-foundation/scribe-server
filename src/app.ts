@@ -1,21 +1,23 @@
+import "reflect-metadata";
+
+import { TaskController } from "@/controllers/task.controller";
+import { IocContainer } from "@/ioc/container";
 import configureOpenAPI from "@/lib/configure-open-api";
-import createApp from "@/lib/create-app";
-import index from "@/routes/index.route";
-import tasks from "@/routes/tasks/tasks.index";
+import { Server } from "@/server/server";
+// Setup index route
+import "@/routes/index.route";
 
-const app = createApp();
+// Initialize the IoC container
+const container = IocContainer.container;
 
-configureOpenAPI(app);
+// Get server instance
+const server = container.get(Server);
 
-const routes = [
-  index,
-  tasks,
-] as const;
+// Configure OpenAPI
+configureOpenAPI(server.hono);
 
-routes.forEach((route) => {
-  app.route("/", route);
-});
+// Setup controllers
+const taskController = container.get(TaskController);
+taskController.setup();
 
-export type AppType = typeof routes[number];
-
-export default app;
+export default server.hono;

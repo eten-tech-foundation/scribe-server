@@ -3,11 +3,13 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import { jsonContent } from "stoker/openapi/helpers";
 import { createMessageObjectSchema } from "stoker/openapi/schemas";
 
-import { createRouter } from "@/lib/create-app";
+import { IocContainer } from "@/ioc/container";
+import { Server } from "@/server/server";
 
-const router = createRouter()
-  .openapi(
-    createRoute({
+// Setup index route directly with IoC
+const server = IocContainer.container.get(Server);
+
+const indexRoute = createRoute({
       tags: ["Index"],
       method: "get",
       path: "/",
@@ -17,12 +19,12 @@ const router = createRouter()
           "Tasks API Index",
         ),
       },
-    }),
-    (c) => {
+});
+
+server.hono.openapi(indexRoute, (c) => {
       return c.json({
         message: "Tasks API",
       }, HttpStatusCodes.OK);
-    },
-  );
+});
 
-export default router;
+export default server.hono;
