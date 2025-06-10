@@ -209,11 +209,36 @@ import { jsonContent } from "stoker/openapi/helpers";
 import { createMessageObjectSchema } from "stoker/openapi/schemas";
 
 import { insertUsersSchema, patchUsersSchema, selectUsersSchema } from "@/db/schema";
-import { Delete, Get, Patch, Post } from "@/decorators";
+import { baseRoute, Delete, Get, middleware, Patch, Post } from "@/decorators";
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from "@/lib/constants";
 import { LoggerService } from "@/services/logger.service";
 import { UserService } from "@/services/user.service";
 
+// Example middleware functions
+const authMiddleware = async (c, next) => {
+  const token = c.req.header("Authorization");
+  if (!token) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+  // Token validation logic here
+  await next();
+};
+
+const loggingMiddleware = async (c, next) => {
+  console.log(`${c.req.method} ${c.req.url}`);
+  await next();
+};
+
+const rateLimitMiddleware = async (c, next) => {
+  // Rate limiting logic here
+  await next();
+};
+
+// Using @baseRoute and @middleware decorators
+@baseRoute("/api/v1")                    // All routes will be prefixed with /api/v1
+@middleware(loggingMiddleware)            // Applied to all routes in this controller
+@middleware(rateLimitMiddleware)          // Applied to all routes in this controller  
+@middleware(authMiddleware, "/api/v1/admin/*")  // Only applied to admin routes
 @injectable()
 export class UserController {
   constructor(
@@ -222,7 +247,7 @@ export class UserController {
   ) {}
 
   @Get({
-    path: "/users",
+    path: "/users",                       // Results in GET /api/v1/users
     tags: ["Users"],
     responses: {
       [HttpStatusCodes.OK]: jsonContent(
@@ -238,7 +263,7 @@ export class UserController {
   }
 
   @Post({
-    path: "/users",
+    path: "/users",                       // Results in POST /api/v1/users
     tags: ["Users"],
     request: {
       body: jsonContent(insertUsersSchema, "The user to create"),
@@ -254,7 +279,156 @@ export class UserController {
     return ctx.json(created, HttpStatusCodes.OK);
   }
 
+  @Get({
+    path: "/admin/users",                 // Results in GET /api/v1/admin/users (with auth middleware)
+    tags: ["Admin"],
+    responses: {
+      [HttpStatusCodes.OK]: jsonContent(
+        selectUsersSchema.array().openapi("Users"),
+        "All users with admin details",
+      ),
+    },
+  })
+  async adminList(ctx: Context): Promise<Response> {
+    // This route will have auth middleware applied due to path matching
+    const users = await this.userService.getAllUsers();
+    return ctx.json(users);
+  }
+
   // Add other methods (getOne, patch, remove) following the same pattern...
+}
+```
+
+#### Understanding Decorators
+
+##### `@baseRoute(basePath: string)`
+
+The `@baseRoute` decorator allows you to define a base path for all routes in a controller, eliminating repetition:
+
+**Without @baseRoute:**
+```typescript
+@Get({ path: "/api/v1/users" })        // GET /api/v1/users
+@Post({ path: "/api/v1/users" })       // POST /api/v1/users
+@Get({ path: "/api/v1/users/{id}" })   // GET /api/v1/users/{id}
+```
+
+**With @baseRoute:**
+```typescript
+@baseRoute("/api/v1")
+export class UserController {
+  @Get({ path: "/users" })             // GET /api/v1/users  
+  @Post({ path: "/users" })            // POST /api/v1/users
+  @Get({ path: "/users/{id}" })        // GET /api/v1/users/{id}
+}
+```
+
+**Special path handling:**
+- `path: "/"` with `@baseRoute("/api/v1")` → `/api/v1`
+- `path: "/users"` with `@baseRoute("/api/v1")` → `/api/v1/users`
+- `path: "users"` with `@baseRoute("/api/v1")` → `/api/v1/users`
+
+##### `@middleware(middlewareHandler: MiddlewareHandler, path?: string)`
+
+The `@middleware` decorator allows you to apply Hono middleware functions to controllers:
+
+**Basic usage (applies to all routes in controller):**
+```typescript
+import type { MiddlewareHandler } from "hono";
+
+const logMiddleware: MiddlewareHandler = async (c, next) => {
+  console.log(`Request: ${c.req.method} ${c.req.url}`);
+  await next();
+};
+
+@middleware(logMiddleware)
+@baseRoute("/api/v1")
+export class UserController {
+  // All routes will have logging middleware
+}
+```
+
+**Path-specific middleware:**
+```typescript
+@middleware(authMiddleware, "/api/v1/admin/*")  // Only admin routes
+@middleware(corsMiddleware, "/api/v1/public/*") // Only public routes
+@baseRoute("/api/v1")
+export class UserController {
+  @Get({ path: "/admin/users" })     // Has auth middleware
+  @Get({ path: "/public/info" })     // Has CORS middleware  
+  @Get({ path: "/users" })           // No path-specific middleware
+}
+```
+
+**Multiple middleware (executes in declaration order):**
+```typescript
+@middleware(requestIdMiddleware)      // Executes first
+@middleware(loggingMiddleware)        // Executes second  
+@middleware(rateLimitMiddleware)      // Executes third
+@baseRoute("/api/v1")
+export class UserController {
+  // All routes will have all three middleware in order
+}
+```
+
+**Real-world example:**
+```typescript
+import type { MiddlewareHandler } from "hono";
+
+// Define middleware functions
+const requestIdMiddleware: MiddlewareHandler = async (c, next) => {
+  c.set("requestId", crypto.randomUUID());
+  await next();
+};
+
+const authMiddleware: MiddlewareHandler = async (c, next) => {
+  const token = c.req.header("Authorization");
+  if (!token?.startsWith("Bearer ")) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+  // Verify JWT token here
+  await next();
+};
+
+const adminMiddleware: MiddlewareHandler = async (c, next) => {
+  // Check if user has admin role
+  const userRole = c.get("userRole"); 
+  if (userRole !== "admin") {
+    return c.json({ error: "Forbidden" }, 403);
+  }
+  await next();
+};
+
+// Apply middleware to controller
+@baseRoute("/api/v1/users")
+@middleware(requestIdMiddleware)                    // All routes get request ID
+@middleware(authMiddleware)                         // All routes require auth
+@middleware(adminMiddleware, "/api/v1/users/admin/*") // Only admin routes
+@injectable()
+export class UserController {
+  @Get({
+    path: "/",                          // GET /api/v1/users (auth required)
+    tags: ["Users"],
+    responses: {
+      200: jsonContent(usersSchema.array(), "List of users"),
+    },
+  })
+  async getUsers(ctx: Context) {
+    const requestId = ctx.get("requestId");
+    // Implementation
+    return ctx.json([]);
+  }
+
+  @Get({
+    path: "/admin/analytics",           // GET /api/v1/users/admin/analytics (auth + admin required)
+    tags: ["Admin"],
+    responses: {
+      200: jsonContent(analyticsSchema, "User analytics"),
+    },
+  })
+  async getAnalytics(ctx: Context) {
+    // Only admins can access this endpoint
+    return ctx.json({ totalUsers: 100 });
+  }
 }
 ```
 

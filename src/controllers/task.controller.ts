@@ -8,11 +8,21 @@ import { jsonContent } from "stoker/openapi/helpers";
 import { createMessageObjectSchema } from "stoker/openapi/schemas";
 
 import { insertTasksSchema, patchTasksSchema, selectTasksSchema } from "@/db/schema";
-import { Delete, Get, Patch, Post } from "@/decorators";
+import { baseRoute, Delete, Get, middleware, Patch, Post } from "@/decorators";
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from "@/lib/constants";
 import { LoggerService } from "@/services/logger.service";
 import { TaskService } from "@/services/task.service";
 
+
+@baseRoute("/tasks")
+@middleware(async (ctx, next) => {
+  console.log("middleware 1");
+  await next();
+})
+@middleware(async (ctx, next) => {
+  console.log("middleware 2");
+  await next();
+})
 @injectable()
 export class TaskController {
   constructor(
@@ -20,12 +30,8 @@ export class TaskController {
     @inject(LoggerService) private readonly logger: LoggerService,
   ) {}
 
-  // public setup(): void {
-  //   registerRoutes(this);
-  // }
-
   @Get({
-    path: "/tasks",
+    path: "/",
     tags: ["Tasks"],
     responses: {
       [HttpStatusCodes.OK]: jsonContent(
@@ -41,7 +47,7 @@ export class TaskController {
   }
 
   @Post({
-    path: "/tasks",
+    path: "/",
     tags: ["Tasks"],
     request: {
       body: jsonContent(insertTasksSchema, "The task to create"),
@@ -58,7 +64,7 @@ export class TaskController {
   }
 
   @Get({
-    path: "/tasks/{id}",
+    path: "/{id}",
     tags: ["Tasks"],
     request: {
       params: z.object({
@@ -91,7 +97,7 @@ export class TaskController {
   }
 
   @Patch({
-    path: "/tasks/{id}",
+    path: "/{id}",
     tags: ["Tasks"],
     request: {
       params: z.object({
@@ -161,7 +167,7 @@ export class TaskController {
   }
 
   @Delete({
-    path: "/tasks/{id}",
+    path: "/{id}",
     tags: ["Tasks"],
     request: {
       params: z.object({

@@ -28,7 +28,18 @@ interface PendingRoute {
   propertyKey: string;
 }
 
+const BASE_ROUTE_METADATA = Symbol("baseRoute");
+
+const baseRoutes = new Map<any, string>();
+
 const pendingRoutes: PendingRoute[] = [];
+
+export function baseRoute(basePath: string) {
+  return (target: any) => {
+    baseRoutes.set(target, basePath);
+    Reflect.defineMetadata(BASE_ROUTE_METADATA, basePath, target);
+  };
+}
 
 function createMethodDecorator(type: RequestMethod) {
   return (routeParameters: RouteParameters) => {
@@ -44,13 +55,32 @@ function createMethodDecorator(type: RequestMethod) {
     };
   };
 }
+
 export function registerPendingRoutes(): void {
   const server = IocContainer.container.get<Server>(Server);
 
   for (const pendingRoute of pendingRoutes) {
+    const basePath = baseRoutes.get(pendingRoute.target.constructor) || "";
+    let fullPath: string;
+    
+    if (basePath) {
+      const cleanBasePath = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
+      const routePath = pendingRoute.routeParameters.path;
+      
+      if (routePath === '/') {
+        fullPath = cleanBasePath;
+      } else if (routePath.startsWith('/')) {
+        fullPath = cleanBasePath + routePath;
+      } else {
+        fullPath = cleanBasePath + '/' + routePath;
+      }
+    } else {
+      fullPath = pendingRoute.routeParameters.path;
+    }
+
     const route = createRoute({
       method: pendingRoute.method,
-      path: pendingRoute.routeParameters.path,
+      path: fullPath,
       tags: pendingRoute.routeParameters.tags,
       request: pendingRoute.routeParameters.request,
       responses: pendingRoute.routeParameters.responses,
