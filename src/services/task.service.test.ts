@@ -1,13 +1,13 @@
-import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { eq } from 'drizzle-orm';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { tasks } from "@/db/schema";
-import { createMockLogger, sampleTasks } from "@/test/utils/test-helpers";
+import { tasks } from '@/db/schema';
+import { createMockLogger, sampleTasks } from '@/test/utils/test-helpers';
 
-import type { DatabaseService } from "./database.service";
-import type { LoggerService } from "./logger.service";
+import type { DatabaseService } from './database.service';
+import type { LoggerService } from './logger.service';
 
-import { TaskService } from "./task.service";
+import { TaskService } from './task.service';
 
 // Mock the database service
 const mockDatabaseService = {
@@ -19,7 +19,7 @@ const mockDatabaseService = {
   },
 } as unknown as DatabaseService;
 
-describe("taskService", () => {
+describe('taskService', () => {
   let taskService: TaskService;
   let mockLogger: LoggerService;
 
@@ -29,8 +29,8 @@ describe("taskService", () => {
     taskService = new TaskService(mockDatabaseService, mockLogger);
   });
 
-  describe("getAllTasks", () => {
-    it("should return all tasks", async () => {
+  describe('getAllTasks', () => {
+    it('should return all tasks', async () => {
       const mockTasks = [sampleTasks.task1, sampleTasks.task2];
 
       mockDatabaseService.db.select = vi.fn().mockReturnValue({
@@ -40,13 +40,13 @@ describe("taskService", () => {
       const result = await taskService.getAllTasks();
 
       expect(mockDatabaseService.db.select).toHaveBeenCalledOnce();
-      expect(mockLogger.debug).toHaveBeenCalledWith("Fetching all tasks");
+      expect(mockLogger.debug).toHaveBeenCalledWith('Fetching all tasks');
       expect(result).toEqual(mockTasks);
     });
   });
 
-  describe("getTaskById", () => {
-    it("should return a task when found", async () => {
+  describe('getTaskById', () => {
+    it('should return a task when found', async () => {
       const taskId = 1;
       const mockTask = sampleTasks.task1;
 
@@ -65,7 +65,7 @@ describe("taskService", () => {
       expect(result).toEqual(mockTask);
     });
 
-    it("should return null when task not found", async () => {
+    it('should return null when task not found', async () => {
       const taskId = 999;
 
       mockDatabaseService.db.select = vi.fn().mockReturnValue({
@@ -82,8 +82,8 @@ describe("taskService", () => {
     });
   });
 
-  describe("createTask", () => {
-    it("should create and return a new task", async () => {
+  describe('createTask', () => {
+    it('should create and return a new task', async () => {
       const newTaskInput = sampleTasks.newTask;
       const createdTask = { id: 1, ...newTaskInput, createdAt: new Date(), updatedAt: new Date() };
 
@@ -96,13 +96,13 @@ describe("taskService", () => {
       const result = await taskService.createTask(newTaskInput);
 
       expect(mockDatabaseService.db.insert).toHaveBeenCalledWith(tasks);
-      expect(mockLogger.debug).toHaveBeenCalledWith("Creating new task", newTaskInput);
+      expect(mockLogger.debug).toHaveBeenCalledWith('Creating new task', newTaskInput);
       expect(result).toEqual(createdTask);
     });
   });
 
-  describe("updateTask", () => {
-    it("should update and return the task when it exists", async () => {
+  describe('updateTask', () => {
+    it('should update and return the task when it exists', async () => {
       const taskId = 1;
       const updateInput = sampleTasks.updateData;
       const existingTask = sampleTasks.task1;
@@ -128,11 +128,14 @@ describe("taskService", () => {
 
       const result = await taskService.updateTask(taskId, updateInput);
 
-      expect(mockLogger.debug).toHaveBeenCalledWith(`Updating task with id: ${taskId}`, updateInput);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Updating task with id: ${taskId}`,
+        updateInput
+      );
       expect(result).toEqual(updatedTask);
     });
 
-    it("should return null when task does not exist", async () => {
+    it('should return null when task does not exist', async () => {
       const taskId = 999;
       const updateInput = sampleTasks.updateData;
 
@@ -152,8 +155,8 @@ describe("taskService", () => {
     });
   });
 
-  describe("deleteTask", () => {
-    it("should delete the task and return true when it exists", async () => {
+  describe('deleteTask', () => {
+    it('should delete the task and return true when it exists', async () => {
       const taskId = 1;
       const existingTask = sampleTasks.task1;
 
@@ -178,7 +181,7 @@ describe("taskService", () => {
       expect(result).toBe(true);
     });
 
-    it("should return false when task does not exist", async () => {
+    it('should return false when task does not exist', async () => {
       const taskId = 999;
 
       // Mock getTaskById to return null
@@ -196,7 +199,7 @@ describe("taskService", () => {
       expect(result).toBe(false);
     });
 
-    it("should return false when delete operation fails", async () => {
+    it('should return false when delete operation fails', async () => {
       const taskId = 1;
       const existingTask = sampleTasks.task1;
 

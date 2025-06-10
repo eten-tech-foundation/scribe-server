@@ -1,14 +1,14 @@
-import type { Container } from "inversify";
+import type { Container } from 'inversify';
 
 // Controllers
-import { TaskController } from "@/controllers/task.controller";
+import { TaskController } from '@/controllers/task.controller';
 // Server
-import { Server } from "@/server/server";
+import { Server } from '@/server/server';
 // Services
-import { ConfigService } from "@/services/config.service";
-import { DatabaseService } from "@/services/database.service";
-import { LoggerService } from "@/services/logger.service";
-import { TaskService } from "@/services/task.service";
+import { ConfigService } from '@/services/config.service';
+import { DatabaseService } from '@/services/database.service';
+import { LoggerService } from '@/services/logger.service';
+import { TaskService } from '@/services/task.service';
 
 export function bindToContainers(container: Container): void {
   // Bind server

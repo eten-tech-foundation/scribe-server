@@ -1,9 +1,9 @@
-import type { Context } from "hono";
+import type { Context } from 'hono';
 
-import { vi } from "vitest";
+import { vi } from 'vitest';
 
-import type { LoggerService } from "@/services/logger.service";
-import type { TaskService } from "@/services/task.service";
+import type { LoggerService } from '@/services/logger.service';
+import type { TaskService } from '@/services/task.service';
 
 /**
  * Creates a mock TaskService with all methods mocked
@@ -64,24 +64,24 @@ export function createMockContext(overrides: Partial<Context> = {}): Context {
 export const sampleTasks = {
   task1: {
     id: 1,
-    name: "Sample Task 1",
+    name: 'Sample Task 1',
     done: false,
-    createdAt: new Date("2024-01-01T00:00:00Z"),
-    updatedAt: new Date("2024-01-01T00:00:00Z"),
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
   },
   task2: {
     id: 2,
-    name: "Sample Task 2",
+    name: 'Sample Task 2',
     done: true,
-    createdAt: new Date("2024-01-02T00:00:00Z"),
-    updatedAt: new Date("2024-01-02T00:00:00Z"),
+    createdAt: new Date('2024-01-02T00:00:00Z'),
+    updatedAt: new Date('2024-01-02T00:00:00Z'),
   },
   newTask: {
-    name: "New Task",
+    name: 'New Task',
     done: false,
   },
   updateData: {
-    name: "Updated Task",
+    name: 'Updated Task',
   },
 };
 

@@ -1,6 +1,6 @@
 # Contributing Guide
 
-Welcome to the Hono OpenAPI Starter project! This guide will help you understand the project structure and development process.
+Welcome to the Hono OpenAPI Starter project! This guide will help you understand the project structure and development process based on the actual codebase.
 
 ## Table of Contents
 
@@ -17,16 +17,33 @@ Welcome to the Hono OpenAPI Starter project! This guide will help you understand
 ```
 src/
 ├── controllers/           # HTTP Controllers using decorators
+│   ├── task.controller.ts        # Task CRUD controller
+│   └── task.controller.test.ts   # Controller tests
 ├── services/             # Business logic services
+│   ├── task.service.ts           # Task business logic
+│   ├── task.service.test.ts      # Service tests
+│   ├── logger.service.ts         # Logging service
+│   ├── database.service.ts       # Database connection
+│   └── config.service.ts         # Configuration service
 ├── db/                   # Database schema and configuration
+│   ├── schema.ts                 # Drizzle schema definitions
+│   ├── index.ts                  # Database exports
+│   └── migrations/               # Database migration files
 ├── middlewares/          # Custom middleware
 ├── decorators/           # Route decorators (@Get, @Post, etc.)
-├── routes/              # Route definitions (if not using controllers)
+│   ├── route.decorator.ts        # HTTP method decorators
+│   ├── middleware.decorator.ts   # Middleware decorator
+│   └── index.ts                  # Decorator exports
+├── routes/              # Route definitions (alternative to controllers)
 ├── ioc/                 # Dependency injection container
+│   ├── container.ts             # IoC container setup
+│   └── bindings.ts              # Service bindings
 ├── lib/                 # Utility functions and helpers
+│   └── constants.ts             # Application constants
 ├── server/              # Server configuration
 ├── test/                # Test utilities and helpers
-│   └── utils/           # Shared test utilities
+│   └── utils/                   # Shared test utilities
+│       └── test-helpers.ts      # Mock factories and utilities
 ├── app.ts               # Main application setup
 ├── index.ts             # Application entry point
 └── env.ts               # Environment configuration
@@ -37,7 +54,7 @@ src/
 1. **Install dependencies:**
 
    ```bash
-   npm install
+   pnpm install
    ```
 
 2. **Set up environment variables:**
@@ -47,520 +64,246 @@ src/
    # Edit .env with your database credentials
    ```
 
-3. **Run database migrations:**
+   Required environment variables (see `src/env.ts`):
+   ```env
+   NODE_ENV=development
+   PORT=9999
+   LOG_LEVEL=info
+   DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+   ```
+
+3. **Push database schema:**
 
    ```bash
-   npm run db:migrate
+   pnpm drizzle-kit push
    ```
 
 4. **Start development server:**
 
    ```bash
-   npm run dev
+   pnpm dev
    ```
 
 5. **Run tests:**
    ```bash
-   npm test
+   pnpm test
    ```
 
 ## Adding a New Feature
 
-When adding a new feature (e.g., a "User" entity), follow these steps:
+The codebase includes a complete **Tasks** feature implementation that serves as the reference pattern. When adding new features, follow the same structure and patterns used in the tasks implementation.
 
-### 1. Database Schema
+### Existing Tasks Implementation
 
-Create or update the database schema in `src/db/schema.ts`:
+The project includes a complete tasks feature with:
 
+**1. Database Schema** (`src/db/schema.ts`):
 ```typescript
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  email: text("email").notNull().unique(),
-  name: text("name").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at")
+export const tasks = pgTable('tasks', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  done: boolean('done').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
     .defaultNow()
     .$onUpdate(() => new Date()),
 });
 
-// Create Zod schemas for validation
-export const selectUsersSchema = createSelectSchema(users);
-export const insertUsersSchema = createInsertSchema(
-  users,
-  {
-    email: str => str.email(),
-    name: str => str.min(1).max(100),
-  },
-).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export const patchUsersSchema = insertUsersSchema.partial();
+// Zod schemas for validation
+export const selectTasksSchema = createSelectSchema(tasks);
+export const insertTasksSchema = createInsertSchema(tasks, {
+  name: (str) => str.min(1).max(500),
+})
+  .required({
+    done: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+  });
+export const patchTasksSchema = insertTasksSchema.partial();
 ```
 
-### 2. Database Migration
-
-Generate and run a migration:
-
-```bash
-npm run db:generate
-npm run db:migrate
-```
-
-### 3. Service Layer
-
-Create a service in `src/services/user.service.ts`:
-
+**2. Service Layer** (`src/services/task.service.ts`):
 ```typescript
-import type { z } from "@hono/zod-openapi";
-
-import { eq } from "drizzle-orm";
-import { inject, injectable } from "inversify";
-
-import type { insertUsersSchema, patchUsersSchema, selectUsersSchema } from "@/db/schema";
-
-import { users } from "@/db/schema";
-
-import { DatabaseService } from "./database.service";
-import { LoggerService } from "./logger.service";
-
-export type User = z.infer<typeof selectUsersSchema>;
-export type CreateUserInput = z.infer<typeof insertUsersSchema>;
-export type UpdateUserInput = z.infer<typeof patchUsersSchema>;
-
 @injectable()
-export class UserService {
+export class TaskService {
   constructor(
     @inject(DatabaseService) private databaseService: DatabaseService,
-    @inject(LoggerService) private logger: LoggerService,
+    @inject(LoggerService) private logger: LoggerService
   ) {}
 
-  async getAllUsers(): Promise<User[]> {
-    this.logger.debug("Fetching all users");
-    return await this.databaseService.db.select().from(users);
+  async getAllTasks(): Promise<Task[]> {
+    this.logger.debug('Fetching all tasks');
+    return await this.databaseService.db.select().from(tasks);
   }
 
-  async getUserById(id: number): Promise<User | null> {
-    this.logger.debug(`Fetching user with id: ${id}`);
-    const result = await this.databaseService.db
-      .select()
-      .from(users)
-      .where(eq(users.id, id))
-      .limit(1);
-    return result[0] || null;
+  async getTaskById(id: number): Promise<Task | null> {
+    // Implementation details in src/services/task.service.ts
   }
 
-  async createUser(input: CreateUserInput): Promise<User> {
-    this.logger.debug("Creating new user", input);
-    const [inserted] = await this.databaseService.db
-      .insert(users)
-      .values(input)
-      .returning();
-    return inserted;
+  async createTask(input: CreateTaskInput): Promise<Task> {
+    // Implementation details in src/services/task.service.ts
   }
 
-  async updateUser(id: number, input: UpdateUserInput): Promise<User | null> {
-    this.logger.debug(`Updating user with id: ${id}`, input);
-
-    const existingUser = await this.getUserById(id);
-    if (!existingUser) {
-      this.logger.warn(`User with id ${id} not found for update`);
-      return null;
-    }
-
-    const [updated] = await this.databaseService.db
-      .update(users)
-      .set(input)
-      .where(eq(users.id, id))
-      .returning();
-    return updated || null;
+  async updateTask(id: number, input: UpdateTaskInput): Promise<Task | null> {
+    // Implementation details in src/services/task.service.ts
   }
 
-  async deleteUser(id: number): Promise<boolean> {
-    this.logger.debug(`Deleting user with id: ${id}`);
-
-    const existingUser = await this.getUserById(id);
-    if (!existingUser) {
-      this.logger.warn(`User with id ${id} not found for deletion`);
-      return false;
-    }
-
-    const result = await this.databaseService.db
-      .delete(users)
-      .where(eq(users.id, id));
-    return result.count > 0;
+  async deleteTask(id: number): Promise<boolean> {
+    // Implementation details in src/services/task.service.ts
   }
 }
 ```
 
-### 4. Controller
-
-Create a controller in `src/controllers/user.controller.ts`:
-
+**3. Controller Layer** (`src/controllers/task.controller.ts`):
 ```typescript
-import type { Context } from "hono";
-
-import { z } from "@hono/zod-openapi";
-import { inject, injectable } from "inversify";
-import * as HttpStatusCodes from "stoker/http-status-codes";
-import * as HttpStatusPhrases from "stoker/http-status-phrases";
-import { jsonContent } from "stoker/openapi/helpers";
-import { createMessageObjectSchema } from "stoker/openapi/schemas";
-
-import { insertUsersSchema, patchUsersSchema, selectUsersSchema } from "@/db/schema";
-import { baseRoute, Delete, Get, middleware, Patch, Post } from "@/decorators";
-import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from "@/lib/constants";
-import { LoggerService } from "@/services/logger.service";
-import { UserService } from "@/services/user.service";
-
-// Example middleware functions
-const authMiddleware = async (c, next) => {
-  const token = c.req.header("Authorization");
-  if (!token) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-  // Token validation logic here
+@baseRoute('/tasks')
+@middleware(async (ctx, next) => {
+  console.log('middleware 1');
   await next();
-};
-
-const loggingMiddleware = async (c, next) => {
-  console.log(`${c.req.method} ${c.req.url}`);
+})
+@middleware(async (ctx, next) => {
+  console.log('middleware 2');
   await next();
-};
-
-const rateLimitMiddleware = async (c, next) => {
-  // Rate limiting logic here
-  await next();
-};
-
-// Using @baseRoute and @middleware decorators
-@baseRoute("/api/v1")                    // All routes will be prefixed with /api/v1
-@middleware(loggingMiddleware)            // Applied to all routes in this controller
-@middleware(rateLimitMiddleware)          // Applied to all routes in this controller  
-@middleware(authMiddleware, "/api/v1/admin/*")  // Only applied to admin routes
+})
 @injectable()
-export class UserController {
+export class TaskController {
   constructor(
-    @inject(UserService) private readonly userService: UserService,
-    @inject(LoggerService) private readonly logger: LoggerService,
+    @inject(TaskService) private readonly taskService: TaskService,
+    @inject(LoggerService) private readonly logger: LoggerService
   ) {}
 
   @Get({
-    path: "/users",                       // Results in GET /api/v1/users
-    tags: ["Users"],
+    path: '/',
+    tags: ['Tasks'],
     responses: {
       [HttpStatusCodes.OK]: jsonContent(
-        selectUsersSchema.array().openapi("Users"),
-        "The list of users",
+        selectTasksSchema.array().openapi('Tasks'),
+        'The list of tasks'
       ),
     },
   })
   async list(ctx: Context): Promise<Response> {
-    this.logger.info("Getting all users");
-    const users = await this.userService.getAllUsers();
-    return ctx.json(users);
+    // Full implementation in src/controllers/task.controller.ts
   }
 
-  @Post({
-    path: "/users",                       // Results in POST /api/v1/users
-    tags: ["Users"],
-    request: {
-      body: jsonContent(insertUsersSchema, "The user to create"),
-    },
-    responses: {
-      [HttpStatusCodes.OK]: jsonContent(selectUsersSchema, "The created user"),
-    },
-  })
-  async create(ctx: Context): Promise<Response> {
-    const user = await ctx.req.json();
-    this.logger.info("Creating user", { user });
-    const created = await this.userService.createUser(user);
-    return ctx.json(created, HttpStatusCodes.OK);
-  }
+  @Post({ /* ... */ })
+  async create(ctx: Context): Promise<Response> { /* ... */ }
 
-  @Get({
-    path: "/admin/users",                 // Results in GET /api/v1/admin/users (with auth middleware)
-    tags: ["Admin"],
-    responses: {
-      [HttpStatusCodes.OK]: jsonContent(
-        selectUsersSchema.array().openapi("Users"),
-        "All users with admin details",
-      ),
-    },
-  })
-  async adminList(ctx: Context): Promise<Response> {
-    // This route will have auth middleware applied due to path matching
-    const users = await this.userService.getAllUsers();
-    return ctx.json(users);
-  }
+  @Get({ path: '/{id}', /* ... */ })
+  async getOne(ctx: Context): Promise<Response> { /* ... */ }
 
-  // Add other methods (getOne, patch, remove) following the same pattern...
+  @Patch({ path: '/{id}', /* ... */ })
+  async patch(ctx: Context): Promise<Response> { /* ... */ }
+
+  @Delete({ path: '/{id}', /* ... */ })
+  async remove(ctx: Context): Promise<Response> { /* ... */ }
 }
 ```
 
-#### Understanding Decorators
-
-##### `@baseRoute(basePath: string)`
-
-The `@baseRoute` decorator allows you to define a base path for all routes in a controller, eliminating repetition:
-
-**Without @baseRoute:**
+**4. IoC Registration** (`src/ioc/bindings.ts`):
 ```typescript
-@Get({ path: "/api/v1/users" })        // GET /api/v1/users
-@Post({ path: "/api/v1/users" })       // POST /api/v1/users
-@Get({ path: "/api/v1/users/{id}" })   // GET /api/v1/users/{id}
-```
-
-**With @baseRoute:**
-```typescript
-@baseRoute("/api/v1")
-export class UserController {
-  @Get({ path: "/users" })             // GET /api/v1/users  
-  @Post({ path: "/users" })            // POST /api/v1/users
-  @Get({ path: "/users/{id}" })        // GET /api/v1/users/{id}
+export function bindToContainers(container: Container): void {
+  // Services
+  container.bind(TaskService).toSelf().inRequestScope();
+  
+  // Controllers
+  container.bind(TaskController).toSelf().inRequestScope();
 }
 ```
 
-**Special path handling:**
-- `path: "/"` with `@baseRoute("/api/v1")` → `/api/v1`
-- `path: "/users"` with `@baseRoute("/api/v1")` → `/api/v1/users`
-- `path: "users"` with `@baseRoute("/api/v1")` → `/api/v1/users`
+### Steps to Add a New Feature
 
-##### `@middleware(middlewareHandler: MiddlewareHandler, path?: string)`
+To add a new feature (e.g., "Users"), follow these steps using the tasks implementation as your guide:
 
-The `@middleware` decorator allows you to apply Hono middleware functions to controllers:
+1. **Database Schema**: Add your table to `src/db/schema.ts` following the `tasks` table pattern
+2. **Database Migration**: Run `pnpm drizzle-kit push` to apply schema changes
+3. **Service Layer**: Create `src/services/[feature].service.ts` following `TaskService` patterns
+4. **Controller**: Create `src/controllers/[feature].controller.ts` following `TaskController` patterns  
+5. **IoC Bindings**: Add your service and controller to `src/ioc/bindings.ts`
+6. **Tests**: Create test files following the existing `*.test.ts` patterns
 
-**Basic usage (applies to all routes in controller):**
+### Understanding Decorators
+
+#### `@baseRoute(basePath: string)`
+
+Sets the base path for all routes in a controller (see `TaskController`):
+
 ```typescript
-import type { MiddlewareHandler } from "hono";
+@baseRoute('/tasks')  // All routes prefixed with /tasks
+export class TaskController {
+  @Get({ path: '/' })        // Results in GET /tasks
+  @Get({ path: '/{id}' })    // Results in GET /tasks/{id}
+}
+```
 
-const logMiddleware: MiddlewareHandler = async (c, next) => {
-  console.log(`Request: ${c.req.method} ${c.req.url}`);
+#### `@middleware(middlewareHandler: MiddlewareHandler)`
+
+Applies middleware to all routes in a controller (see `TaskController`):
+
+```typescript
+@middleware(async (ctx, next) => {
+  console.log('middleware 1');
   await next();
-};
-
-@middleware(logMiddleware)
-@baseRoute("/api/v1")
-export class UserController {
-  // All routes will have logging middleware
-}
-```
-
-**Path-specific middleware:**
-```typescript
-@middleware(authMiddleware, "/api/v1/admin/*")  // Only admin routes
-@middleware(corsMiddleware, "/api/v1/public/*") // Only public routes
-@baseRoute("/api/v1")
-export class UserController {
-  @Get({ path: "/admin/users" })     // Has auth middleware
-  @Get({ path: "/public/info" })     // Has CORS middleware  
-  @Get({ path: "/users" })           // No path-specific middleware
-}
-```
-
-**Multiple middleware (executes in declaration order):**
-```typescript
-@middleware(requestIdMiddleware)      // Executes first
-@middleware(loggingMiddleware)        // Executes second  
-@middleware(rateLimitMiddleware)      // Executes third
-@baseRoute("/api/v1")
-export class UserController {
-  // All routes will have all three middleware in order
-}
-```
-
-**Real-world example:**
-```typescript
-import type { MiddlewareHandler } from "hono";
-
-// Define middleware functions
-const requestIdMiddleware: MiddlewareHandler = async (c, next) => {
-  c.set("requestId", crypto.randomUUID());
+})
+@middleware(async (ctx, next) => {
+  console.log('middleware 2');
   await next();
-};
-
-const authMiddleware: MiddlewareHandler = async (c, next) => {
-  const token = c.req.header("Authorization");
-  if (!token?.startsWith("Bearer ")) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-  // Verify JWT token here
-  await next();
-};
-
-const adminMiddleware: MiddlewareHandler = async (c, next) => {
-  // Check if user has admin role
-  const userRole = c.get("userRole"); 
-  if (userRole !== "admin") {
-    return c.json({ error: "Forbidden" }, 403);
-  }
-  await next();
-};
-
-// Apply middleware to controller
-@baseRoute("/api/v1/users")
-@middleware(requestIdMiddleware)                    // All routes get request ID
-@middleware(authMiddleware)                         // All routes require auth
-@middleware(adminMiddleware, "/api/v1/users/admin/*") // Only admin routes
-@injectable()
-export class UserController {
-  @Get({
-    path: "/",                          // GET /api/v1/users (auth required)
-    tags: ["Users"],
-    responses: {
-      200: jsonContent(usersSchema.array(), "List of users"),
-    },
-  })
-  async getUsers(ctx: Context) {
-    const requestId = ctx.get("requestId");
-    // Implementation
-    return ctx.json([]);
-  }
-
-  @Get({
-    path: "/admin/analytics",           // GET /api/v1/users/admin/analytics (auth + admin required)
-    tags: ["Admin"],
-    responses: {
-      200: jsonContent(analyticsSchema, "User analytics"),
-    },
-  })
-  async getAnalytics(ctx: Context) {
-    // Only admins can access this endpoint
-    return ctx.json({ totalUsers: 100 });
-  }
+})
+export class TaskController {
+  // All routes will have both middleware applied in order
 }
-```
-
-### 5. Register Dependencies
-
-Add the new service to the IoC container in `src/ioc/bindings.ts`:
-
-```typescript
-import { UserService } from "@/services/user.service";
-
-// Add this line
-container.bind(UserService).toSelf().inRequestScope();
-```
-
-### 6. Register Controller
-
-Import and register the controller in `src/app.ts`:
-
-```typescript
-import { UserController } from "@/controllers/user.controller";
-
-// Add after other controller registrations
-const userController = container.get(UserController);
-// Register routes if using manual setup
 ```
 
 ## Testing
 
 ### Test Structure
 
-We use **Vitest** for testing. Tests should be placed next to the code they test:
+We use **Vitest** for testing. Tests are placed next to the code they test:
 
-- `src/controllers/[name].controller.test.ts` - Controller tests
-- `src/services/[name].service.test.ts` - Service tests
+- `src/controllers/task.controller.test.ts` - Controller tests
+- `src/services/task.service.test.ts` - Service tests
 
 ### Test Utilities
 
 Use the shared test utilities in `src/test/utils/test-helpers.ts`:
 
 ```typescript
-import { createMockContext, createMockLogger, sampleTasks } from "@/test/utils/test-helpers";
+import { 
+  createMockContext, 
+  createMockLogger, 
+  createMockTaskService,
+  sampleTasks,
+  resetAllMocks 
+} from '@/test/utils/test-helpers';
 ```
 
-### Writing Controller Tests
+Available utilities:
+- `createMockTaskService()` - Mock TaskService with all methods
+- `createMockLogger()` - Mock LoggerService 
+- `createMockContext()` - Mock Hono Context
+- `sampleTasks` - Sample test data
+- `resetAllMocks()` - Reset all mocks
 
-Example controller test structure:
+### Writing Tests
 
-```typescript
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-import { createMockContext, createMockLogger } from "@/test/utils/test-helpers";
-
-import { UserController } from "./user.controller";
-
-const mockUserService = {
-  getAllUsers: vi.fn(),
-  getUserById: vi.fn(),
-  createUser: vi.fn(),
-  updateUser: vi.fn(),
-  deleteUser: vi.fn(),
-} as unknown as UserService;
-
-describe("UserController", () => {
-  let userController: UserController;
-  let mockLogger: LoggerService;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockLogger = createMockLogger();
-    userController = new UserController(mockUserService, mockLogger);
-  });
-
-  describe("list", () => {
-    it("should return all users", async () => {
-      const mockUsers = [/* test data */];
-      mockUserService.getAllUsers = vi.fn().mockResolvedValue(mockUsers);
-      const ctx = createMockContext();
-
-      await userController.list(ctx);
-
-      expect(mockUserService.getAllUsers).toHaveBeenCalledOnce();
-      expect(ctx.json).toHaveBeenCalledWith(mockUsers);
-    });
-  });
-});
-```
-
-### Writing Service Tests
-
-Example service test structure:
-
-```typescript
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-import { createMockLogger } from "@/test/utils/test-helpers";
-
-import { UserService } from "./user.service";
-
-const mockDatabaseService = {
-  db: {
-    select: vi.fn(),
-    insert: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-} as unknown as DatabaseService;
-
-describe("UserService", () => {
-  let userService: UserService;
-  let mockLogger: LoggerService;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockLogger = createMockLogger();
-    userService = new UserService(mockDatabaseService, mockLogger);
-  });
-
-  // Add tests here...
-});
-```
+Follow the existing test patterns in:
+- `src/controllers/task.controller.test.ts` for controller testing patterns
+- `src/services/task.service.test.ts` for service testing patterns
 
 ### Running Tests
 
 ```bash
 # Run all tests
-npm test
+pnpm test
 
-# Run tests in watch mode
-npm run test:watch
+# Run tests in watch mode  
+pnpm test --watch
 
 # Run tests with coverage
-npm run test:coverage
+pnpm test --coverage
 ```
 
 ## Database Changes
@@ -568,74 +311,67 @@ npm run test:coverage
 ### Schema Changes
 
 1. Update `src/db/schema.ts` with new tables or columns
-2. Generate migration: `npm run db:generate`
-3. Review the generated migration file
-4. Run migration: `npm run db:migrate`
-
-### Migration Files
-
-Migration files are stored in `drizzle/` directory. Always review generated migrations before applying them.
+2. Push schema changes: `pnpm drizzle-kit push`
+3. For production, generate proper migrations: `pnpm drizzle-kit generate`
 
 ### Environment Variables
 
-Database configuration is handled through environment variables:
+Database configuration is handled through environment variables in `src/env.ts`:
 
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/dbname
 ```
 
+The app validates all required environment variables on startup and will fail if any are missing.
+
 ## Code Style
 
 ### ESLint and Prettier
 
-The project uses ESLint and Prettier for code formatting:
+The project uses ESLint with `@antfu/eslint-config` and Prettier:
 
 ```bash
 # Check linting
-npm run lint
+pnpm lint
 
-# Fix linting issues
-npm run lint:fix
+# Fix linting issues  
+pnpm lint:fix
 
 # Format code
-npm run format
+pnpm format
 
 # Check formatting
-npm run format:check
+pnpm format:check
 ```
 
 ### TypeScript
 
-- Use strict TypeScript configuration
+- Strict TypeScript configuration (`pnpm typecheck`)
 - Prefer `type` over `interface` for type definitions
 - Use proper typing for all functions and variables
 
 ### Naming Conventions
 
-- **Files**: `kebab-case` (e.g., `user.controller.ts`)
-- **Classes**: `PascalCase` (e.g., `UserController`)
-- **Functions/Variables**: `camelCase` (e.g., `getUserById`)
-- **Constants**: `UPPER_SNAKE_CASE` (e.g., `HTTP_STATUS_CODES`)
+- **Files**: `kebab-case` (e.g., `task.controller.ts`)
+- **Classes**: `PascalCase` (e.g., `TaskController`)
+- **Functions/Variables**: `camelCase` (e.g., `getTaskById`)
+- **Constants**: `UPPER_SNAKE_CASE` (e.g., `ZOD_ERROR_CODES`)
 
 ### Import Organization
 
-Organize imports in this order:
-
-1. Node.js built-in modules
-2. External packages
-3. Internal modules (using `@/` alias)
-4. Relative imports
+Organize imports following the existing pattern:
 
 ```typescript
-import type { Context } from "hono";
+import type { Context } from 'hono';
 
-import { z } from "@hono/zod-openapi";
-import { inject, injectable } from "inversify";
+import { z } from '@hono/zod-openapi';
+import { inject, injectable } from 'inversify';
+import * as HttpStatusCodes from 'stoker/http-status-codes';
 
-import { LoggerService } from "@/services/logger.service";
-import { UserService } from "@/services/user.service";
+import { selectTasksSchema } from '@/db/schema';
+import { LoggerService } from '@/services/logger.service';
 
-import { validateInput } from "./helpers";
+import { validateInput } from './helpers';
 ```
 
 ## Pull Request Process
@@ -645,7 +381,7 @@ import { validateInput } from "./helpers";
 3. **Add tests** for new functionality
 4. **Run the test suite** and ensure all tests pass
 5. **Run linting** and fix any issues
-6. **Update documentation** if needed
+6. **Build the project** to ensure no build errors
 7. **Submit a pull request** with a clear description
 
 ### Commit Messages
@@ -655,33 +391,46 @@ Use conventional commits format:
 ```
 feat: add user management endpoints
 fix: resolve database connection issue
-docs: update API documentation
+docs: update API documentation  
 test: add tests for user service
 refactor: simplify controller error handling
 ```
 
-### Pull Request Template
+### Commands to Run Before PR
 
-Include in your PR description:
+```bash
+# Type checking
+pnpm typecheck
 
-- **What**: Brief description of changes
-- **Why**: Reason for the changes
-- **How**: Implementation approach
-- **Testing**: How the changes were tested
-- **Breaking Changes**: Any breaking changes (if applicable)
+# Linting
+pnpm lint
+
+# Testing
+pnpm test
+
+# Formatting
+pnpm format:check
+
+# Build
+pnpm build
+```
 
 ## Getting Help
 
 - Check the [README.md](./README.md) for basic setup
-- Review existing code for patterns and examples
+- Review the existing tasks implementation as the reference pattern:
+  - `src/controllers/task.controller.ts`
+  - `src/services/task.service.ts` 
+  - `src/controllers/task.controller.test.ts`
+  - `src/services/task.service.test.ts`
 - Open an issue for bugs or feature requests
-- Ask questions in discussions
 
 ## Additional Resources
 
 - [Hono Documentation](https://hono.dev/)
-- [Drizzle ORM Documentation](https://orm.drizzle.team/)
+- [Drizzle ORM Documentation](https://orm.drizzle.team/)  
 - [Vitest Documentation](https://vitest.dev/)
 - [Zod Documentation](https://zod.dev/)
+- [Stoker Documentation](https://www.npmjs.com/package/stoker)
 
 Happy coding! 🚀

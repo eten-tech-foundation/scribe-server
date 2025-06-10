@@ -1,14 +1,14 @@
-import type { Context } from "hono";
+import type { Context } from 'hono';
 
-import * as HttpStatusCodes from "stoker/http-status-codes";
-import * as HttpStatusPhrases from "stoker/http-status-phrases";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as HttpStatusCodes from 'stoker/http-status-codes';
+import * as HttpStatusPhrases from 'stoker/http-status-phrases';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { LoggerService } from "@/services/logger.service";
-import type { TaskService } from "@/services/task.service";
+import type { LoggerService } from '@/services/logger.service';
+import type { TaskService } from '@/services/task.service';
 
-import { TaskController } from "./task.controller";
-import { ZOD_ERROR_CODES } from "../lib/constants";
+import { TaskController } from './task.controller';
+import { ZOD_ERROR_CODES } from '../lib/constants';
 
 const mockTaskService = {
   getAllTasks: vi.fn(),
@@ -39,7 +39,7 @@ function createMockContext(overrides: Partial<Context> = {}): Context {
   return mockContext;
 }
 
-describe("taskController", () => {
+describe('taskController', () => {
   let taskController: TaskController;
 
   beforeEach(() => {
@@ -47,11 +47,11 @@ describe("taskController", () => {
     taskController = new TaskController(mockTaskService, mockLogger);
   });
 
-  describe("list", () => {
-    it("should return all tasks", async () => {
+  describe('list', () => {
+    it('should return all tasks', async () => {
       const mockTasks = [
-        { id: 1, name: "Task 1", done: false, createdAt: new Date(), updatedAt: new Date() },
-        { id: 2, name: "Task 2", done: true, createdAt: new Date(), updatedAt: new Date() },
+        { id: 1, name: 'Task 1', done: false, createdAt: new Date(), updatedAt: new Date() },
+        { id: 2, name: 'Task 2', done: true, createdAt: new Date(), updatedAt: new Date() },
       ];
 
       mockTaskService.getAllTasks = vi.fn().mockResolvedValue(mockTasks);
@@ -60,14 +60,14 @@ describe("taskController", () => {
       await taskController.list(ctx);
 
       expect(mockTaskService.getAllTasks).toHaveBeenCalledOnce();
-      expect(mockLogger.info).toHaveBeenCalledWith("Getting all tasks");
+      expect(mockLogger.info).toHaveBeenCalledWith('Getting all tasks');
       expect(ctx.json).toHaveBeenCalledWith(mockTasks);
     });
   });
 
-  describe("create", () => {
-    it("should create a new task", async () => {
-      const newTask = { name: "New Task", done: false };
+  describe('create', () => {
+    it('should create a new task', async () => {
+      const newTask = { name: 'New Task', done: false };
       const createdTask = { id: 1, ...newTask, createdAt: new Date(), updatedAt: new Date() };
 
       const ctx = createMockContext();
@@ -78,15 +78,21 @@ describe("taskController", () => {
 
       expect(ctx.req.json).toHaveBeenCalledOnce();
       expect(mockTaskService.createTask).toHaveBeenCalledWith(newTask);
-      expect(mockLogger.info).toHaveBeenCalledWith("Creating task", { task: newTask });
+      expect(mockLogger.info).toHaveBeenCalledWith('Creating task', { task: newTask });
       expect(ctx.json).toHaveBeenCalledWith(createdTask, HttpStatusCodes.OK);
     });
   });
 
-  describe("getOne", () => {
-    it("should return a task when found", async () => {
-      const taskId = "1";
-      const mockTask = { id: 1, name: "Task 1", done: false, createdAt: new Date(), updatedAt: new Date() };
+  describe('getOne', () => {
+    it('should return a task when found', async () => {
+      const taskId = '1';
+      const mockTask = {
+        id: 1,
+        name: 'Task 1',
+        done: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       const ctx = createMockContext();
       ctx.req.param = vi.fn().mockReturnValue({ id: taskId });
@@ -96,12 +102,12 @@ describe("taskController", () => {
 
       expect(ctx.req.param).toHaveBeenCalledOnce();
       expect(mockTaskService.getTaskById).toHaveBeenCalledWith(1);
-      expect(mockLogger.info).toHaveBeenCalledWith("Getting task 1");
+      expect(mockLogger.info).toHaveBeenCalledWith('Getting task 1');
       expect(ctx.json).toHaveBeenCalledWith(mockTask, HttpStatusCodes.OK);
     });
 
-    it("should return 404 when task not found", async () => {
-      const taskId = "999";
+    it('should return 404 when task not found', async () => {
+      const taskId = '999';
 
       const ctx = createMockContext();
       ctx.req.param = vi.fn().mockReturnValue({ id: taskId });
@@ -112,16 +118,22 @@ describe("taskController", () => {
       expect(mockTaskService.getTaskById).toHaveBeenCalledWith(999);
       expect(ctx.json).toHaveBeenCalledWith(
         { message: HttpStatusPhrases.NOT_FOUND },
-        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.NOT_FOUND
       );
     });
   });
 
-  describe("patch", () => {
-    it("should update a task when valid updates provided", async () => {
-      const taskId = "1";
-      const updates = { name: "Updated Task" };
-      const updatedTask = { id: 1, name: "Updated Task", done: false, createdAt: new Date(), updatedAt: new Date() };
+  describe('patch', () => {
+    it('should update a task when valid updates provided', async () => {
+      const taskId = '1';
+      const updates = { name: 'Updated Task' };
+      const updatedTask = {
+        id: 1,
+        name: 'Updated Task',
+        done: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       const ctx = createMockContext();
       ctx.req.param = vi.fn().mockReturnValue({ id: taskId });
@@ -133,12 +145,12 @@ describe("taskController", () => {
       expect(ctx.req.param).toHaveBeenCalledOnce();
       expect(ctx.req.json).toHaveBeenCalledOnce();
       expect(mockTaskService.updateTask).toHaveBeenCalledWith(1, updates);
-      expect(mockLogger.info).toHaveBeenCalledWith("Updating task 1", { updates });
+      expect(mockLogger.info).toHaveBeenCalledWith('Updating task 1', { updates });
       expect(ctx.json).toHaveBeenCalledWith(updatedTask, HttpStatusCodes.OK);
     });
 
-    it("should return validation error when no updates provided", async () => {
-      const taskId = "1";
+    it('should return validation error when no updates provided', async () => {
+      const taskId = '1';
       const updates = {};
 
       const ctx = createMockContext();
@@ -155,19 +167,19 @@ describe("taskController", () => {
               {
                 code: ZOD_ERROR_CODES.INVALID_UPDATES,
                 path: [],
-                message: "No updates provided",
+                message: 'No updates provided',
               },
             ],
-            name: "ZodError",
+            name: 'ZodError',
           },
         },
-        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY
       );
     });
 
-    it("should return 404 when task not found", async () => {
-      const taskId = "999";
-      const updates = { name: "Updated Task" };
+    it('should return 404 when task not found', async () => {
+      const taskId = '999';
+      const updates = { name: 'Updated Task' };
 
       const ctx = createMockContext();
       ctx.req.param = vi.fn().mockReturnValue({ id: taskId });
@@ -179,14 +191,14 @@ describe("taskController", () => {
       expect(mockTaskService.updateTask).toHaveBeenCalledWith(999, updates);
       expect(ctx.json).toHaveBeenCalledWith(
         { message: HttpStatusPhrases.NOT_FOUND },
-        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.NOT_FOUND
       );
     });
   });
 
-  describe("remove", () => {
-    it("should delete a task when found", async () => {
-      const taskId = "1";
+  describe('remove', () => {
+    it('should delete a task when found', async () => {
+      const taskId = '1';
 
       const ctx = createMockContext();
       ctx.req.param = vi.fn().mockReturnValue({ id: taskId });
@@ -196,12 +208,12 @@ describe("taskController", () => {
 
       expect(ctx.req.param).toHaveBeenCalledOnce();
       expect(mockTaskService.deleteTask).toHaveBeenCalledWith(1);
-      expect(mockLogger.info).toHaveBeenCalledWith("Deleting task 1");
+      expect(mockLogger.info).toHaveBeenCalledWith('Deleting task 1');
       expect(ctx.body).toHaveBeenCalledWith(null, HttpStatusCodes.NO_CONTENT);
     });
 
-    it("should return 404 when task not found", async () => {
-      const taskId = "999";
+    it('should return 404 when task not found', async () => {
+      const taskId = '999';
 
       const ctx = createMockContext();
       ctx.req.param = vi.fn().mockReturnValue({ id: taskId });
@@ -212,7 +224,7 @@ describe("taskController", () => {
       expect(mockTaskService.deleteTask).toHaveBeenCalledWith(999);
       expect(ctx.json).toHaveBeenCalledWith(
         { message: HttpStatusPhrases.NOT_FOUND },
-        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.NOT_FOUND
       );
     });
   });

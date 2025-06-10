@@ -1,16 +1,16 @@
-import type { Context } from "hono";
+import type { Context } from 'hono';
 
-import { createRoute } from "@hono/zod-openapi";
+import { createRoute } from '@hono/zod-openapi';
 
-import { IocContainer } from "../ioc/container";
-import { Server } from "../server/server";
+import { IocContainer } from '../ioc/container';
+import { Server } from '../server/server';
 
 enum RequestMethod {
-  GET = "get",
-  POST = "post",
-  PUT = "put",
-  PATCH = "patch",
-  DELETE = "delete",
+  GET = 'get',
+  POST = 'post',
+  PUT = 'put',
+  PATCH = 'patch',
+  DELETE = 'delete',
 }
 
 interface RouteParameters {
@@ -28,7 +28,7 @@ interface PendingRoute {
   propertyKey: string;
 }
 
-const BASE_ROUTE_METADATA = Symbol("baseRoute");
+const BASE_ROUTE_METADATA = Symbol('baseRoute');
 
 const baseRoutes = new Map<any, string>();
 
@@ -60,13 +60,13 @@ export function registerPendingRoutes(): void {
   const server = IocContainer.container.get<Server>(Server);
 
   for (const pendingRoute of pendingRoutes) {
-    const basePath = baseRoutes.get(pendingRoute.target.constructor) || "";
+    const basePath = baseRoutes.get(pendingRoute.target.constructor) || '';
     let fullPath: string;
-    
+
     if (basePath) {
       const cleanBasePath = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
       const routePath = pendingRoute.routeParameters.path;
-      
+
       if (routePath === '/') {
         fullPath = cleanBasePath;
       } else if (routePath.startsWith('/')) {

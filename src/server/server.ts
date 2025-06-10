@@ -1,7 +1,7 @@
-import { OpenAPIHono } from "@hono/zod-openapi";
-import { injectable } from "inversify";
+import { OpenAPIHono } from '@hono/zod-openapi';
+import { injectable } from 'inversify';
 
-import type { AppBindings } from "@/lib/types";
+import type { AppBindings } from '@/lib/types';
 
 @injectable()
 export class Server {

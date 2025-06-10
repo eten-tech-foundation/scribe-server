@@ -12,9 +12,7 @@
       "@/*": ["./src/*"]
     },
     "typeRoots": ["./node_modules/@types"],
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "strict": true,
     "outDir": "./dist",
     "skipLibCheck": true

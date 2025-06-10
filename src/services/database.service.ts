@@ -1,9 +1,9 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import { injectable } from "inversify";
-import postgres from "postgres";
+import { drizzle } from 'drizzle-orm/postgres-js';
+import { injectable } from 'inversify';
+import postgres from 'postgres';
 
-import * as schema from "@/db/schema";
-import env from "@/env";
+import * as schema from '@/db/schema';
+import env from '@/env';
 
 @injectable()
 export class DatabaseService {

@@ -1,11 +1,11 @@
-import "reflect-metadata";
+import 'reflect-metadata';
 
-import { TaskController } from "@/controllers/task.controller";
-import { IocContainer } from "@/ioc/container";
-import configureOpenAPI from "@/lib/configure-open-api";
-import { Server } from "@/server/server";
+import { TaskController } from '@/controllers/task.controller';
+import { IocContainer } from '@/ioc/container';
+import configureOpenAPI from '@/lib/configure-open-api';
+import { Server } from '@/server/server';
 // Setup index route
-import "@/routes/index.route";
+import '@/routes/index.route';
 
 // Initialize the IoC container
 const container = IocContainer.container;

@@ -1,81 +1,80 @@
-import type { Context } from "hono";
+import type { Context } from 'hono';
 
-import { z } from "@hono/zod-openapi";
-import { inject, injectable } from "inversify";
-import * as HttpStatusCodes from "stoker/http-status-codes";
-import * as HttpStatusPhrases from "stoker/http-status-phrases";
-import { jsonContent } from "stoker/openapi/helpers";
-import { createMessageObjectSchema } from "stoker/openapi/schemas";
+import { z } from '@hono/zod-openapi';
+import { inject, injectable } from 'inversify';
+import * as HttpStatusCodes from 'stoker/http-status-codes';
+import * as HttpStatusPhrases from 'stoker/http-status-phrases';
+import { jsonContent } from 'stoker/openapi/helpers';
+import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { insertTasksSchema, patchTasksSchema, selectTasksSchema } from "@/db/schema";
-import { baseRoute, Delete, Get, middleware, Patch, Post } from "@/decorators";
-import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from "@/lib/constants";
-import { LoggerService } from "@/services/logger.service";
-import { TaskService } from "@/services/task.service";
+import { insertTasksSchema, patchTasksSchema, selectTasksSchema } from '@/db/schema';
+import { baseRoute, Delete, Get, middleware, Patch, Post } from '@/decorators';
+import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
+import { LoggerService } from '@/services/logger.service';
+import { TaskService } from '@/services/task.service';
 
-
-@baseRoute("/tasks")
+@baseRoute('/tasks')
 @middleware(async (ctx, next) => {
-  console.log("middleware 1");
+  console.log('middleware 1');
   await next();
 })
 @middleware(async (ctx, next) => {
-  console.log("middleware 2");
+  console.log('middleware 2');
   await next();
 })
 @injectable()
 export class TaskController {
   constructor(
     @inject(TaskService) private readonly taskService: TaskService,
-    @inject(LoggerService) private readonly logger: LoggerService,
+    @inject(LoggerService) private readonly logger: LoggerService
   ) {}
 
   @Get({
-    path: "/",
-    tags: ["Tasks"],
+    path: '/',
+    tags: ['Tasks'],
     responses: {
       [HttpStatusCodes.OK]: jsonContent(
-        selectTasksSchema.array().openapi("Tasks"),
-        "The list of tasks",
+        selectTasksSchema.array().openapi('Tasks'),
+        'The list of tasks'
       ),
     },
   })
   async list(ctx: Context): Promise<Response> {
-    this.logger.info("Getting all tasks");
+    this.logger.info('Getting all tasks');
     const tasks = await this.taskService.getAllTasks();
     return ctx.json(tasks);
   }
 
   @Post({
-    path: "/",
-    tags: ["Tasks"],
+    path: '/',
+    tags: ['Tasks'],
     request: {
-      body: jsonContent(insertTasksSchema, "The task to create"),
+      body: jsonContent(insertTasksSchema, 'The task to create'),
     },
     responses: {
-      [HttpStatusCodes.OK]: jsonContent(selectTasksSchema, "The created task"),
+      [HttpStatusCodes.OK]: jsonContent(selectTasksSchema, 'The created task'),
     },
   })
   async create(ctx: Context): Promise<Response> {
     const task = await ctx.req.json();
-    this.logger.info("Creating task", { task });
+    this.logger.info('Creating task', { task });
     const created = await this.taskService.createTask(task);
     return ctx.json(created, HttpStatusCodes.OK);
   }
 
   @Get({
-    path: "/{id}",
-    tags: ["Tasks"],
+    path: '/{id}',
+    tags: ['Tasks'],
     request: {
       params: z.object({
         id: z.coerce.number(),
       }),
     },
     responses: {
-      [HttpStatusCodes.OK]: jsonContent(selectTasksSchema, "The task"),
+      [HttpStatusCodes.OK]: jsonContent(selectTasksSchema, 'The task'),
       [HttpStatusCodes.NOT_FOUND]: jsonContent(
         createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-        "Task not found",
+        'Task not found'
       ),
     },
   })
@@ -89,7 +88,7 @@ export class TaskController {
         {
           message: HttpStatusPhrases.NOT_FOUND,
         },
-        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.NOT_FOUND
       );
     }
 
@@ -97,33 +96,35 @@ export class TaskController {
   }
 
   @Patch({
-    path: "/{id}",
-    tags: ["Tasks"],
+    path: '/{id}',
+    tags: ['Tasks'],
     request: {
       params: z.object({
         id: z.coerce.number(),
       }),
-      body: jsonContent(patchTasksSchema, "The task updates"),
+      body: jsonContent(patchTasksSchema, 'The task updates'),
     },
     responses: {
-      [HttpStatusCodes.OK]: jsonContent(selectTasksSchema, "The updated task"),
+      [HttpStatusCodes.OK]: jsonContent(selectTasksSchema, 'The updated task'),
       [HttpStatusCodes.NOT_FOUND]: jsonContent(
         createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-        "Task not found",
+        'Task not found'
       ),
       [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
         z.object({
           success: z.boolean(),
           error: z.object({
-            issues: z.array(z.object({
-              code: z.string(),
-              path: z.array(z.string()),
-              message: z.string(),
-            })),
+            issues: z.array(
+              z.object({
+                code: z.string(),
+                path: z.array(z.string()),
+                message: z.string(),
+              })
+            ),
             name: z.string(),
           }),
         }),
-        "The validation error",
+        'The validation error'
       ),
     },
   })
@@ -145,10 +146,10 @@ export class TaskController {
                 message: ZOD_ERROR_MESSAGES.NO_UPDATES,
               },
             ],
-            name: "ZodError",
+            name: 'ZodError',
           },
         },
-        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+        HttpStatusCodes.UNPROCESSABLE_ENTITY
       );
     }
 
@@ -159,7 +160,7 @@ export class TaskController {
         {
           message: HttpStatusPhrases.NOT_FOUND,
         },
-        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.NOT_FOUND
       );
     }
 
@@ -167,8 +168,8 @@ export class TaskController {
   }
 
   @Delete({
-    path: "/{id}",
-    tags: ["Tasks"],
+    path: '/{id}',
+    tags: ['Tasks'],
     request: {
       params: z.object({
         id: z.coerce.number(),
@@ -176,11 +177,11 @@ export class TaskController {
     },
     responses: {
       [HttpStatusCodes.NO_CONTENT]: {
-        description: "Task deleted",
+        description: 'Task deleted',
       },
       [HttpStatusCodes.NOT_FOUND]: jsonContent(
         createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-        "Task not found",
+        'Task not found'
       ),
     },
   })
@@ -195,7 +196,7 @@ export class TaskController {
         {
           message: HttpStatusPhrases.NOT_FOUND,
         },
-        HttpStatusCodes.NOT_FOUND,
+        HttpStatusCodes.NOT_FOUND
       );
     }
 

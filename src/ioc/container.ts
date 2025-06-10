@@ -1,7 +1,7 @@
-import { Container } from "inversify";
-import "reflect-metadata";
+import { Container } from 'inversify';
+import 'reflect-metadata';
 
-import { bindToContainers } from "./bindings";
+import { bindToContainers } from './bindings';
 
 export class IocContainer {
   private static _container: Container;

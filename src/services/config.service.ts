@@ -1,6 +1,6 @@
-import { injectable } from "inversify";
+import { injectable } from 'inversify';
 
-import env from "@/env";
+import env from '@/env';
 
 @injectable()
 export class ConfigService {
@@ -10,15 +10,15 @@ export class ConfigService {
   public get<T>(key: keyof typeof env): T {
     const value = env[key];
 
-    if (value === "true") {
+    if (value === 'true') {
       return true as T;
     }
 
-    if (value === "false") {
+    if (value === 'false') {
       return false as T;
     }
 
-    if (!Number.isNaN(Number(value)) && typeof value === "string" && value.trim() !== "") {
+    if (!Number.isNaN(Number(value)) && typeof value === 'string' && value.trim() !== '') {
       return Number(value) as T;
     }
 

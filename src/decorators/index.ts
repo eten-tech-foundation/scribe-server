@@ -1,2 +1,2 @@
-export * from "./route.decorator";
-export * from "./middleware.decorator";
+export * from './route.decorator';
+export * from './middleware.decorator';

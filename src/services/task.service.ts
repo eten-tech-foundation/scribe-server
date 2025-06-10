@@ -1,14 +1,14 @@
-import type { z } from "@hono/zod-openapi";
+import type { z } from '@hono/zod-openapi';
 
-import { eq } from "drizzle-orm";
-import { inject, injectable } from "inversify";
+import { eq } from 'drizzle-orm';
+import { inject, injectable } from 'inversify';
 
-import type { insertTasksSchema, patchTasksSchema, selectTasksSchema } from "@/db/schema";
+import type { insertTasksSchema, patchTasksSchema, selectTasksSchema } from '@/db/schema';
 
-import { tasks } from "@/db/schema";
+import { tasks } from '@/db/schema';
 
-import { DatabaseService } from "./database.service";
-import { LoggerService } from "./logger.service";
+import { DatabaseService } from './database.service';
+import { LoggerService } from './logger.service';
 
 export type Task = z.infer<typeof selectTasksSchema>;
 export type CreateTaskInput = z.infer<typeof insertTasksSchema>;
@@ -18,11 +18,11 @@ export type UpdateTaskInput = z.infer<typeof patchTasksSchema>;
 export class TaskService {
   constructor(
     @inject(DatabaseService) private databaseService: DatabaseService,
-    @inject(LoggerService) private logger: LoggerService,
+    @inject(LoggerService) private logger: LoggerService
   ) {}
 
   async getAllTasks(): Promise<Task[]> {
-    this.logger.debug("Fetching all tasks");
+    this.logger.debug('Fetching all tasks');
     return await this.databaseService.db.select().from(tasks);
   }
 
@@ -37,11 +37,8 @@ export class TaskService {
   }
 
   async createTask(input: CreateTaskInput): Promise<Task> {
-    this.logger.debug("Creating new task", input);
-    const [inserted] = await this.databaseService.db
-      .insert(tasks)
-      .values(input)
-      .returning();
+    this.logger.debug('Creating new task', input);
+    const [inserted] = await this.databaseService.db.insert(tasks).values(input).returning();
     return inserted;
   }
 
@@ -74,9 +71,7 @@ export class TaskService {
       return false;
     }
 
-    const result = await this.databaseService.db
-      .delete(tasks)
-      .where(eq(tasks.id, id));
+    const result = await this.databaseService.db.delete(tasks).where(eq(tasks.id, id));
     return result.count > 0;
   }
 }

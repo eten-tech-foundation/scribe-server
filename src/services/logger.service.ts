@@ -1,9 +1,9 @@
-import type { Logger } from "pino";
+import type { Logger } from 'pino';
 
-import { inject, injectable } from "inversify";
-import { pino } from "pino";
+import { inject, injectable } from 'inversify';
+import { pino } from 'pino';
 
-import { ConfigService } from "./config.service";
+import { ConfigService } from './config.service';
 
 @injectable()
 export class LoggerService {
@@ -13,24 +13,25 @@ export class LoggerService {
   constructor(@inject(ConfigService) configService: ConfigService) {
     this.configService = configService;
 
-    const isDev = this.configService.get("NODE_ENV") === "development" || this.configService.get("NODE_ENV") === "dev";
+    const isDev =
+      this.configService.get('NODE_ENV') === 'development' ||
+      this.configService.get('NODE_ENV') === 'dev';
 
     if (isDev) {
       this._logger = pino({
-        level: "debug",
+        level: 'debug',
         transport: {
-          target: "pino-pretty",
+          target: 'pino-pretty',
           options: {
             colorize: true,
-            translateTime: "SYS:standard",
-            ignore: "pid,hostname",
+            translateTime: 'SYS:standard',
+            ignore: 'pid,hostname',
           },
         },
       });
-    }
-    else {
+    } else {
       this._logger = pino({
-        level: "info",
+        level: 'info',
       });
     }
   }
