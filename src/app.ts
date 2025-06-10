@@ -16,7 +16,7 @@ const server = container.get(Server);
 // Configure OpenAPI
 configureOpenAPI(server.hono);
 
-const taskController = container.get(TaskController);
-taskController.setup();
+// const taskController = container.get(TaskController);
+// taskController.setup();
 
 export default server.hono;

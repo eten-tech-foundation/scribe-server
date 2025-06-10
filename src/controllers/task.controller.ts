@@ -1,14 +1,14 @@
 import type { Context } from "hono";
 
 import { z } from "@hono/zod-openapi";
-import { inject, injectable, postConstruct } from "inversify";
+import { inject, injectable } from "inversify";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import * as HttpStatusPhrases from "stoker/http-status-phrases";
 import { jsonContent } from "stoker/openapi/helpers";
 import { createMessageObjectSchema } from "stoker/openapi/schemas";
 
 import { insertTasksSchema, patchTasksSchema, selectTasksSchema } from "@/db/schema";
-import { Delete, Get, Patch, Post, registerRoutes } from "@/decorators";
+import { Delete, Get, Patch, Post } from "@/decorators";
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from "@/lib/constants";
 import { LoggerService } from "@/services/logger.service";
 import { TaskService } from "@/services/task.service";
@@ -20,9 +20,9 @@ export class TaskController {
     @inject(LoggerService) private readonly logger: LoggerService,
   ) {}
 
-  public setup(): void {
-    registerRoutes(this);
-  }
+  // public setup(): void {
+  //   registerRoutes(this);
+  // }
 
   @Get({
     path: "/tasks",

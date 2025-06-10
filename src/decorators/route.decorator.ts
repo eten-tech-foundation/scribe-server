@@ -21,51 +21,48 @@ interface RouteParameters {
   security?: any[];
 }
 
-// Store route metadata for later registration
-const ROUTE_METADATA_KEY = Symbol("routes");
+interface PendingRoute {
+  method: RequestMethod;
+  routeParameters: RouteParameters;
+  target: any;
+  propertyKey: string;
+}
+
+const pendingRoutes: PendingRoute[] = [];
 
 function createMethodDecorator(type: RequestMethod) {
   return (routeParameters: RouteParameters) => {
     return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
-      const original = descriptor.value;
-
-      // Store route metadata on the class
-      if (!target.constructor[ROUTE_METADATA_KEY]) {
-        target.constructor[ROUTE_METADATA_KEY] = [];
-      }
-
-      target.constructor[ROUTE_METADATA_KEY].push({
+      pendingRoutes.push({
         method: type,
-        ...routeParameters,
-        handler: propertyKey,
-        originalMethod: original,
+        routeParameters,
+        target,
+        propertyKey,
       });
 
-      // Return the original descriptor unchanged
       return descriptor;
     };
   };
 }
-
-// Helper function to register all routes for a controller
-export function registerRoutes(controller: any) {
-  const routes = controller.constructor[ROUTE_METADATA_KEY] || [];
+export function registerPendingRoutes(): void {
   const server = IocContainer.container.get<Server>(Server);
 
-  routes.forEach((routeConfig: any) => {
+  for (const pendingRoute of pendingRoutes) {
     const route = createRoute({
-      method: routeConfig.method,
-      path: routeConfig.path,
-      tags: routeConfig.tags,
-      request: routeConfig.request,
-      responses: routeConfig.responses,
-      security: routeConfig.security,
+      method: pendingRoute.method,
+      path: pendingRoute.routeParameters.path,
+      tags: pendingRoute.routeParameters.tags,
+      request: pendingRoute.routeParameters.request,
+      responses: pendingRoute.routeParameters.responses,
+      security: pendingRoute.routeParameters.security,
     });
 
     server.hono.openapi(route, async (ctx: Context) => {
-      return await controller[routeConfig.handler](ctx);
+      const controller = IocContainer.container.get(pendingRoute.target.constructor) as any;
+      return await controller[pendingRoute.propertyKey](ctx);
     });
-  });
+  }
+  pendingRoutes.length = 0;
 }
 
 export const Get = createMethodDecorator(RequestMethod.GET);
