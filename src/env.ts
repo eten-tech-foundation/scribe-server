@@ -1,8 +1,8 @@
 /* eslint-disable node/no-process-env */
+import { z } from "@hono/zod-openapi";
 import { config } from "dotenv";
 import { expand } from "dotenv-expand";
 import path from "node:path";
-import { z } from "zod";
 
 expand(config({
   path: path.resolve(

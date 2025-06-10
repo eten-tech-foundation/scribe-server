@@ -1,5 +1,6 @@
+import { z } from "@hono/zod-openapi";
 import { boolean, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { createSchemaFactory } from "drizzle-zod";
 
 export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
@@ -9,6 +10,10 @@ export const tasks = pgTable("tasks", {
   updatedAt: timestamp("updated_at")
     .defaultNow()
     .$onUpdate(() => new Date()),
+});
+
+const { createInsertSchema, createSelectSchema } = createSchemaFactory({
+  zodInstance: z,
 });
 
 export const selectTasksSchema = createSelectSchema(tasks);

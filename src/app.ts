@@ -16,7 +16,6 @@ const server = container.get(Server);
 // Configure OpenAPI
 configureOpenAPI(server.hono);
 
-// Setup controllers
 const taskController = container.get(TaskController);
 taskController.setup();
 

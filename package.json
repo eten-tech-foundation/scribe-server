@@ -15,15 +15,14 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@hono/node-server": "^1.14.2",
-    "@hono/zod-openapi": "^0.19.6",
-    "@libsql/client": "^0.15.7",
-    "@scalar/hono-api-reference": "^0.8.10",
+    "@hono/node-server": "^1.14.4",
+    "@hono/zod-openapi": "^0.19.8",
+    "@scalar/hono-api-reference": "^0.9.3",
     "dotenv": "^16.5.0",
     "dotenv-expand": "^12.0.2",
-    "drizzle-orm": "^0.43.1",
-    "drizzle-zod": "^0.8.0",
-    "hono": "^4.7.10",
+    "drizzle-orm": "^0.44.2",
+    "drizzle-zod": "^0.7.1",
+    "hono": "^4.7.11",
     "hono-pino": "^0.8.0",
     "inversify": "^7.5.2",
     "pino": "^9.7.0",
@@ -31,19 +30,19 @@
     "postgres": "^3.4.7",
     "reflect-metadata": "^0.2.2",
     "stoker": "1.4.2",
-    "zod": "^3.25.7"
+    "zod": "^3.25.57"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^4.13.1",
-    "@types/node": "^22.15.19",
+    "@antfu/eslint-config": "^4.14.1",
+    "@types/node": "^24.0.0",
     "cross-env": "^7.0.3",
     "drizzle-kit": "^0.31.1",
-    "eslint": "^9.27.0",
+    "eslint": "^9.28.0",
     "eslint-plugin-format": "^1.0.1",
-    "prettier": "^3.2.4",
+    "prettier": "^3.5.3",
     "tsc-alias": "^1.8.16",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
-    "vitest": "^3.1.4"
+    "vitest": "^3.2.3"
   }
 }

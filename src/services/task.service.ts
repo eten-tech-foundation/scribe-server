@@ -1,4 +1,4 @@
-import type { z } from "zod";
+import type { z } from "@hono/zod-openapi";
 
 import { eq } from "drizzle-orm";
 import { inject, injectable } from "inversify";

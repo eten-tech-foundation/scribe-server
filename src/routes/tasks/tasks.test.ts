@@ -6,17 +6,15 @@ import * as HttpStatusPhrases from "stoker/http-status-phrases";
 import { afterAll, beforeAll, describe, expect, expectTypeOf, it } from "vitest";
 import { ZodIssueCode } from "zod";
 
+import app from "@/app";
 import env from "@/env";
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from "@/lib/constants";
-import { createTestApp } from "@/lib/create-app";
-
-import router from "./tasks.index";
 
 if (env.NODE_ENV !== "test") {
   throw new Error("NODE_ENV must be 'test'");
 }
 
-const client = testClient(createTestApp(router));
+const client: any = testClient(app);
 
 describe("tasks routes", () => {
   beforeAll(async () => {
@@ -28,10 +26,12 @@ describe("tasks routes", () => {
   });
 
   it("post /tasks validates the body when creating", async () => {
-    const response = await client.tasks.$post({
-      json: {
+    const response = await client.request("/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         done: false,
-      },
+      }),
     });
     expect(response.status).toBe(422);
     if (response.status === 422) {
@@ -45,11 +45,13 @@ describe("tasks routes", () => {
   const name = "Learn vitest";
 
   it("post /tasks creates a task", async () => {
-    const response = await client.tasks.$post({
-      json: {
+    const response = await client.request("/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         name,
         done: false,
-      },
+      }),
     });
     expect(response.status).toBe(200);
     if (response.status === 200) {
@@ -60,7 +62,7 @@ describe("tasks routes", () => {
   });
 
   it("get /tasks lists all tasks", async () => {
-    const response = await client.tasks.$get();
+    const response = await client.request("/tasks");
     expect(response.status).toBe(200);
     if (response.status === 200) {
       const json = await response.json();
@@ -71,12 +73,7 @@ describe("tasks routes", () => {
   });
 
   it("get /tasks/{id} validates the id param", async () => {
-    const response = await client.tasks[":id"].$get({
-      param: {
-        // @ts-expect-error
-        id: "wat",
-      },
-    });
+    const response = await client.request("/tasks/wat");
     expect(response.status).toBe(422);
     if (response.status === 422) {
       const json = await response.json();
@@ -86,11 +83,7 @@ describe("tasks routes", () => {
   });
 
   it("get /tasks/{id} returns 404 when task not found", async () => {
-    const response = await client.tasks[":id"].$get({
-      param: {
-        id: 999,
-      },
-    });
+    const response = await client.request("/tasks/999");
     expect(response.status).toBe(404);
     if (response.status === 404) {
       const json = await response.json();
@@ -99,11 +92,7 @@ describe("tasks routes", () => {
   });
 
   it("get /tasks/{id} gets a single task", async () => {
-    const response = await client.tasks[":id"].$get({
-      param: {
-        id,
-      },
-    });
+    const response = await client.request(`/tasks/${id}`);
     expect(response.status).toBe(200);
     if (response.status === 200) {
       const json = await response.json();
@@ -113,13 +102,12 @@ describe("tasks routes", () => {
   });
 
   it("patch /tasks/{id} validates the body when updating", async () => {
-    const response = await client.tasks[":id"].$patch({
-      param: {
-        id,
-      },
-      json: {
+    const response = await client.request(`/tasks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         name: "",
-      },
+      }),
     });
     expect(response.status).toBe(422);
     if (response.status === 422) {
@@ -130,12 +118,10 @@ describe("tasks routes", () => {
   });
 
   it("patch /tasks/{id} validates the id param", async () => {
-    const response = await client.tasks[":id"].$patch({
-      param: {
-        // @ts-expect-error
-        id: "wat",
-      },
-      json: {},
+    const response = await client.request("/tasks/wat", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
     });
     expect(response.status).toBe(422);
     if (response.status === 422) {
@@ -146,11 +132,10 @@ describe("tasks routes", () => {
   });
 
   it("patch /tasks/{id} validates empty body", async () => {
-    const response = await client.tasks[":id"].$patch({
-      param: {
-        id,
-      },
-      json: {},
+    const response = await client.request(`/tasks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
     });
     expect(response.status).toBe(422);
     if (response.status === 422) {
@@ -161,13 +146,12 @@ describe("tasks routes", () => {
   });
 
   it("patch /tasks/{id} updates a single property of a task", async () => {
-    const response = await client.tasks[":id"].$patch({
-      param: {
-        id,
-      },
-      json: {
+    const response = await client.request(`/tasks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         done: true,
-      },
+      }),
     });
     expect(response.status).toBe(200);
     if (response.status === 200) {
@@ -177,11 +161,8 @@ describe("tasks routes", () => {
   });
 
   it("delete /tasks/{id} validates the id when deleting", async () => {
-    const response = await client.tasks[":id"].$delete({
-      param: {
-        // @ts-expect-error
-        id: "wat",
-      },
+    const response = await client.request("/tasks/wat", {
+      method: "DELETE",
     });
     expect(response.status).toBe(422);
     if (response.status === 422) {
@@ -192,10 +173,8 @@ describe("tasks routes", () => {
   });
 
   it("delete /tasks/{id} removes a task", async () => {
-    const response = await client.tasks[":id"].$delete({
-      param: {
-        id,
-      },
+    const response = await client.request(`/tasks/${id}`, {
+      method: "DELETE",
     });
     expect(response.status).toBe(204);
   });

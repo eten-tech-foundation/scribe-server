@@ -1,11 +1,11 @@
 import type { Context } from "hono";
 
-import { inject, injectable } from "inversify";
+import { z } from "@hono/zod-openapi";
+import { inject, injectable, postConstruct } from "inversify";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import * as HttpStatusPhrases from "stoker/http-status-phrases";
 import { jsonContent } from "stoker/openapi/helpers";
 import { createMessageObjectSchema } from "stoker/openapi/schemas";
-import { z } from "zod";
 
 import { insertTasksSchema, patchTasksSchema, selectTasksSchema } from "@/db/schema";
 import { Delete, Get, Patch, Post, registerRoutes } from "@/decorators";
@@ -21,7 +21,6 @@ export class TaskController {
   ) {}
 
   public setup(): void {
-    // Register all routes defined with decorators
     registerRoutes(this);
   }
 
@@ -30,7 +29,7 @@ export class TaskController {
     tags: ["Tasks"],
     responses: {
       [HttpStatusCodes.OK]: jsonContent(
-        z.array(selectTasksSchema),
+        selectTasksSchema.array().openapi("Tasks"),
         "The list of tasks",
       ),
     },
