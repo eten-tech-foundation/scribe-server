@@ -8,7 +8,7 @@ import type { LoggerService } from '@/services/logger.service';
 import type { TaskService } from '@/services/task.service';
 
 import { TaskController } from './task.controller';
-import { ZOD_ERROR_CODES } from '../lib/constants';
+import { ZOD_ERROR_CODES } from '@/lib/constants';
 
 const mockTaskService = {
   getAllTasks: vi.fn(),

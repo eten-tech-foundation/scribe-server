@@ -28,7 +28,7 @@ interface PendingRoute {
   propertyKey: string;
 }
 
-const BASE_ROUTE_METADATA = Symbol('baseRoute');
+const BASE_ROUTE_METADATA = Symbol.for('baseRoute');
 
 const baseRoutes = new Map<any, string>();
 

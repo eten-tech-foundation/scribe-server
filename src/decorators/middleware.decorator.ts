@@ -4,11 +4,13 @@ import { IocContainer } from '../ioc/container';
 import { Server } from '../server/server';
 
 const MIDDLEWARE_METADATA = Symbol('middleware');
+const BASE_ROUTE_METADATA = Symbol.for('baseRoute');
 
 interface PendingMiddleware {
   target: any;
   middleware: MiddlewareHandler;
   path?: string;
+  basePath?: string;
 }
 
 const pendingMiddlewares: PendingMiddleware[] = [];
@@ -41,10 +43,21 @@ export function registerPendingMiddlewares(): void {
   }
 
   for (const [target, middlewares] of middlewaresByTarget) {
+    const basePath = Reflect.getMetadata(BASE_ROUTE_METADATA, target) || '';
+
     const reversedMiddlewares = middlewares.reverse();
     for (const middleware of reversedMiddlewares) {
-      const targetPath = middleware.path || '*';
-      server.hono.use(targetPath, middleware.middleware);
+      let middlewarePath: string;
+
+      if (middleware.path) {
+        middlewarePath = middleware.path;
+      } else if (basePath) {
+        middlewarePath = basePath === '/' ? '/*' : basePath + '/*';
+      } else {
+        middlewarePath = '*';
+      }
+
+      server.hono.use(middlewarePath, middleware.middleware);
     }
   }
 
