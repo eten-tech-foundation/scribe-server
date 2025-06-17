@@ -1,6 +1,6 @@
 # Contributing Guide
 
-Welcome to the Hono OpenAPI Starter project! This guide will help you understand the project structure and development process based on the actual codebase.
+Welcome to the Scribe Server repository! This guide will help you understand the project structure and development process based on the actual codebase.
 
 ## Table of Contents
 
