@@ -51,7 +51,7 @@ The backend/server for the Scribe application built with Hono and OpenAPI. This 
 
    ```bash
    git clone <repository-url>
-   cd scribe-server-setup
+   cd scribe-server
    pnpm install
    ```
 
