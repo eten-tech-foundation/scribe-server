@@ -67,7 +67,15 @@ export class TaskController {
     tags: ['Tasks'],
     request: {
       params: z.object({
-        id: z.coerce.number(),
+        id: z.coerce.number().openapi({
+          param: {
+            name: 'id',
+            in: 'path',
+            required: true,
+            allowReserved: false,
+          },
+          example: 5,
+        }),
       }),
     },
     responses: {
@@ -100,7 +108,15 @@ export class TaskController {
     tags: ['Tasks'],
     request: {
       params: z.object({
-        id: z.coerce.number(),
+        id: z.coerce.number().openapi({
+          param: {
+            name: 'id',
+            in: 'path',
+            required: true,
+            allowReserved: false,
+          },
+          example: 5,
+        }),
       }),
       body: jsonContent(patchTasksSchema, 'The task updates'),
     },
@@ -172,7 +188,15 @@ export class TaskController {
     tags: ['Tasks'],
     request: {
       params: z.object({
-        id: z.coerce.number(),
+        id: z.coerce.number().openapi({
+          param: {
+            name: 'id',
+            in: 'path',
+            required: true,
+            allowReserved: false,
+          },
+          example: 5,
+        }),
       }),
     },
     responses: {
