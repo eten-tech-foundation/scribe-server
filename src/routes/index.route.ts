@@ -6,6 +6,9 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 import { IocContainer } from '@/ioc/container';
 import { Server } from '@/server/server';
 
+// Import protected controller to register /protected route
+import '@/controllers/protected.controller';
+
 // Setup index route directly with IoC
 const server = IocContainer.container.get(Server);
 

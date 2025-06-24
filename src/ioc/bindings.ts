@@ -1,6 +1,7 @@
 import type { Container } from 'inversify';
 
 // Controllers
+import { ProtectedController } from '@/controllers/protected.controller';
 import { TaskController } from '@/controllers/task.controller';
 // Server
 import { Server } from '@/server/server';
@@ -21,5 +22,6 @@ export function bindToContainers(container: Container): void {
   container.bind(TaskService).toSelf().inRequestScope();
 
   // Bind controllers
+  container.bind(ProtectedController).toSelf().inRequestScope();
   container.bind(TaskController).toSelf().inRequestScope();
 }
