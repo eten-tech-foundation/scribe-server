@@ -2,45 +2,51 @@ import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { tasks } from '@/db/schema';
-import { createMockLogger, sampleTasks } from '@/test/utils/test-helpers';
+import { sampleTasks } from '@/test/utils/test-helpers';
 
-import type { DatabaseService } from './database.service';
-import type { LoggerService } from './logger.service';
+import { createTask, deleteTask, getAllTasks, getTaskById, updateTask } from './task.handler';
 
-import { TaskService } from './task.service';
-
-// Mock the database service
-const mockDatabaseService = {
+// Mock the database module
+vi.mock('@/db', () => ({
   db: {
     select: vi.fn(),
     insert: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
   },
-} as unknown as DatabaseService;
+}));
 
-describe('taskService', () => {
-  let taskService: TaskService;
-  let mockLogger: LoggerService;
+// Mock the logger module
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+  },
+}));
 
+// Import the mocked modules
+import { db } from '@/db';
+import { logger } from '@/lib/logger';
+
+describe('Task Handler Functions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockLogger = createMockLogger();
-    taskService = new TaskService(mockDatabaseService, mockLogger);
   });
 
   describe('getAllTasks', () => {
     it('should return all tasks', async () => {
       const mockTasks = [sampleTasks.task1, sampleTasks.task2];
 
-      mockDatabaseService.db.select = vi.fn().mockReturnValue({
+      (db.select as any).mockReturnValue({
         from: vi.fn().mockResolvedValue(mockTasks),
       });
 
-      const result = await taskService.getAllTasks();
+      const result = await getAllTasks();
 
-      expect(mockDatabaseService.db.select).toHaveBeenCalledOnce();
-      expect(mockLogger.debug).toHaveBeenCalledWith('Fetching all tasks');
+      expect(db.select).toHaveBeenCalledOnce();
+      expect(logger.debug).toHaveBeenCalledWith('Fetching all tasks');
       expect(result).toEqual(mockTasks);
     });
   });
@@ -50,7 +56,7 @@ describe('taskService', () => {
       const taskId = 1;
       const mockTask = sampleTasks.task1;
 
-      mockDatabaseService.db.select = vi.fn().mockReturnValue({
+      (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
             limit: vi.fn().mockResolvedValue([mockTask]),
@@ -58,17 +64,17 @@ describe('taskService', () => {
         }),
       });
 
-      const result = await taskService.getTaskById(taskId);
+      const result = await getTaskById(taskId);
 
-      expect(mockDatabaseService.db.select).toHaveBeenCalledOnce();
-      expect(mockLogger.debug).toHaveBeenCalledWith(`Fetching task with id: ${taskId}`);
+      expect(db.select).toHaveBeenCalledOnce();
+      expect(logger.debug).toHaveBeenCalledWith(`Fetching task with id: ${taskId}`);
       expect(result).toEqual(mockTask);
     });
 
     it('should return null when task not found', async () => {
       const taskId = 999;
 
-      mockDatabaseService.db.select = vi.fn().mockReturnValue({
+      (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
             limit: vi.fn().mockResolvedValue([]),
@@ -76,7 +82,7 @@ describe('taskService', () => {
         }),
       });
 
-      const result = await taskService.getTaskById(taskId);
+      const result = await getTaskById(taskId);
 
       expect(result).toBeNull();
     });
@@ -87,16 +93,16 @@ describe('taskService', () => {
       const newTaskInput = sampleTasks.newTask;
       const createdTask = { id: 1, ...newTaskInput, createdAt: new Date(), updatedAt: new Date() };
 
-      mockDatabaseService.db.insert = vi.fn().mockReturnValue({
+      (db.insert as any).mockReturnValue({
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([createdTask]),
         }),
       });
 
-      const result = await taskService.createTask(newTaskInput);
+      const result = await createTask(newTaskInput);
 
-      expect(mockDatabaseService.db.insert).toHaveBeenCalledWith(tasks);
-      expect(mockLogger.debug).toHaveBeenCalledWith('Creating new task', newTaskInput);
+      expect(db.insert).toHaveBeenCalledWith(tasks);
+      expect(logger.debug).toHaveBeenCalledWith('Creating new task', newTaskInput);
       expect(result).toEqual(createdTask);
     });
   });
@@ -109,7 +115,7 @@ describe('taskService', () => {
       const updatedTask = { ...existingTask, ...updateInput };
 
       // Mock getTaskById to return existing task
-      mockDatabaseService.db.select = vi.fn().mockReturnValue({
+      (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
             limit: vi.fn().mockResolvedValue([existingTask]),
@@ -118,7 +124,7 @@ describe('taskService', () => {
       });
 
       // Mock update operation
-      mockDatabaseService.db.update = vi.fn().mockReturnValue({
+      (db.update as any).mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
             returning: vi.fn().mockResolvedValue([updatedTask]),
@@ -126,12 +132,9 @@ describe('taskService', () => {
         }),
       });
 
-      const result = await taskService.updateTask(taskId, updateInput);
+      const result = await updateTask(taskId, updateInput);
 
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Updating task with id: ${taskId}`,
-        updateInput
-      );
+      expect(logger.debug).toHaveBeenCalledWith(`Updating task with id: ${taskId}`, updateInput);
       expect(result).toEqual(updatedTask);
     });
 
@@ -140,7 +143,7 @@ describe('taskService', () => {
       const updateInput = sampleTasks.updateData;
 
       // Mock getTaskById to return null
-      mockDatabaseService.db.select = vi.fn().mockReturnValue({
+      (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
             limit: vi.fn().mockResolvedValue([]),
@@ -148,9 +151,9 @@ describe('taskService', () => {
         }),
       });
 
-      const result = await taskService.updateTask(taskId, updateInput);
+      const result = await updateTask(taskId, updateInput);
 
-      expect(mockLogger.warn).toHaveBeenCalledWith(`Task with id ${taskId} not found for update`);
+      expect(logger.warn).toHaveBeenCalledWith(`Task with id ${taskId} not found for update`);
       expect(result).toBeNull();
     });
   });
@@ -161,7 +164,7 @@ describe('taskService', () => {
       const existingTask = sampleTasks.task1;
 
       // Mock getTaskById to return existing task
-      mockDatabaseService.db.select = vi.fn().mockReturnValue({
+      (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
             limit: vi.fn().mockResolvedValue([existingTask]),
@@ -170,14 +173,14 @@ describe('taskService', () => {
       });
 
       // Mock delete operation
-      mockDatabaseService.db.delete = vi.fn().mockReturnValue({
+      (db.delete as any).mockReturnValue({
         where: vi.fn().mockResolvedValue({ count: 1 }),
       });
 
-      const result = await taskService.deleteTask(taskId);
+      const result = await deleteTask(taskId);
 
-      expect(mockDatabaseService.db.delete).toHaveBeenCalledWith(tasks);
-      expect(mockLogger.debug).toHaveBeenCalledWith(`Deleting task with id: ${taskId}`);
+      expect(db.delete).toHaveBeenCalledWith(tasks);
+      expect(logger.debug).toHaveBeenCalledWith(`Deleting task with id: ${taskId}`);
       expect(result).toBe(true);
     });
 
@@ -185,7 +188,7 @@ describe('taskService', () => {
       const taskId = 999;
 
       // Mock getTaskById to return null
-      mockDatabaseService.db.select = vi.fn().mockReturnValue({
+      (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
             limit: vi.fn().mockResolvedValue([]),
@@ -193,9 +196,9 @@ describe('taskService', () => {
         }),
       });
 
-      const result = await taskService.deleteTask(taskId);
+      const result = await deleteTask(taskId);
 
-      expect(mockLogger.warn).toHaveBeenCalledWith(`Task with id ${taskId} not found for deletion`);
+      expect(logger.warn).toHaveBeenCalledWith(`Task with id ${taskId} not found for deletion`);
       expect(result).toBe(false);
     });
 
@@ -204,7 +207,7 @@ describe('taskService', () => {
       const existingTask = sampleTasks.task1;
 
       // Mock getTaskById to return existing task
-      mockDatabaseService.db.select = vi.fn().mockReturnValue({
+      (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
             limit: vi.fn().mockResolvedValue([existingTask]),
@@ -213,11 +216,11 @@ describe('taskService', () => {
       });
 
       // Mock delete operation to return 0 count
-      mockDatabaseService.db.delete = vi.fn().mockReturnValue({
+      (db.delete as any).mockReturnValue({
         where: vi.fn().mockResolvedValue({ count: 0 }),
       });
 
-      const result = await taskService.deleteTask(taskId);
+      const result = await deleteTask(taskId);
 
       expect(result).toBe(false);
     });

@@ -16,37 +16,31 @@ Welcome to the Scribe Server repository! This guide will help you understand the
 
 ```
 src/
-├── controllers/           # HTTP Controllers using decorators
-│   ├── task.controller.ts        # Task CRUD controller
-│   └── task.controller.test.ts   # Controller tests
-├── services/             # Business logic services
-│   ├── task.service.ts           # Task business logic
-│   ├── task.service.test.ts      # Service tests
-│   ├── logger.service.ts         # Logging service
-│   ├── database.service.ts       # Database connection
-│   └── config.service.ts         # Configuration service
+├── routes/               # OpenAPI route definitions
+│   ├── task.route.ts            # Task CRUD routes
+│   ├── health.route.ts          # Health check routes
+│   └── index.route.ts           # Index/root routes
+├── handlers/             # Business logic handlers
+│   ├── task.handler.ts          # Task business logic
+│   └── task.handler.test.ts     # Handler tests
 ├── db/                   # Database schema and configuration
-│   ├── schema.ts                 # Drizzle schema definitions
-│   ├── index.ts                  # Database exports
-│   └── migrations/               # Database migration files
+│   ├── schema.ts                # Drizzle schema definitions
+│   ├── index.ts                 # Database exports
+│   └── migrations/              # Database migration files
+├── lib/                  # Utility functions and configuration
+│   ├── configure-open-api.ts    # OpenAPI setup
+│   ├── logger.ts                # Logging configuration
+│   ├── constants.ts             # Application constants
+│   └── types.ts                 # Type definitions
 ├── middlewares/          # Custom middleware
-├── decorators/           # Route decorators (@Get, @Post, etc.)
-│   ├── route.decorator.ts        # HTTP method decorators
-│   ├── middleware.decorator.ts   # Middleware decorator
-│   └── index.ts                  # Decorator exports
-├── routes/              # Route definitions (alternative to controllers)
-├── ioc/                 # Dependency injection container
-│   ├── container.ts             # IoC container setup
-│   └── bindings.ts              # Service bindings
-├── lib/                 # Utility functions and helpers
-│   └── constants.ts             # Application constants
-├── server/              # Server configuration
-├── test/                # Test utilities and helpers
+├── server/               # Server configuration
+│   └── server.ts                # Base server setup
+├── test/                 # Test utilities and helpers
 │   └── utils/                   # Shared test utilities
 │       └── test-helpers.ts      # Mock factories and utilities
-├── app.ts               # Main application setup
-├── index.ts             # Application entry point
-└── env.ts               # Environment configuration
+├── app.ts                # Main application setup
+├── index.ts              # Application entry point
+└── env.ts                # Environment configuration
 ```
 
 ## Development Setup
@@ -65,6 +59,7 @@ src/
    ```
 
    Required environment variables (see `src/env.ts`):
+
    ```env
    NODE_ENV=development
    PORT=9999
@@ -98,6 +93,7 @@ The codebase includes a complete **Tasks** feature implementation that serves as
 The project includes a complete tasks feature with:
 
 **1. Database Schema** (`src/db/schema.ts`):
+
 ```typescript
 export const tasks = pgTable('tasks', {
   id: serial('id').primaryKey(),
@@ -125,93 +121,90 @@ export const insertTasksSchema = createInsertSchema(tasks, {
 export const patchTasksSchema = insertTasksSchema.partial();
 ```
 
-**2. Service Layer** (`src/services/task.service.ts`):
+**2. Handler Functions** (`src/handlers/task.handler.ts`):
+
 ```typescript
-@injectable()
-export class TaskService {
-  constructor(
-    @inject(DatabaseService) private databaseService: DatabaseService,
-    @inject(LoggerService) private logger: LoggerService
-  ) {}
+export async function getAllTasks(): Promise<Task[]> {
+  logger.debug('Fetching all tasks');
+  return await db.select().from(tasks);
+}
 
-  async getAllTasks(): Promise<Task[]> {
-    this.logger.debug('Fetching all tasks');
-    return await this.databaseService.db.select().from(tasks);
-  }
+export async function getTaskById(id: number): Promise<Task | null> {
+  logger.debug(`Fetching task with id: ${id}`);
+  const result = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+  return result[0] || null;
+}
 
-  async getTaskById(id: number): Promise<Task | null> {
-    // Implementation details in src/services/task.service.ts
-  }
+export async function createTask(input: CreateTaskInput): Promise<Task> {
+  logger.debug('Creating new task', input);
+  const [inserted] = await db.insert(tasks).values(input).returning();
+  return inserted;
+}
 
-  async createTask(input: CreateTaskInput): Promise<Task> {
-    // Implementation details in src/services/task.service.ts
-  }
+export async function updateTask(id: number, input: UpdateTaskInput): Promise<Task | null> {
+  // Implementation details in src/handlers/task.handler.ts
+}
 
-  async updateTask(id: number, input: UpdateTaskInput): Promise<Task | null> {
-    // Implementation details in src/services/task.service.ts
-  }
-
-  async deleteTask(id: number): Promise<boolean> {
-    // Implementation details in src/services/task.service.ts
-  }
+export async function deleteTask(id: number): Promise<boolean> {
+  // Implementation details in src/handlers/task.handler.ts
 }
 ```
 
-**3. Controller Layer** (`src/controllers/task.controller.ts`):
+**3. Route Definitions** (`src/routes/task.route.ts`):
+
 ```typescript
-@baseRoute('/tasks')
-@middleware(async (ctx, next) => {
-  console.log('middleware 1');
-  await next();
-})
-@middleware(async (ctx, next) => {
-  console.log('middleware 2');
-  await next();
-})
-@injectable()
-export class TaskController {
-  constructor(
-    @inject(TaskService) private readonly taskService: TaskService,
-    @inject(LoggerService) private readonly logger: LoggerService
-  ) {}
+const listTasksRoute = createRoute({
+  tags: ['Tasks'],
+  method: 'get',
+  path: '/tasks',
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      selectTasksSchema.array().openapi('Tasks'),
+      'The list of tasks'
+    ),
+  },
+  summary: 'Get all tasks',
+  description: 'Returns a list of all tasks',
+});
 
-  @Get({
-    path: '/',
-    tags: ['Tasks'],
-    responses: {
-      [HttpStatusCodes.OK]: jsonContent(
-        selectTasksSchema.array().openapi('Tasks'),
-        'The list of tasks'
-      ),
-    },
-  })
-  async list(ctx: Context): Promise<Response> {
-    // Full implementation in src/controllers/task.controller.ts
-  }
+server.openapi(listTasksRoute, async (c) => {
+  logger.info('Getting all tasks');
+  const tasks = await taskHandler.getAllTasks();
+  return c.json(tasks);
+});
 
-  @Post({ /* ... */ })
-  async create(ctx: Context): Promise<Response> { /* ... */ }
+const createTaskRoute = createRoute({
+  tags: ['Tasks'],
+  method: 'post',
+  path: '/tasks',
+  request: {
+    body: jsonContent(insertTasksSchema, 'The task to create'),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(selectTasksSchema, 'The created task'),
+  },
+  summary: 'Create a new task',
+});
 
-  @Get({ path: '/{id}', /* ... */ })
-  async getOne(ctx: Context): Promise<Response> { /* ... */ }
+server.openapi(createTaskRoute, async (c) => {
+  const task = await c.req.json();
+  logger.info('Creating task', { task });
+  const created = await taskHandler.createTask(task);
+  return c.json(created, HttpStatusCodes.OK);
+});
 
-  @Patch({ path: '/{id}', /* ... */ })
-  async patch(ctx: Context): Promise<Response> { /* ... */ }
-
-  @Delete({ path: '/{id}', /* ... */ })
-  async remove(ctx: Context): Promise<Response> { /* ... */ }
-}
+// Additional routes for GET /{id}, PATCH /{id}, DELETE /{id}...
 ```
 
-**4. IoC Registration** (`src/ioc/bindings.ts`):
+**4. Application Registration** (`src/app.ts`):
+
 ```typescript
-export function bindToContainers(container: Container): void {
-  // Services
-  container.bind(TaskService).toSelf().inRequestScope();
-  
-  // Controllers
-  container.bind(TaskController).toSelf().inRequestScope();
-}
+import '@/routes/task.route';
+import '@/routes/health.route';
+import '@/routes/index.route';
+
+configureOpenAPI(server);
+export default server;
 ```
 
 ### Steps to Add a New Feature
@@ -220,40 +213,54 @@ To add a new feature (e.g., "Users"), follow these steps using the tasks impleme
 
 1. **Database Schema**: Add your table to `src/db/schema.ts` following the `tasks` table pattern
 2. **Database Migration**: Run `pnpm drizzle-kit push` to apply schema changes
-3. **Service Layer**: Create `src/services/[feature].service.ts` following `TaskService` patterns
-4. **Controller**: Create `src/controllers/[feature].controller.ts` following `TaskController` patterns  
-5. **IoC Bindings**: Add your service and controller to `src/ioc/bindings.ts`
+3. **Handler Functions**: Create `src/handlers/[feature].handler.ts` following `task.handler.ts` patterns
+4. **Route Definitions**: Create `src/routes/[feature].route.ts` following `task.route.ts` patterns
+5. **Application Import**: Add your route import to `src/app.ts`
 6. **Tests**: Create test files following the existing `*.test.ts` patterns
 
-### Understanding Decorators
+### Route Definition Pattern
 
-#### `@baseRoute(basePath: string)`
-
-Sets the base path for all routes in a controller (see `TaskController`):
+Routes are defined using `createRoute` from `@hono/zod-openapi` and registered with the server:
 
 ```typescript
-@baseRoute('/tasks')  // All routes prefixed with /tasks
-export class TaskController {
-  @Get({ path: '/' })        // Results in GET /tasks
-  @Get({ path: '/{id}' })    // Results in GET /tasks/{id}
-}
+import { createRoute } from '@hono/zod-openapi';
+import { server } from '@/server/server';
+import * as featureHandler from '@/handlers/feature.handler';
+
+const listRoute = createRoute({
+  tags: ['Feature'],
+  method: 'get',
+  path: '/features',
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(selectFeatureSchema.array(), 'List of features'),
+  },
+  summary: 'Get all features',
+});
+
+server.openapi(listRoute, async (c) => {
+  const features = await featureHandler.getAllFeatures();
+  return c.json(features);
+});
 ```
 
-#### `@middleware(middlewareHandler: MiddlewareHandler)`
+### Handler Function Pattern
 
-Applies middleware to all routes in a controller (see `TaskController`):
+Handlers contain pure business logic and database operations:
 
 ```typescript
-@middleware(async (ctx, next) => {
-  console.log('middleware 1');
-  await next();
-})
-@middleware(async (ctx, next) => {
-  console.log('middleware 2');
-  await next();
-})
-export class TaskController {
-  // All routes will have both middleware applied in order
+import { db } from '@/db';
+import { logger } from '@/lib/logger';
+import { features } from '@/db/schema';
+
+export async function getAllFeatures(): Promise<Feature[]> {
+  logger.debug('Fetching all features');
+  return await db.select().from(features);
+}
+
+export async function createFeature(input: CreateFeatureInput): Promise<Feature> {
+  logger.debug('Creating new feature', input);
+  const [inserted] = await db.insert(features).values(input).returning();
+  return inserted;
 }
 ```
 
@@ -263,35 +270,40 @@ export class TaskController {
 
 We use **Vitest** for testing. Tests are placed next to the code they test:
 
-- `src/controllers/task.controller.test.ts` - Controller tests
-- `src/services/task.service.test.ts` - Service tests
+- `src/handlers/task.handler.test.ts` - Handler tests
 
 ### Test Utilities
 
 Use the shared test utilities in `src/test/utils/test-helpers.ts`:
 
 ```typescript
-import { 
-  createMockContext, 
-  createMockLogger, 
-  createMockTaskService,
-  sampleTasks,
-  resetAllMocks 
-} from '@/test/utils/test-helpers';
+import { createMockContext, sampleTasks, resetAllMocks } from '@/test/utils/test-helpers';
 ```
 
 Available utilities:
-- `createMockTaskService()` - Mock TaskService with all methods
-- `createMockLogger()` - Mock LoggerService 
-- `createMockContext()` - Mock Hono Context
+
+- `createMockContext()` - Mock Hono Context with common methods
 - `sampleTasks` - Sample test data
 - `resetAllMocks()` - Reset all mocks
 
 ### Writing Tests
 
-Follow the existing test patterns in:
-- `src/controllers/task.controller.test.ts` for controller testing patterns
-- `src/services/task.service.test.ts` for service testing patterns
+Follow the existing test patterns in `src/handlers/task.handler.test.ts`:
+
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest';
+import { createMockContext, sampleTasks, resetAllMocks } from '@/test/utils/test-helpers';
+
+describe('Feature Handler', () => {
+  beforeEach(() => {
+    resetAllMocks();
+  });
+
+  it('should get all features', async () => {
+    // Test implementation
+  });
+});
+```
 
 ### Running Tests
 
@@ -299,7 +311,7 @@ Follow the existing test patterns in:
 # Run all tests
 pnpm test
 
-# Run tests in watch mode  
+# Run tests in watch mode
 pnpm test --watch
 
 # Run tests with coverage
@@ -334,7 +346,7 @@ The project uses ESLint with `@antfu/eslint-config` and Prettier:
 # Check linting
 pnpm lint
 
-# Fix linting issues  
+# Fix linting issues
 pnpm lint:fix
 
 # Format code
@@ -352,9 +364,9 @@ pnpm format:check
 
 ### Naming Conventions
 
-- **Files**: `kebab-case` (e.g., `task.controller.ts`)
-- **Classes**: `PascalCase` (e.g., `TaskController`)
-- **Functions/Variables**: `camelCase` (e.g., `getTaskById`)
+- **Files**: `kebab-case` (e.g., `task.handler.ts`, `task.route.ts`)
+- **Functions**: `camelCase` (e.g., `getAllTasks`, `createTask`)
+- **Variables**: `camelCase` (e.g., `taskData`, `userId`)
 - **Constants**: `UPPER_SNAKE_CASE` (e.g., `ZOD_ERROR_CODES`)
 
 ### Import Organization
@@ -364,14 +376,14 @@ Organize imports following the existing pattern:
 ```typescript
 import type { Context } from 'hono';
 
+import { createRoute } from '@hono/zod-openapi';
 import { z } from '@hono/zod-openapi';
-import { inject, injectable } from 'inversify';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 
 import { selectTasksSchema } from '@/db/schema';
-import { LoggerService } from '@/services/logger.service';
-
-import { validateInput } from './helpers';
+import { logger } from '@/lib/logger';
+import * as taskHandler from '@/handlers/task.handler';
+import { server } from '@/server/server';
 ```
 
 ## Pull Request Process
@@ -391,9 +403,9 @@ Use conventional commits format:
 ```
 feat: add user management endpoints
 fix: resolve database connection issue
-docs: update API documentation  
-test: add tests for user service
-refactor: simplify controller error handling
+docs: update API documentation
+test: add tests for user handler
+refactor: simplify route error handling
 ```
 
 ### Commands to Run Before PR
@@ -419,16 +431,15 @@ pnpm build
 
 - Check the [README.md](./README.md) for basic setup
 - Review the existing tasks implementation as the reference pattern:
-  - `src/controllers/task.controller.ts`
-  - `src/services/task.service.ts` 
-  - `src/controllers/task.controller.test.ts`
-  - `src/services/task.service.test.ts`
+  - `src/routes/task.route.ts`
+  - `src/handlers/task.handler.ts`
+  - `src/handlers/task.handler.test.ts`
 - Open an issue for bugs or feature requests
 
 ## Additional Resources
 
 - [Hono Documentation](https://hono.dev/)
-- [Drizzle ORM Documentation](https://orm.drizzle.team/)  
+- [Drizzle ORM Documentation](https://orm.drizzle.team/)
 - [Vitest Documentation](https://vitest.dev/)
 - [Zod Documentation](https://zod.dev/)
 - [Stoker Documentation](https://www.npmjs.com/package/stoker)

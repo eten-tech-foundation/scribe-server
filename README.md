@@ -13,35 +13,36 @@ The backend/server for the Scribe application built with Hono and OpenAPI. This 
 ## Tech Stack
 
 ### Core Framework
+
 - **[Hono](https://hono.dev/)** - Fast, lightweight web framework
 - **[@hono/zod-openapi](https://github.com/honojs/middleware/tree/main/packages/zod-openapi)** - OpenAPI 3.0 integration with Zod validation
 - **[TypeScript](https://www.typescriptlang.org/)** - Type-safe development
 
 ### Database & ORM
+
 - **[Drizzle ORM](https://orm.drizzle.team/)** - Type-safe ORM with PostgreSQL support
 - **[drizzle-zod](https://orm.drizzle.team/docs/zod)** - Zod schema generation from database tables
 - **[PostgreSQL](https://www.postgresql.org/)** - Primary database
 
 ### Validation & Schemas
+
 - **[Zod](https://zod.dev/)** - Runtime type validation and schema definition
 - **[drizzle-zod](https://orm.drizzle.team/docs/zod)** - Database schema to Zod schema conversion
 
-### Architecture
-- **[Inversify](https://inversify.io/)** - Dependency injection container
-- **Decorator-based routing** - Clean controller patterns with `@Get`, `@Post`, etc.
-- **Service layer architecture** - Business logic separation
-
 ### Documentation
+
 - **[Scalar](https://scalar.com/)** - Interactive API documentation
 - **OpenAPI 3.0** - Automatic API specification generation
 
 ### Development Tools
+
 - **[Vitest](https://vitest.dev/)** - Fast unit testing framework
 - **[ESLint](https://eslint.org/)** with **[@antfu/eslint-config](https://github.com/antfu/eslint-config)** - Code linting
 - **[Prettier](https://prettier.io/)** - Code formatting
 - **[pino](https://getpino.io/)** - Structured logging
 
 ### Utilities
+
 - **[stoker](https://www.npmjs.com/package/stoker)** - OpenAPI helpers and utilities
 - **[tsx](https://github.com/esbuild-kit/tsx)** - Fast TypeScript execution
 
@@ -63,6 +64,7 @@ The backend/server for the Scribe application built with Hono and OpenAPI. This 
    ```
 
    Required environment variables:
+
    ```env
    NODE_ENV=development
    PORT=9999
@@ -118,14 +120,13 @@ pnpm start
 ## Code Tour
 
 ### Project Structure
+
 ```
 src/
-├── controllers/          # HTTP Controllers with decorators
-├── services/            # Business logic services  
+├── routes/              # OpenAPI route definitions
+├── handlers/            # Business logic handlers
 ├── db/                  # Database schema and configuration
-├── decorators/          # Route decorators (@Get, @Post, etc.)
-├── ioc/                 # Dependency injection setup
-├── lib/                 # Utility functions
+├── lib/                 # Utility functions and configuration
 ├── middlewares/         # Custom middleware
 ├── server/              # Server configuration
 ├── test/                # Test utilities
@@ -135,35 +136,48 @@ src/
 ```
 
 ### Key Files
-- **[app.ts](./src/app.ts)** - Main Hono application setup and OpenAPI configuration
+
 - **[index.ts](./src/index.ts)** - Application entry point using `@hono/node-server`
+- **[app.ts](./src/app.ts)** - Main Hono application setup and OpenAPI configuration
 - **[env.ts](./src/env.ts)** - Environment variable validation with Zod
+- **[src/server/server.ts](./src/server/server.ts)** - Base server configuration with middleware
 - **[src/db/schema.ts](./src/db/schema.ts)** - Database schema definitions with Drizzle
-- **[src/ioc/bindings.ts](./src/ioc/bindings.ts)** - Dependency injection container setup
+- **[src/lib/configure-open-api.ts](./src/lib/configure-open-api.ts)** - OpenAPI documentation setup
+
+### Architecture Pattern
+
+The project follows a **route-handler** architecture:
+
+1. **Routes** (`src/routes/`) - Define OpenAPI routes with validation schemas
+2. **Handlers** (`src/handlers/`) - Contain business logic and database operations
+3. **Database** (`src/db/`) - Schema definitions and database connection
+4. **Utilities** (`src/lib/`) - Shared utilities and configuration
 
 ### Example Implementation
-The project includes a complete **Tasks** feature implementation demonstrating the architecture:
 
-- **Controller**: `src/controllers/task.controller.ts` - HTTP endpoints with decorators
-- **Service**: `src/services/task.service.ts` - Business logic and database operations
-- **Schema**: `src/db/schema.ts` - Database table and Zod validation schemas
-- **Tests**: `src/controllers/task.controller.test.ts` & `src/services/task.service.test.ts`
+The project includes a complete **Tasks** feature implementation demonstrating the architecture. See the following files for reference:
+
+- **Database Schema**: [`src/db/schema.ts`](./src/db/schema.ts) - Table definitions and Zod validation schemas
+- **Handler Functions**: [`src/handlers/task.handler.ts`](./src/handlers/task.handler.ts) - Business logic and database operations
+- **Route Definitions**: [`src/routes/task.route.ts`](./src/routes/task.route.ts) - OpenAPI route specifications
+- **Tests**: [`src/handlers/task.handler.test.ts`](./src/handlers/task.handler.test.ts) - Handler testing patterns
 
 ## API Endpoints
 
-| Method | Path               | Description              |
-|--------|--------------------|--------------------------|
-| GET    | `/doc`             | OpenAPI Specification    |
-| GET    | `/reference`       | Scalar API Documentation |
-| GET    | `/tasks`           | List all tasks           |
-| POST   | `/tasks`           | Create a task            |
-| GET    | `/tasks/{id}`      | Get one task by id       |
-| PATCH  | `/tasks/{id}`      | Update one task by id    |
-| DELETE | `/tasks/{id}`      | Delete one task by id    |
+| Method | Path          | Description              |
+| ------ | ------------- | ------------------------ |
+| GET    | `/doc`        | OpenAPI Specification    |
+| GET    | `/reference`  | Scalar API Documentation |
+| GET    | `/tasks`      | List all tasks           |
+| POST   | `/tasks`      | Create a task            |
+| GET    | `/tasks/{id}` | Get one task by id       |
+| PATCH  | `/tasks/{id}` | Update one task by id    |
+| DELETE | `/tasks/{id}` | Delete one task by id    |
 
 ## Contributing
 
 Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed information about:
+
 - Project architecture and patterns
 - Adding new features
 - Testing guidelines
@@ -173,17 +187,19 @@ Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed information about:
 ## References
 
 ### Core Technologies
+
 - [Hono Documentation](https://hono.dev/)
 - [Drizzle ORM Documentation](https://orm.drizzle.team/)
 - [Zod Documentation](https://zod.dev/)
 - [Vitest Documentation](https://vitest.dev/)
 
-### OpenAPI & Documentation  
+### OpenAPI & Documentation
+
 - [What is OpenAPI?](https://swagger.io/docs/specification/v3_0/about/)
 - [@hono/zod-openapi](https://github.com/honojs/middleware/tree/main/packages/zod-openapi)
 - [Scalar Documentation](https://github.com/scalar/scalar)
 
 ### Development Tools
-- [Inversify Documentation](https://inversify.io/)
+
 - [ESLint Antfu Config](https://github.com/antfu/eslint-config)
 - [Stoker Utilities](https://www.npmjs.com/package/stoker)
