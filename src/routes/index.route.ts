@@ -3,11 +3,7 @@ import * as HttpStatusCodes from 'stoker/http-status-codes';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { IocContainer } from '@/ioc/container';
-import { Server } from '@/server/server';
-
-// Setup index route directly with IoC
-const server = IocContainer.container.get(Server);
+import { server } from '@/server/server';
 
 const indexRoute = createRoute({
   tags: ['Index'],
@@ -18,7 +14,7 @@ const indexRoute = createRoute({
   },
 });
 
-server.hono.openapi(indexRoute, (c) => {
+server.openapi(indexRoute, (c) => {
   return c.json(
     {
       message: 'Tasks API',
@@ -27,4 +23,4 @@ server.hono.openapi(indexRoute, (c) => {
   );
 });
 
-export default server.hono;
+export default server;

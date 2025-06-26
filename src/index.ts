@@ -1,14 +1,8 @@
-import 'reflect-metadata';
 import { serve } from '@hono/node-server';
 
 import app from './app';
-import { registerPendingRoutes } from './decorators/route.decorator';
-import { registerPendingMiddlewares } from './decorators/middleware.decorator';
-import env from './env';
 
-// Load all middlewares and routes
-registerPendingMiddlewares();
-registerPendingRoutes();
+import env from './env';
 
 const port = env.PORT;
 // eslint-disable-next-line no-console

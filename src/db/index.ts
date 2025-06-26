@@ -10,8 +10,6 @@ const client = postgres(env.DATABASE_URL, {
   idle_timeout: 20,
 });
 
-const db = drizzle(client, {
+export const db = drizzle(client, {
   schema,
 });
-
-export default db;

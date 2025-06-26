@@ -2,37 +2,6 @@ import type { Context } from 'hono';
 
 import { vi } from 'vitest';
 
-import type { LoggerService } from '@/services/logger.service';
-import type { TaskService } from '@/services/task.service';
-
-/**
- * Creates a mock TaskService with all methods mocked
- */
-export function createMockTaskService(): TaskService {
-  return {
-    getAllTasks: vi.fn(),
-    getTaskById: vi.fn(),
-    createTask: vi.fn(),
-    updateTask: vi.fn(),
-    deleteTask: vi.fn(),
-  } as unknown as TaskService;
-}
-
-/**
- * Creates a mock LoggerService with all methods mocked
- */
-export function createMockLogger(): LoggerService {
-  return {
-    info: vi.fn(),
-    debug: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    fatal: vi.fn(),
-    trace: vi.fn(),
-    child: vi.fn(),
-  } as unknown as LoggerService;
-}
-
 /**
  * Creates a mock Hono Context with commonly used methods
  */

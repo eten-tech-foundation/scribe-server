@@ -1,16 +1,10 @@
-import 'reflect-metadata';
-
-import { IocContainer } from '@/ioc/container';
 import configureOpenAPI from '@/lib/configure-open-api';
-import { Server } from '@/server/server';
+import { server } from '@/server/server';
 
 import '@/routes/index.route';
 import '@/routes/health.route';
+import '@/routes/task.route';
 
-const container = IocContainer.container;
+configureOpenAPI(server);
 
-const server = container.get(Server);
-
-configureOpenAPI(server.hono);
-
-export default server.hono;
+export default server;

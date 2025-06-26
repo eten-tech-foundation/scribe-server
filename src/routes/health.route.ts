@@ -3,10 +3,7 @@ import * as HttpStatusCodes from 'stoker/http-status-codes';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { z } from 'zod';
 
-import { IocContainer } from '@/ioc/container';
-import { Server } from '@/server/server';
-
-const server = IocContainer.container.get(Server);
+import { server } from '@/server/server';
 
 const healthResponseSchema = z.object({
   status: z.string(),
@@ -27,7 +24,7 @@ const healthRoute = createRoute({
   description: 'Returns the current health status of the API',
 });
 
-server.hono.openapi(healthRoute, (c) => {
+server.openapi(healthRoute, (c) => {
   return c.json(
     {
       status: 'healthy',
@@ -40,4 +37,4 @@ server.hono.openapi(healthRoute, (c) => {
   );
 });
 
-export default server.hono;
+export default server;
