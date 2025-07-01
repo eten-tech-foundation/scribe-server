@@ -46,6 +46,17 @@ The backend/server for the Scribe application built with Hono and OpenAPI. This 
 - **[stoker](https://www.npmjs.com/package/stoker)** - OpenAPI helpers and utilities
 - **[tsx](https://github.com/esbuild-kit/tsx)** - Fast TypeScript execution
 
+### Authentication & Security
+
+- **[Auth0](https://auth0.com/)** - Authentication and authorization platform
+- **[jose](https://github.com/panva/jose)** - JWT verification and JWKS support
+
+## 📚 Documentation
+
+- **[Developer Documentation](./docs/README.md)** - Complete guides for API development
+- **[Auth0 Integration Guide](./docs/auth0-integration.md)** - How to create protected routes
+- **[Quick Reference](./docs/quick-reference.md)** - Common patterns and examples
+
 ## Setup
 
 1. **Clone and install dependencies:**
@@ -70,6 +81,8 @@ The backend/server for the Scribe application built with Hono and OpenAPI. This 
    PORT=9999
    LOG_LEVEL=info
    DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+   AUTH0_DOMAIN=your-tenant.auth0.com
+   AUTH0_AUDIENCE=http://localhost:9999
    ```
 
 3. **Setup database:**
@@ -164,10 +177,26 @@ The project includes a complete **Tasks** feature implementation demonstrating t
 
 ## API Endpoints
 
+### Public Endpoints
+
 | Method | Path          | Description              |
 | ------ | ------------- | ------------------------ |
+| GET    | `/`           | API Index                |
+| GET    | `/health`     | Health Check             |
 | GET    | `/doc`        | OpenAPI Specification    |
 | GET    | `/reference`  | Scalar API Documentation |
+| GET    | `/api/public` | Public data (no auth)    |
+
+### Protected Endpoints (Require Auth0 JWT)
+
+| Method | Path             | Description              |
+| ------ | ---------------- | ------------------------ |
+| GET    | `/api/protected` | Protected user data      |
+
+### Task Management (Examples)
+
+| Method | Path          | Description              |
+| ------ | ------------- | ------------------------ |
 | GET    | `/tasks`      | List all tasks           |
 | POST   | `/tasks`      | Create a task            |
 | GET    | `/tasks/{id}` | Get one task by id       |
