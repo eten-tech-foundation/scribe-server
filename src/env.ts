@@ -18,6 +18,8 @@ const EnvSchema = z.object({
     .default('info')
     .optional(),
   DATABASE_URL: z.string().url(),
+  APPLICATIONINSIGHTS_CONNECTION_STRING: z.string().optional(),
+  APPLICATIONINSIGHTS_INSTRUMENTATION_KEY: z.string(),
 });
 
 export type env = z.infer<typeof EnvSchema>;
