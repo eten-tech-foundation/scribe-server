@@ -4,6 +4,7 @@ import { server } from '@/server/server';
 import '@/routes/index.route';
 import '@/routes/health.route';
 import '@/routes/task.route';
+import '@/routes/user.route';
 import '@/routes/protected.route';
 
 configureOpenAPI(server);
