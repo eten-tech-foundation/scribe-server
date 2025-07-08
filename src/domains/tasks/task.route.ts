@@ -8,7 +8,7 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 import { insertTasksSchema, patchTasksSchema, selectTasksSchema } from '@/db/schema';
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
 import { logger } from '@/lib/logger';
-import * as taskHandler from '@/handlers/task.handler';
+import * as taskHandler from './task.handler';
 import { server } from '@/server/server';
 
 const listTasksRoute = createRoute({
