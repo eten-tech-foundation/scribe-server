@@ -5,87 +5,103 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { insertTasksSchema, patchTasksSchema, selectTasksSchema } from '@/db/schema';
+import { insertUsersSchema, patchUsersSchema, selectUsersSchema } from '@/db/schema';
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
 import { logger } from '@/lib/logger';
-import * as taskHandler from '@/handlers/task.handler';
+import * as userHandler from './user.handler';
 import { server } from '@/server/server';
 
-const listTasksRoute = createRoute({
-  tags: ['Tasks'],
+const listUsersRoute = createRoute({
+  tags: ['Users'],
   method: 'get',
-  path: '/tasks',
+  path: '/users',
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      selectTasksSchema.array().openapi('Tasks'),
-      'The list of tasks'
+      selectUsersSchema.array().openapi('Users'),
+      'The list of users'
     ),
   },
-  summary: 'Get all tasks',
-  description: 'Returns a list of all tasks',
+  summary: 'Get all users',
+  description: 'Returns a list of all users',
 });
 
-server.openapi(listTasksRoute, async (c) => {
-  logger.info('Getting all tasks');
-  const tasks = await taskHandler.getAllTasks();
-  return c.json(tasks);
+server.openapi(listUsersRoute, async (c) => {
+  logger.info('Getting all users');
+  const users = await userHandler.getAllUsers();
+  return c.json(users);
 });
 
-const createTaskRoute = createRoute({
-  tags: ['Tasks'],
+const createUserRoute = createRoute({
+  tags: ['Users'],
   method: 'post',
-  path: '/tasks',
+  path: '/users',
   request: {
-    body: jsonContent(insertTasksSchema, 'The task to create'),
+    body: jsonContent(insertUsersSchema, 'The user to create'),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectTasksSchema, 'The created task'),
+    [HttpStatusCodes.OK]: jsonContent(selectUsersSchema, 'The created user'),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      z.object({
+        success: z.boolean(),
+        error: z.object({
+          issues: z.array(
+            z.object({
+              code: z.string(),
+              path: z.array(z.string()),
+              message: z.string(),
+            })
+          ),
+          name: z.string(),
+        }),
+      }),
+      'The validation error'
+    ),
   },
-  summary: 'Create a new task',
-  description: 'Creates a new task with the provided data',
+  summary: 'Create a new user',
+  description: 'Creates a new user with the provided data',
 });
 
-server.openapi(createTaskRoute, async (c) => {
-  const task = await c.req.json();
-  logger.info('Creating task', { task });
-  const created = await taskHandler.createTask(task);
+server.openapi(createUserRoute, async (c) => {
+  const user = await c.req.json();
+  logger.info('Creating user', { user });
+  const created = await userHandler.createUser(user);
   return c.json(created, HttpStatusCodes.OK);
 });
 
-const getTaskRoute = createRoute({
-  tags: ['Tasks'],
+const getUserRoute = createRoute({
+  tags: ['Users'],
   method: 'get',
-  path: '/tasks/{id}',
+  path: '/users/{id}',
   request: {
     params: z.object({
-      id: z.coerce.number().openapi({
+      id: z.string().uuid().openapi({
         param: {
           name: 'id',
           in: 'path',
           required: true,
           allowReserved: false,
         },
-        example: 5,
+        example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
       }),
     }),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectTasksSchema, 'The task'),
+    [HttpStatusCodes.OK]: jsonContent(selectUsersSchema, 'The user'),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-      'Task not found'
+      'User not found'
     ),
   },
-  summary: 'Get a task by ID',
-  description: 'Returns a single task by its ID',
+  summary: 'Get a user by ID',
+  description: 'Returns a single user by its ID',
 });
 
-server.openapi(getTaskRoute, async (c) => {
+server.openapi(getUserRoute, async (c) => {
   const { id } = c.req.param();
-  logger.info(`Getting task ${id}`);
-  const task = await taskHandler.getTaskById(Number(id));
+  logger.info(`Getting user ${id}`);
+  const user = await userHandler.getUserById(id);
 
-  if (!task) {
+  if (!user) {
     return c.json(
       {
         message: HttpStatusPhrases.NOT_FOUND,
@@ -94,32 +110,32 @@ server.openapi(getTaskRoute, async (c) => {
     );
   }
 
-  return c.json(task, HttpStatusCodes.OK);
+  return c.json(user, HttpStatusCodes.OK);
 });
 
-const updateTaskRoute = createRoute({
-  tags: ['Tasks'],
+const updateUserRoute = createRoute({
+  tags: ['Users'],
   method: 'patch',
-  path: '/tasks/{id}',
+  path: '/users/{id}',
   request: {
     params: z.object({
-      id: z.coerce.number().openapi({
+      id: z.string().uuid().openapi({
         param: {
           name: 'id',
           in: 'path',
           required: true,
           allowReserved: false,
         },
-        example: 5,
+        example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
       }),
     }),
-    body: jsonContent(patchTasksSchema, 'The task updates'),
+    body: jsonContent(patchUsersSchema, 'The user updates'),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectTasksSchema, 'The updated task'),
+    [HttpStatusCodes.OK]: jsonContent(selectUsersSchema, 'The updated user'),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-      'Task not found'
+      'User not found'
     ),
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
       z.object({
@@ -138,15 +154,15 @@ const updateTaskRoute = createRoute({
       'The validation error'
     ),
   },
-  summary: 'Update a task',
-  description: 'Updates a task with the provided data',
+  summary: 'Update a user',
+  description: 'Updates a user with the provided data',
 });
 
-server.openapi(updateTaskRoute, async (c) => {
+server.openapi(updateUserRoute, async (c) => {
   const { id } = c.req.param();
   const updates = await c.req.json();
 
-  logger.info(`Updating task ${id}`, { updates });
+  logger.info(`Updating user ${id}`, { updates });
 
   if (Object.keys(updates).length === 0) {
     return c.json(
@@ -167,9 +183,9 @@ server.openapi(updateTaskRoute, async (c) => {
     );
   }
 
-  const task = await taskHandler.updateTask(Number(id), updates);
+  const user = await userHandler.updateUser(id, updates);
 
-  if (!task) {
+  if (!user) {
     return c.json(
       {
         message: HttpStatusPhrases.NOT_FOUND,
@@ -178,46 +194,45 @@ server.openapi(updateTaskRoute, async (c) => {
     );
   }
 
-  return c.json(task, HttpStatusCodes.OK);
+  return c.json(user, HttpStatusCodes.OK);
 });
 
-const deleteTaskRoute = createRoute({
-  tags: ['Tasks'],
+const deleteUserRoute = createRoute({
+  tags: ['Users'],
   method: 'delete',
-  path: '/tasks/{id}',
+  path: '/users/{id}',
   request: {
     params: z.object({
-      id: z.coerce.number().openapi({
+      id: z.string().uuid().openapi({
         param: {
           name: 'id',
           in: 'path',
           required: true,
           allowReserved: false,
         },
-        example: 5,
+        example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
       }),
     }),
   },
   responses: {
     [HttpStatusCodes.NO_CONTENT]: {
-      description: 'Task deleted',
+      description: 'User deleted successfully',
     },
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-      'Task not found'
+      'User not found'
     ),
   },
-  summary: 'Delete a task',
-  description: 'Deletes a task by its ID',
+  summary: 'Delete a user',
+  description: 'Deletes a user by its ID',
 });
 
-server.openapi(deleteTaskRoute, async (c) => {
+server.openapi(deleteUserRoute, async (c) => {
   const { id } = c.req.param();
-  logger.info(`Deleting task ${id}`);
+  logger.info(`Deleting user ${id}`);
+  const deleted = await userHandler.deleteUser(id);
 
-  const success = await taskHandler.deleteTask(Number(id));
-
-  if (!success) {
+  if (!deleted) {
     return c.json(
       {
         message: HttpStatusPhrases.NOT_FOUND,
@@ -227,6 +242,4 @@ server.openapi(deleteTaskRoute, async (c) => {
   }
 
   return c.body(null, HttpStatusCodes.NO_CONTENT);
-});
-
-export default server;
+}); 

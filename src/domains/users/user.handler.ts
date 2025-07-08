@@ -17,7 +17,7 @@ export async function getAllUsers(): Promise<User[]> {
   return await db.select().from(users);
 }
 
-export async function getUserById(id: number): Promise<User | null> {
+export async function getUserById(id: string): Promise<User | null> {
   logger.debug(`Fetching user with id: ${id}`);
   const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return result[0] || null;
@@ -29,7 +29,7 @@ export async function createUser(input: CreateUserInput): Promise<User> {
   return inserted;
 }
 
-export async function updateUser(id: number, input: UpdateUserInput): Promise<User | null> {
+export async function updateUser(id: string, input: UpdateUserInput): Promise<User | null> {
   logger.debug(`Updating user with id: ${id}`, input);
 
   // Check if user exists
@@ -44,7 +44,7 @@ export async function updateUser(id: number, input: UpdateUserInput): Promise<Us
   return updated || null;
 }
 
-export async function deleteUser(id: number): Promise<boolean> {
+export async function deleteUser(id: string): Promise<boolean> {
   logger.debug(`Deleting user with id: ${id}`);
 
   // Check if user exists
