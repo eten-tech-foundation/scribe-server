@@ -10,17 +10,17 @@ const indexRoute = createRoute({
   method: 'get',
   path: '/',
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(createMessageObjectSchema('Tasks API'), 'Tasks API Index'),
+    [HttpStatusCodes.OK]: jsonContent(createMessageObjectSchema('Scribe API'), 'Scribe API Index'),
   },
 });
 
 server.openapi(indexRoute, (c) => {
   return c.json(
     {
-      message: 'Tasks API',
+      message: 'Scribe API',
     },
     HttpStatusCodes.OK
   );
 });
 
-export default server;
+export default server
