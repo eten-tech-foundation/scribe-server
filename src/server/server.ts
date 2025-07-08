@@ -19,13 +19,13 @@ export function createServer() {
     logger.info(`${c.req.method} ${c.req.path} - ${c.res.status} - ${duration}ms`);
   });
 
-  app.use('*', async (c, next) => {
-    await next();
+  // app.use('*', async (c, next) => {
+  //   await next();
 
-    if (c.req.method === 'GET' && !c.res.headers.get('Cache-Control')) {
-      c.res.headers.set('Cache-Control', 'max-age=60');
-    }
-  });
+  //   if (c.req.method === 'GET' && !c.res.headers.get('Cache-Control')) {
+  //     c.res.headers.set('Cache-Control', 'max-age=60');
+  //   }
+  // });
 
   return app;
 }
