@@ -1,4 +1,4 @@
-name: Scribe Server CI/CD 
+name: Scribe Server CI/CD
 
 on:
   push:
@@ -39,10 +39,16 @@ jobs:
           cd deploy
           pnpm install --prod --frozen-lockfile
 
-      - name: Add Start Script (if needed)
+      - name: Add Start Script
         run: |
           cd deploy
-          node -e "const fs = require('fs'); const pkg = require('./package.json'); if (!pkg.scripts) pkg.scripts = {}; pkg.scripts.start = pkg.scripts.start || 'node dist/server.js'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
+          node -e "
+            const fs = require('fs');
+            const pkg = require('./package.json');
+            pkg.scripts = pkg.scripts || {};
+            pkg.scripts.start = 'node dist/index.js';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
@@ -55,19 +61,19 @@ jobs:
         run: |
           echo "Waiting for deployment to complete..."
           sleep 60
-          
-          echo "=== Testing Deployment ==="
-          curl -v -s -w "\nHTTP Status: %{http_code}\nResponse Time: %{time_total}s\n" \
-            https://scribe-server-dev-f3c7f3a6f2bde7ec.westeurope-01.azurewebsites.net/ || echo "Connection test completed"
 
-          echo "Testing health endpoint..."
+          echo "=== Testing Root URL ==="
           curl -v -s -w "\nHTTP Status: %{http_code}\nResponse Time: %{time_total}s\n" \
-            https://scribe-server-dev-f3c7f3a6f2bde7ec.westeurope-01.azurewebsites.net/health || echo "Health check completed"
+            https://scribe-server-dev.azurewebsites.net/ || echo "Connection test completed"
+
+          echo "=== Testing /health Endpoint ==="
+          curl -v -s -w "\nHTTP Status: %{http_code}\nResponse Time: %{time_total}s\n" \
+            https://scribe-server-dev.azurewebsites.net/health || echo "Health check completed"
 
       - name: Deployment Status
         if: always()
         run: |
           echo "=== Deployment Summary ==="
           echo "App Name: scribe-server-dev"
-          echo "URL: https://scribe-server-dev-f3c7f3a6f2bde7ec.westeurope-01.azurewebsites.net/"
+          echo "URL: https://scribe-server-dev.azurewebsites.net/"
           echo "Check Azure Portal for detailed logs: https://portal.azure.com/"
