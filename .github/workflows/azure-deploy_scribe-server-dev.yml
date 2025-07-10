@@ -58,16 +58,16 @@ jobs:
           
           echo "=== Testing Deployment ==="
           curl -v -s -w "\nHTTP Status: %{http_code}\nResponse Time: %{time_total}s\n" \
-            https://scribe-server-dev.azurewebsites.net/ || echo "Connection test completed"
+            https://scribe-server-dev-f3c7f3a6f2bde7ec.westeurope-01.azurewebsites.net/ || echo "Connection test completed"
 
           echo "Testing health endpoint..."
           curl -v -s -w "\nHTTP Status: %{http_code}\nResponse Time: %{time_total}s\n" \
-            https://scribe-server-dev.azurewebsites.net/health || echo "Health check completed"
+            https://scribe-server-dev-f3c7f3a6f2bde7ec.westeurope-01.azurewebsites.net/health || echo "Health check completed"
 
       - name: Deployment Status
         if: always()
         run: |
           echo "=== Deployment Summary ==="
           echo "App Name: scribe-server-dev"
-          echo "URL: https://scribe-server-dev.azurewebsites.net/"
+          echo "URL: https://scribe-server-dev-f3c7f3a6f2bde7ec.westeurope-01.azurewebsites.net/"
           echo "Check Azure Portal for detailed logs: https://portal.azure.com/"
