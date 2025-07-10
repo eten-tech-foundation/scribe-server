@@ -50,12 +50,20 @@ jobs:
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
           "
 
+      - name: Show Deploy Folder Contents (Debug)
+        run: ls -R deploy
+
+      - name: Zip Deploy Folder
+        run: |
+          cd deploy
+          zip -r ../deploy.zip .
+
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'scribe-server-dev'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_AAFEB4AF5C6640678CF82A95C3F936A7 }}
-          package: deploy
+          package: deploy.zip
 
       - name: Test Deployment
         run: |
@@ -68,7 +76,7 @@ jobs:
 
           echo "=== Testing /health Endpoint ==="
           curl -v -s -w "\nHTTP Status: %{http_code}\nResponse Time: %{time_total}s\n" \
-            https://scribe-server-dev-f3c7f3a6f2bde7ec.westeurope-01.azurewebsites.nethealth || echo "Health check completed"
+            https://scribe-server-dev-f3c7f3a6f2bde7ec.westeurope-01.azurewebsites.net/health || echo "Health check completed"
 
       - name: Deployment Status
         if: always()
