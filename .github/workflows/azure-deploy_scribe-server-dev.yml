@@ -31,12 +31,13 @@ jobs:
       - name: Build Project
         run: pnpm run build
 
-      - name: Copy Necessary Files
+      - name: Prepare Deploy Folder
         run: |
           mkdir deploy
-          cp -r dist package.json pnpm-lock.yaml .npmrc deploy/
+          cp -r dist package.json pnpm-lock.yaml deploy/
+          [ -f .npmrc ] && cp .npmrc deploy/
           cd deploy
-          pnpm install
+          pnpm install --prod --frozen-lockfile
 
       - name: Add Start Script (if needed)
         run: |
