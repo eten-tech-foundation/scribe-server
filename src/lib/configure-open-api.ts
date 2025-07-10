@@ -1,7 +1,5 @@
 import { Scalar } from '@scalar/hono-api-reference';
-
 import type { AppOpenAPI } from './types';
-
 import packageJSON from '../../package.json' with { type: 'json' };
 
 export default function configureOpenAPI(app: AppOpenAPI) {
@@ -9,8 +7,17 @@ export default function configureOpenAPI(app: AppOpenAPI) {
     openapi: '3.0.0',
     info: {
       version: packageJSON.version,
-      title: 'Tasks API',
+      title: 'Scribe API',
     },
+  });
+
+  app.get('/doc-dynamic', async (c) => {
+    const host = c.req.header('host')!;
+    const proto = c.req.header('x-forwarded-proto') || 'http';
+    const res = await fetch(`${proto}://${host}/doc`);
+    const json = await res.json();
+    json.servers = [{ url: `${proto}://${host}` }];
+    return c.json(json);
   });
 
   app.get(
@@ -22,7 +29,7 @@ export default function configureOpenAPI(app: AppOpenAPI) {
         targetKey: 'js',
         clientKey: 'fetch',
       },
-      url: '/doc',
+      url: '/doc-dynamic',
     })
   );
 }

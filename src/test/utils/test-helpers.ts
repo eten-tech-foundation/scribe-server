@@ -1,5 +1,4 @@
 import type { Context } from 'hono';
-
 import { vi } from 'vitest';
 
 /**
@@ -28,29 +27,32 @@ export function createMockContext(overrides: Partial<Context> = {}): Context {
 }
 
 /**
- * Sample task data for testing
+ * Sample user data for testing
  */
-export const sampleTasks = {
-  task1: {
-    id: 1,
-    name: 'Sample Task 1',
-    done: false,
+export const sampleUsers = {
+  user1: {
+    id: '123e4567-e89b-12d3-a456-426614174000',
+    username: 'testuser',
+    email: 'test@example.com',
+    firstName: 'John',
+    lastName: 'Doe',
+    role: '456e7890-e89b-12d3-a456-426614174001',
+    createdBy: null,
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
+    isActive: true,
   },
-  task2: {
-    id: 2,
-    name: 'Sample Task 2',
-    done: true,
-    createdAt: new Date('2024-01-02T00:00:00Z'),
-    updatedAt: new Date('2024-01-02T00:00:00Z'),
+  newUser: {
+    username: 'testuser',
+    email: 'test@example.com',
+    firstName: 'John',
+    lastName: 'Doe',
+    role: '456e7890-e89b-12d3-a456-426614174001',
+    createdBy: null,
   },
-  newTask: {
-    name: 'New Task',
-    done: false,
-  },
-  updateData: {
-    name: 'Updated Task',
+  updateUser: {
+    firstName: 'Jane',
+    lastName: 'Smith',
   },
 };
 
