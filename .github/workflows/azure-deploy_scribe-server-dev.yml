@@ -11,29 +11,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Set up PNPM
-      uses: pnpm/action-setup@v4
-      with:
-        version: 9
+      - name: Set up PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
-    - name: Set up Node.js v22
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22.x'
-        cache: 'pnpm'
+      - name: Set up Node.js v22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
 
-    - name: Install Dependencies
-      run: pnpm install
+      - name: Install Dependencies
+        run: pnpm install
 
-    - name: Build Project
-      run: pnpm run build
+      - name: Build Project
+        run: pnpm run build
 
-    - name: 'Deploy scribe server to Azure'
-      uses: azure/webapps-deploy@v3
-      with:
-        app-name: 'scribe-server-dev'
-        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_AAFEB4AF5C6640678CF82A95C3F936A7 }}
-        package: .
+      - name: Copy Necessary Files
+        run: |
+          mkdir deploy
+          cp -r dist package.json pnpm-lock.yaml deploy/
+          cd deploy && pnpm install --prod
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'scribe-server-dev'
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_AAFEB4AF5C6640678CF82A95C3F936A7 }}
+          package: ./deploy
