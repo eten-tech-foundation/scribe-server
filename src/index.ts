@@ -4,7 +4,8 @@ import app from './app';
 
 import env from './env';
 
-const port = env.PORT;
+const port = Number(process.env.PORT || 8080);
+
 // eslint-disable-next-line no-console
 console.log(`Server is running on port http://localhost:${port}`);
 
