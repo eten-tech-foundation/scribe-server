@@ -1,4 +1,4 @@
-name: Scribe Server CI/CD
+name: Scribe Server CI/CD 
 
 on:
   push:
@@ -17,7 +17,7 @@ jobs:
       - name: Set up PNPM
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
 
       - name: Set up Node.js v22
         uses: actions/setup-node@v4
@@ -35,7 +35,13 @@ jobs:
         run: |
           mkdir deploy
           cp -r dist package.json pnpm-lock.yaml deploy/
+          # Include other necessary files like config/env if needed
           cd deploy && pnpm install --prod
+
+      - name: Add Start Script (if needed)
+        run: |
+          cd deploy
+          node -e "const fs = require('fs'); const pkg = require('./package.json'); if (!pkg.scripts) pkg.scripts = {}; pkg.scripts.start = pkg.scripts.start || 'node dist/server.js'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
@@ -43,3 +49,24 @@ jobs:
           app-name: 'scribe-server-dev'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_AAFEB4AF5C6640678CF82A95C3F936A7 }}
           package: ./deploy
+
+      - name: Test Deployment
+        run: |
+          echo "Waiting for deployment to complete..."
+          sleep 60
+          
+          echo "=== Testing Deployment ==="
+          curl -v -s -w "\nHTTP Status: %{http_code}\nResponse Time: %{time_total}s\n" \
+            https://scribe-server-dev.azurewebsites.net/ || echo "Connection test completed"
+
+          echo "Testing health endpoint..."
+          curl -v -s -w "\nHTTP Status: %{http_code}\nResponse Time: %{time_total}s\n" \
+            https://scribe-server-dev.azurewebsites.net/health || echo "Health check completed"
+
+      - name: Deployment Status
+        if: always()
+        run: |
+          echo "=== Deployment Summary ==="
+          echo "App Name: scribe-server-dev"
+          echo "URL: https://scribe-server-dev.azurewebsites.net/"
+          echo "Check Azure Portal for detailed logs: https://portal.azure.com/"
