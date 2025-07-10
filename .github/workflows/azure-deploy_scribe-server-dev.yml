@@ -17,12 +17,12 @@ jobs:
       - name: Set up PNPM
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 9
 
       - name: Set up Node.js v22
         uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
+          node-version: '22.15.0'
           cache: 'pnpm'
 
       - name: Install Dependencies
@@ -34,9 +34,9 @@ jobs:
       - name: Copy Necessary Files
         run: |
           mkdir deploy
-          cp -r dist package.json pnpm-lock.yaml deploy/
-          # Include other necessary files like config/env if needed
-          cd deploy && pnpm install --prod
+          cp -r dist package.json pnpm-lock.yaml .npmrc deploy/
+          cd deploy
+          pnpm install
 
       - name: Add Start Script (if needed)
         run: |
@@ -48,7 +48,7 @@ jobs:
         with:
           app-name: 'scribe-server-dev'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_AAFEB4AF5C6640678CF82A95C3F936A7 }}
-          package: ./deploy
+          package: deploy
 
       - name: Test Deployment
         run: |
