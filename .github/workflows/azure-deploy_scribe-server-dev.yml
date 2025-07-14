@@ -1,5 +1,6 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
+#
+# Deploys a Node.js app to an Azure Web App on Linux
+#
 
 name: Build and deploy Node.js app to Azure Web App - scribe-server-dev
 
@@ -16,7 +17,8 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Node.js version
         uses: actions/setup-node@v4
@@ -37,7 +39,7 @@ jobs:
       - name: Build application
         run: pnpm build
 
-      - name: Install production dependencies
+      - name: Install production-only dependencies
         run: |
           rm -rf node_modules
           pnpm install --frozen-lockfile --prod
@@ -50,7 +52,6 @@ jobs:
           cp -r dist deployment/
           cp -r node_modules deployment/
           cp package.json deployment/
-          cp web.config deployment/ # Copy your existing web.config
 
       - name: Create zip archive
         run: |
@@ -76,12 +77,12 @@ jobs:
         with:
           name: node-app
 
-      - name: 'Deploy to Azure Web App'
+      - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'scribe-server-dev'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_947D34B0D69C4986A7E211253893C796 }}
-          package: release.zip # Deploy the zip file directly
-          clean: true # Ensures wwwroot is wiped before deployment
+          package: release.zip
+          clean: true
