@@ -34,10 +34,11 @@ jobs:
       - name: Prepare Deploy Folder
         run: |
           mkdir deploy
-          cp -r dist package.json pnpm-lock.yaml deploy/
+          cp -r dist package.json deploy/
           [ -f .npmrc ] && cp .npmrc deploy/
           cd deploy
-          pnpm install --frozen-lockfile
+          # Use npm for deployment to avoid dependency resolution issues
+          npm install --production
 
       - name: Add Start Script
         run: |
