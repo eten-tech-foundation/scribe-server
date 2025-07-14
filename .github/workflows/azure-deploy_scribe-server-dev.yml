@@ -39,6 +39,9 @@ jobs:
       - name: Build application
         run: pnpm build
 
+      - name: Check entrypoint works
+        run: node dist/src/index.js &
+
       - name: Install production-only dependencies
         run: |
           rm -rf node_modules
@@ -52,6 +55,7 @@ jobs:
           cp -r dist deployment/
           cp -r node_modules deployment/
           cp package.json deployment/
+          cp pnpm-lock.yaml deployment/
 
       - name: Create zip archive
         run: |
