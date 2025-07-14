@@ -92,36 +92,12 @@ jobs:
         with:
           name: node-app
 
-      - name: Clean wwwroot using Kudu API
-        run: |
-          # Get publish profile credentials
-          PUBLISH_PROFILE='${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_947D34B0D69C4986A7E211253893C796 }}'
-
-          # Extract username and password from publish profile
-          USERNAME=$(echo "$PUBLISH_PROFILE" | grep -o 'userName="[^"]*"' | cut -d'"' -f2)
-          PASSWORD=$(echo "$PUBLISH_PROFILE" | grep -o 'userPWD="[^"]*"' | cut -d'"' -f2)
-
-          # Clean wwwroot directory using Kudu API
-          echo "Cleaning wwwroot directory..."
-          curl -X POST "https://scribe-server-dev.scm.azurewebsites.net/api/command" \
-            -H "Content-Type: application/json" \
-            -d '{"command": "rmdir /s /q D:\\home\\site\\wwwroot", "dir": "D:\\home\\site"}' \
-            -u "$USERNAME:$PASSWORD" || echo "Clean command executed"
-
-          # Recreate wwwroot directory
-          curl -X POST "https://scribe-server-dev.scm.azurewebsites.net/api/command" \
-            -H "Content-Type: application/json" \
-            -d '{"command": "mkdir D:\\home\\site\\wwwroot", "dir": "D:\\home\\site"}' \
-            -u "$USERNAME:$PASSWORD" || echo "Recreate command executed"
-
-          # Wait a moment for cleanup
-          sleep 5
-
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'scribe-server-dev'
           slot-name: 'Production'
-          package: .
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_947D34B0D69C4986A7E211253893C796 }}
+          package: .
+          clean: true # Explicitly clean the wwwroot directory
