@@ -39,45 +39,29 @@ jobs:
 
       - name: Install production dependencies
         run: |
-          # Clean install production dependencies
           rm -rf node_modules
           pnpm install --frozen-lockfile --prod
 
-      - name: Create clean deployment package
+      - name: Create deployment package directory
+        run: mkdir -p deployment
+
+      - name: Copy production files to deployment package
         run: |
-          # Create a completely clean deployment directory
-          mkdir clean-deployment
+          cp -r dist deployment/
+          cp -r node_modules deployment/
+          cp package.json deployment/
+          cp web.config deployment/ # Copy your existing web.config
 
-          # Copy ONLY what we need for production
-          cp -r dist clean-deployment/
-          cp -r node_modules clean-deployment/
-          cp package.json clean-deployment/
-
-          # Create a simple web.config for better Azure routing
-          cat > clean-deployment/web.config << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <configuration>
-            <system.webServer>
-              <handlers>
-                <add name="iisnode" path="dist/src/index.js" verb="*" modules="iisnode"/>
-              </handlers>
-              <rewrite>
-                <rules>
-                  <rule name="DynamicContent">
-                    <match url="/*" />
-                    <action type="Rewrite" url="dist/src/index.js"/>
-                  </rule>
-                </rules>
-              </rewrite>
-            </system.webServer>
-          </configuration>
-          EOF
+      - name: Create zip archive
+        run: |
+          cd deployment
+          zip -r ../release.zip .
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: clean-deployment/
+          path: release.zip
 
   deploy:
     runs-on: ubuntu-latest
@@ -99,5 +83,5 @@ jobs:
           app-name: 'scribe-server-dev'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_947D34B0D69C4986A7E211253893C796 }}
-          package: .
-          clean: true # Explicitly clean the wwwroot directory
+          package: release.zip # Deploy the zip file directly
+          clean: true # Ensures wwwroot is wiped before deployment
