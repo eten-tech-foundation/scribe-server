@@ -19,12 +19,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Node.js version
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '22.15.0'
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: 9
 
@@ -37,30 +37,26 @@ jobs:
       - name: Build application
         run: pnpm build
 
+      - name: Install production dependencies
+        run: |
+          # Clean install production dependencies
+          rm -rf node_modules
+          pnpm install --frozen-lockfile --prod
+
       - name: Create deployment package
         run: |
-          # Create deployment directory
+          # Create deployment directory with built files
           mkdir deployment-package
-          
-          # Copy built application
           cp -r dist deployment-package/
-          
-          # Copy package files
+          cp -r node_modules deployment-package/
           cp package.json deployment-package/
           cp pnpm-lock.yaml deployment-package/
-          
-          # Copy production dependencies only
-          cp -r node_modules deployment-package/
-          
-          # Create zip for deployment
-          cd deployment-package
-          zip -r ../release.zip .
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: release.zip
+          path: deployment-package/
 
   deploy:
     runs-on: ubuntu-latest
@@ -74,9 +70,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-app
-
-      - name: Unzip artifact for deployment
-        run: unzip release.zip
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
