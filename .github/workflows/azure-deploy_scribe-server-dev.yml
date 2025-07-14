@@ -71,6 +71,40 @@ jobs:
         with:
           name: node-app
 
+      - name: Clean and prepare deployment
+        run: |
+          # Create cleanup script
+          cat > cleanup.ps1 << 'EOF'
+          # PowerShell script to clean wwwroot
+          $webappPath = $env:WEBSITE_SITE_PATH
+          if ($webappPath) {
+            Get-ChildItem -Path $webappPath -Recurse | Remove-Item -Force -Recurse
+            Write-Host "Cleaned wwwroot directory"
+          }
+          EOF
+
+          # Create deployment script
+          cat > deploy.cmd << 'EOF'
+          @echo off
+          echo Cleaning deployment directory...
+
+          REM Clean everything except the new deployment files
+          for /f "delims=" %%i in ('dir /b /a-d') do (
+            if not "%%i"=="dist" if not "%%i"=="node_modules" if not "%%i"=="package.json" if not "%%i"=="deploy.cmd" (
+              del "%%i" 2>nul
+            )
+          )
+
+          REM Clean directories except our deployment dirs
+          for /f "delims=" %%i in ('dir /b /ad') do (
+            if not "%%i"=="dist" if not "%%i"=="node_modules" (
+              rmdir /s /q "%%i" 2>nul
+            )
+          )
+
+          echo Deployment directory cleaned
+          EOF
+
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
