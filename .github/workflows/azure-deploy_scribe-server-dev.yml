@@ -31,28 +31,49 @@ jobs:
       - name: Build Project
         run: pnpm run build
 
-      - name: Prepare Deploy Folder
+      - name: Create Production Package
         run: |
           mkdir deploy
-          cp -r dist package.json deploy/
-          [ -f .npmrc ] && cp .npmrc deploy/
-          cd deploy
-          # Use npm for deployment to avoid dependency resolution issues
-          npm install --production
-
-      - name: Add Start Script
-        run: |
-          cd deploy
+          cp -r dist deploy/
+          
+          # Create minimal production package.json
           node -e "
             const fs = require('fs');
-            const pkg = require('./package.json');
-            pkg.scripts = pkg.scripts || {};
-            pkg.scripts.start = 'node dist/src/index.js';
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+            const originalPkg = require('./package.json');
+            const productionPkg = {
+              name: originalPkg.name,
+              version: originalPkg.version,
+              type: originalPkg.type,
+              main: 'dist/src/index.js',
+              scripts: {
+                start: 'node dist/src/index.js'
+              },
+              dependencies: originalPkg.dependencies,
+              engines: {
+                node: '>=22.0.0'
+              }
+            };
+            fs.writeFileSync('deploy/package.json', JSON.stringify(productionPkg, null, 2));
           "
 
-      - name: Show Deploy Folder Contents (Debug)
-        run: ls -R deploy
+      - name: Install Production Dependencies
+        run: |
+          cd deploy
+          npm install --production --no-audit --no-fund
+
+      - name: Create .deployment file
+        run: |
+          echo '[config]' > deploy/.deployment
+          echo 'SCM_DO_BUILD_DURING_DEPLOYMENT=false' >> deploy/.deployment
+
+      - name: Show Deploy Contents (Debug)
+        run: |
+          echo "=== Deploy folder structure ==="
+          find deploy -type f -name "*.json" -o -name "*.js" | head -20
+          echo "=== package.json contents ==="
+          cat deploy/package.json
+          echo "=== .deployment contents ==="
+          cat deploy/.deployment
 
       - name: Zip Deploy Folder
         run: |
@@ -69,7 +90,7 @@ jobs:
       - name: Test Deployment
         run: |
           echo "Waiting for deployment to complete..."
-          sleep 60
+          sleep 90
 
           echo "=== Testing Root URL ==="
           curl -v -s -w "\nHTTP Status: %{http_code}\nResponse Time: %{time_total}s\n" \
