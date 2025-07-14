@@ -1,7 +1,4 @@
-#
 # Deploys a Node.js app to an Azure Web App on Linux
-#
-
 name: Build and deploy Node.js app to Azure Web App - scribe-server-dev
 
 on:
@@ -25,19 +22,24 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '22.x'
-          cache: 'npm'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build the app (tsc + tsc-alias)
-        run: npm run build
+        run: pnpm run build
 
       - name: Run tests (optional)
-        run: npm run test || echo "No tests found or tests failed"
+        run: pnpm run test || echo "No tests found or tests failed"
 
       - name: Prune dev dependencies
-        run: npm prune --omit=dev
+        run: pnpm prune --prod
 
       - name: Clean up dev-only files
         run: |
@@ -46,7 +48,8 @@ jobs:
 
       - name: Create deployment package
         run: |
-          zip -r release.zip . -x "*.zip" #
+          zip -r release.zip . -x "*.zip"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
