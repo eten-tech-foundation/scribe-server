@@ -1,10 +1,9 @@
+import 'dotenv/config';
 import { serve } from '@hono/node-server';
 
 import app from './app';
 
-import env from './env';
-
-const port = env.PORT;
+const port = parseInt(process.env.PORT || '9999');
 // eslint-disable-next-line no-console
 console.log(`Server is running on port http://localhost:${port}`);
 
