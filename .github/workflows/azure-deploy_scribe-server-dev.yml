@@ -43,20 +43,41 @@ jobs:
           rm -rf node_modules
           pnpm install --frozen-lockfile --prod
 
-      - name: Create deployment package
+      - name: Create clean deployment package
         run: |
-          # Create deployment directory with built files
-          mkdir deployment-package
-          cp -r dist deployment-package/
-          cp -r node_modules deployment-package/
-          cp package.json deployment-package/
-          cp pnpm-lock.yaml deployment-package/
+          # Create a completely clean deployment directory
+          mkdir clean-deployment
+
+          # Copy ONLY what we need for production
+          cp -r dist clean-deployment/
+          cp -r node_modules clean-deployment/
+          cp package.json clean-deployment/
+
+          # Create a simple web.config for better Azure routing
+          cat > clean-deployment/web.config << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <system.webServer>
+              <handlers>
+                <add name="iisnode" path="dist/src/index.js" verb="*" modules="iisnode"/>
+              </handlers>
+              <rewrite>
+                <rules>
+                  <rule name="DynamicContent">
+                    <match url="/*" />
+                    <action type="Rewrite" url="dist/src/index.js"/>
+                  </rule>
+                </rules>
+              </rewrite>
+            </system.webServer>
+          </configuration>
+          EOF
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: deployment-package/
+          path: clean-deployment/
 
   deploy:
     runs-on: ubuntu-latest
@@ -71,39 +92,30 @@ jobs:
         with:
           name: node-app
 
-      - name: Clean and prepare deployment
+      - name: Clean wwwroot using Kudu API
         run: |
-          # Create cleanup script
-          cat > cleanup.ps1 << 'EOF'
-          # PowerShell script to clean wwwroot
-          $webappPath = $env:WEBSITE_SITE_PATH
-          if ($webappPath) {
-            Get-ChildItem -Path $webappPath -Recurse | Remove-Item -Force -Recurse
-            Write-Host "Cleaned wwwroot directory"
-          }
-          EOF
+          # Get publish profile credentials
+          PUBLISH_PROFILE='${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_947D34B0D69C4986A7E211253893C796 }}'
 
-          # Create deployment script
-          cat > deploy.cmd << 'EOF'
-          @echo off
-          echo Cleaning deployment directory...
+          # Extract username and password from publish profile
+          USERNAME=$(echo "$PUBLISH_PROFILE" | grep -o 'userName="[^"]*"' | cut -d'"' -f2)
+          PASSWORD=$(echo "$PUBLISH_PROFILE" | grep -o 'userPWD="[^"]*"' | cut -d'"' -f2)
 
-          REM Clean everything except the new deployment files
-          for /f "delims=" %%i in ('dir /b /a-d') do (
-            if not "%%i"=="dist" if not "%%i"=="node_modules" if not "%%i"=="package.json" if not "%%i"=="deploy.cmd" (
-              del "%%i" 2>nul
-            )
-          )
+          # Clean wwwroot directory using Kudu API
+          echo "Cleaning wwwroot directory..."
+          curl -X POST "https://scribe-server-dev.scm.azurewebsites.net/api/command" \
+            -H "Content-Type: application/json" \
+            -d '{"command": "rmdir /s /q D:\\home\\site\\wwwroot", "dir": "D:\\home\\site"}' \
+            -u "$USERNAME:$PASSWORD" || echo "Clean command executed"
 
-          REM Clean directories except our deployment dirs
-          for /f "delims=" %%i in ('dir /b /ad') do (
-            if not "%%i"=="dist" if not "%%i"=="node_modules" (
-              rmdir /s /q "%%i" 2>nul
-            )
-          )
+          # Recreate wwwroot directory
+          curl -X POST "https://scribe-server-dev.scm.azurewebsites.net/api/command" \
+            -H "Content-Type: application/json" \
+            -d '{"command": "mkdir D:\\home\\site\\wwwroot", "dir": "D:\\home\\site"}' \
+            -u "$USERNAME:$PASSWORD" || echo "Recreate command executed"
 
-          echo Deployment directory cleaned
-          EOF
+          # Wait a moment for cleanup
+          sleep 5
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
