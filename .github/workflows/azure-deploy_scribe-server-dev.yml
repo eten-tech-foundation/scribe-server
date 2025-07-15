@@ -1,7 +1,4 @@
-#
 # Deploys a Node.js app to an Azure Web App on Linux
-#
-
 name: Build and deploy Node.js app to Azure Web App - scribe-server-dev
 
 on:
@@ -20,53 +17,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js version
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22.15.0'
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Type check
-        run: pnpm typecheck
-
-      - name: Build application
-        run: pnpm build
-
-      - name: Check entrypoint works
-        run: node dist/src/index.js &
-
-      - name: Install production-only dependencies
-        run: |
-          rm -rf node_modules
-          pnpm install --frozen-lockfile --prod
-
-      - name: Create deployment package directory
-        run: mkdir -p deployment
-
-      - name: Copy production files to deployment package
-        run: |
-          cp -r dist deployment/
-          cp -r node_modules deployment/
-          cp package.json deployment/
-          cp pnpm-lock.yaml deployment/
-
-      - name: Create zip archive
-        run: |
-          cd deployment
-          zip -r ../release.zip .
-
-      - name: Upload artifact for deployment job
+      - name: Upload entire repository as artifact for deployment
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: release.zip
+          path: .
 
   deploy:
     runs-on: ubuntu-latest
@@ -80,13 +35,29 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-app
+          path: .
 
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'scribe-server-dev'
-          slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_947D34B0D69C4986A7E211253893C796 }}
-          package: release.zip
+          package: .
           clean: true
+
+      - name: Verify deployment (with retry logic)
+        run: |
+          echo "Waiting for app to start..."
+          for i in $(seq 1 10); do
+            response=$(curl -s -o /dev/null -w "%{http_code}" https://scribe-server-dev.azurewebsites.net)
+            if [ "$response" -ge 200 ] && [ "$response" -lt 400 ]; then
+              echo "App is up and running (HTTP $response)."
+              exit 0
+            else
+              echo "App not ready yet (HTTP $response). Retrying in 10 seconds..."
+              sleep 10
+            fi
+          done
+          echo "App did not become ready within the timeout."
+          exit 1
