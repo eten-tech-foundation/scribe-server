@@ -17,11 +17,47 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Upload entire repository as artifact for deployment
+      - name: Set up Node.js version
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.15.0'
+
+      - name: Install all dependencies (for build and typecheck using npm)
+        run: npm install --legacy-peer-deps
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build application
+        run: npm run build
+
+      - name: Check entrypoint works locally (optional, for quick validation)
+        run: |
+          node dist/src/index.js &
+          sleep 5 # Give the app a moment to start
+          kill %1 || true # Kill the background process, '|| true' prevents failure if process already exited
+
+      - name: Create deployment package directory
+        run: mkdir -p deployment
+
+      - name: Copy production files to deployment package
+        run: |
+          cp -r dist deployment/
+          cp package.json deployment/
+          # If you want deterministic builds on Azure, you should commit package-lock.json
+          # and copy it here. If not, npm will generate it on the fly in the next step.
+          cp package-lock.json deployment/ || true # Copy if exists, don't fail if not
+
+      - name: Install production-only dependencies in deployment package (using npm)
+        run: |
+          cd deployment
+          npm install --prod --legacy-peer-deps # --legacy-peer-deps can help avoid issues with peer dependency warnings/errors
+
+      - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: deployment/
 
   deploy:
     runs-on: ubuntu-latest
@@ -35,7 +71,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-app
-          path: .
+          path: deployment/
 
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
@@ -43,7 +79,7 @@ jobs:
         with:
           app-name: 'scribe-server-dev'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_947D34B0D69C4986A7E211253893C796 }}
-          package: .
+          package: deployment/
           clean: true
 
       - name: Verify deployment (with retry logic)
