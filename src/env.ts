@@ -20,6 +20,7 @@ const EnvSchema = z.object({
   DATABASE_URL: z.string().url(),
   AUTH0_DOMAIN: z.string(),
   AUTH0_AUDIENCE: z.string(),
+  APPLICATIONINSIGHTS_CONNECTION_STRING: z.string(),
 });
 
 export type env = z.infer<typeof EnvSchema>;

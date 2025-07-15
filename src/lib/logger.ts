@@ -1,5 +1,6 @@
 import appInsights from 'applicationinsights';
 import pino from 'pino';
+import env from '@/env';
 
 // Locally defined SeverityLevel enum matching Application Insights
 enum SeverityLevel {
@@ -12,8 +13,8 @@ enum SeverityLevel {
 
 let logger: any;
 
-if (process.env.NODE_ENV === 'production') {
-  const connectionString = process.env.APPLICATIONINSIGHTS_CONNECTION_STRING;
+if (env.NODE_ENV === 'production') {
+  const connectionString = env.APPLICATIONINSIGHTS_CONNECTION_STRING;
   if (connectionString) {
     appInsights.setup(connectionString).start();
   } else {
