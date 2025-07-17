@@ -1,18 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { sampleUsers, resetAllMocks } from '@/test/utils/test-helpers';
-import { 
-  createUser, 
-  deleteUser, 
-  getAllUsers, 
-  getUserByEmail, 
-  getUserById, 
-  toggleUserStatus, 
-  updateUser 
+import {
+  createUser,
+  deleteUser,
+  getAllUsers,
+  getUserByEmail,
+  getUserById,
+  toggleUserStatus,
+  updateUser,
 } from './users.handlers';
 import { db } from '@/db';
 import { logger } from '@/lib/logger';
 
-// Mock the database module
 vi.mock('@/db', () => ({
   db: {
     select: vi.fn(),
@@ -22,7 +21,6 @@ vi.mock('@/db', () => ({
   },
 }));
 
-// Mock the logger module
 vi.mock('@/lib/logger', () => ({
   logger: {
     debug: vi.fn(),
@@ -43,7 +41,10 @@ describe('User Handler Functions', () => {
 
   describe('getAllUsers', () => {
     it('should return all users', async () => {
-      const mockUsers = [mockUser, { ...mockUser, id: 'user2-id', email: 'user2@example.com', username: 'user2' }];
+      const mockUsers = [
+        mockUser,
+        { ...mockUser, id: 'user2-id', email: 'user2@example.com', username: 'user2' },
+      ];
 
       (db.select as any).mockReturnValue({
         from: vi.fn().mockResolvedValue(mockUsers),
@@ -123,12 +124,12 @@ describe('User Handler Functions', () => {
 
   describe('createUser', () => {
     it('should create and return a new user', async () => {
-      const createdUser = { 
-        id: 'uuid-123', 
-        ...mockUserInput, 
-        createdAt: new Date(), 
-        updatedAt: new Date(), 
-        isActive: true 
+      const createdUser = {
+        id: 'uuid-123',
+        ...mockUserInput,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isActive: true,
       };
 
       (db.insert as any).mockReturnValue({
@@ -141,7 +142,7 @@ describe('User Handler Functions', () => {
 
       expect(logger.debug).toHaveBeenCalledWith('Creating new user', {
         username: mockUserInput.username,
-        email: mockUserInput.email
+        email: mockUserInput.email,
       });
       expect(result).toEqual(createdUser);
     });
@@ -151,7 +152,6 @@ describe('User Handler Functions', () => {
     it('should update and return the user when it exists', async () => {
       const updatedUser = { ...mockUser, ...updateData };
 
-      // Mock getUserById to return existing user
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -160,7 +160,6 @@ describe('User Handler Functions', () => {
         }),
       });
 
-      // Mock update operation
       (db.update as any).mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -171,7 +170,10 @@ describe('User Handler Functions', () => {
 
       const result = await updateUser(mockUser.id, updateData);
 
-      expect(logger.debug).toHaveBeenCalledWith(`Updating user with id: ${mockUser.id}`, updateData);
+      expect(logger.debug).toHaveBeenCalledWith(
+        `Updating user with id: ${mockUser.id}`,
+        updateData
+      );
       expect(result).toEqual(updatedUser);
     });
 
@@ -193,7 +195,6 @@ describe('User Handler Functions', () => {
 
   describe('deleteUser', () => {
     it('should delete the user and return true when it exists', async () => {
-      // Mock getUserById to return existing user
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -202,7 +203,6 @@ describe('User Handler Functions', () => {
         }),
       });
 
-      // Mock delete operation
       (db.delete as any).mockReturnValue({
         where: vi.fn().mockResolvedValue({ count: 1 }),
       });
@@ -224,12 +224,13 @@ describe('User Handler Functions', () => {
 
       const result = await deleteUser('nonexistent-id');
 
-      expect(logger.warn).toHaveBeenCalledWith('User with id nonexistent-id not found for deletion');
+      expect(logger.warn).toHaveBeenCalledWith(
+        'User with id nonexistent-id not found for deletion'
+      );
       expect(result).toBe(false);
     });
 
     it('should return false when delete operation fails', async () => {
-      // Mock getUserById to return existing user
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -238,7 +239,6 @@ describe('User Handler Functions', () => {
         }),
       });
 
-      // Mock delete operation to return 0 count
       (db.delete as any).mockReturnValue({
         where: vi.fn().mockResolvedValue({ count: 0 }),
       });
@@ -253,7 +253,6 @@ describe('User Handler Functions', () => {
     it('should toggle user status and return updated user', async () => {
       const toggledUser = { ...mockUser, isActive: !mockUser.isActive };
 
-      // Mock getUserById to return existing user
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -262,7 +261,6 @@ describe('User Handler Functions', () => {
         }),
       });
 
-      // Mock update operation
       (db.update as any).mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -288,7 +286,9 @@ describe('User Handler Functions', () => {
 
       const result = await toggleUserStatus('nonexistent-id');
 
-      expect(logger.warn).toHaveBeenCalledWith('User with id nonexistent-id not found for status toggle');
+      expect(logger.warn).toHaveBeenCalledWith(
+        'User with id nonexistent-id not found for status toggle'
+      );
       expect(result).toBeNull();
     });
   });
