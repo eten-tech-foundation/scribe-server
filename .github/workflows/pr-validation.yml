@@ -28,14 +28,14 @@ jobs:
 
       - name: Lint and format check
         run: |
-          pnpm lint --if-present
-          pnpm format:check --if-present
+          pnpm lint
+          pnpm format:check
 
       - name: Type check
         run: pnpm typecheck
 
       - name: Run tests
-        run: pnpm test --if-present
+        run: pnpm test
 
       - name: Build test
         run: pnpm build

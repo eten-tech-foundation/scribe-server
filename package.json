@@ -8,7 +8,7 @@
     "start": "node ./dist/src/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "lint:fix": "npm run lint --fix",
+    "lint:fix": "eslint . --fix",
     "test": "cross-env NODE_ENV=test vitest",
     "build": "tsc && tsc-alias",
     "format": "prettier --write .",
