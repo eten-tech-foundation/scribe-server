@@ -8,6 +8,20 @@
       "when": 1751976312222,
       "tag": "0000_chubby_wasp",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1753189638446,
+      "tag": "0001_fast_talos",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1753189743965,
+      "tag": "0002_amusing_vivisector",
+      "breakpoints": true
     }
   ]
 }

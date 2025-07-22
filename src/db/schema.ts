@@ -1,15 +1,24 @@
 import { z } from '@hono/zod-openapi';
-import { boolean, pgTable, uuid, varchar, timestamp, serial } from 'drizzle-orm/pg-core';
+import { boolean, pgTable, varchar, timestamp, serial, integer } from 'drizzle-orm/pg-core';
 import { createSchemaFactory } from 'drizzle-zod';
 
+export const roles = pgTable('roles', {
+  id: serial('id').primaryKey(),  
+  name: varchar('name').notNull().unique(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
 export const users = pgTable('users', {
-  id: uuid('id').primaryKey().defaultRandom(),
+  id: serial('id').primaryKey(),
   username: varchar('username', { length: 100 }).notNull().unique(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   firstName: varchar('first_name', { length: 100 }),
   lastName: varchar('last_name', { length: 100 }),
-  role: uuid('role').notNull(),
-  createdBy: uuid('created_by'),
+  role: integer('role').notNull().references(() => roles.id),
+  createdBy: integer('created_by'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
@@ -42,11 +51,12 @@ export const insertUsersSchema = createInsertSchema(users, {
 
 export const patchUsersSchema = insertUsersSchema.partial();
 
-export const roles = pgTable('roles', {
-  id: serial('id').primaryKey(),  
-  name: varchar('name').notNull().unique(),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => new Date()),
+export const selectRolesSchema = createSelectSchema(roles);
+export const insertRolesSchema = createInsertSchema(roles, {
+  name: (str) => str.min(1).max(255),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
+export const patchRolesSchema = insertRolesSchema.partial();
