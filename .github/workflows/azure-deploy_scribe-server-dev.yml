@@ -5,15 +5,20 @@ on:
   push:
     branches:
       - main
-      - ft/azure-deploy
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,26 +27,33 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.15.0'
+          cache: 'npm'
 
       - name: Install all dependencies
         run: npm install --legacy-peer-deps
 
+      - name: Lint and format check
+        run: |
+          npm run lint --if-present
+          npm run format:check --if-present
+
       - name: Type check
         run: npm run typecheck
+
+      - name: Run tests
+        run: npm test --if-present
 
       - name: Build application
         run: npm run build
 
       - name: Create deployment package directory
-        run: mkdir -p deployment
-
-      - name: Copy production files to deployment package
         run: |
+          mkdir -p deployment
           cp -r dist deployment/
           cp package.json deployment/
           cp package-lock.json deployment/ || true
 
-      - name: Install production-only dependencies in deployment package (using npm)
+      - name: Install production dependencies
         run: |
           cd deployment
           npm install --prod --legacy-peer-deps
@@ -52,13 +64,13 @@ jobs:
           name: node-app
           path: deployment/
 
-  deploy:
+  deploy-dev:
     runs-on: ubuntu-latest
     needs: build
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'dev')
     environment:
-      name: 'Production'
+      name: 'Development'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
@@ -75,18 +87,57 @@ jobs:
           package: deployment/
           clean: true
 
-      - name: Verify deployment (with retry logic)
+      - name: Verify deployment
         run: |
-          echo "Waiting for app to start..."
+          sleep 30
           for i in $(seq 1 10); do
-            response=$(curl -s -o /dev/null -w "%{http_code}" https://scribe-server-dev.azurewebsites.net)
+            response=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.deploy-to-webapp.outputs.webapp-url }})
             if [ "$response" -ge 200 ] && [ "$response" -lt 400 ]; then
-              echo "App is up and running (HTTP $response)."
+              echo "Dev deployment successful (HTTP $response)"
               exit 0
             else
               echo "App not ready yet (HTTP $response). Retrying in 10 seconds..."
               sleep 10
             fi
           done
-          echo "App did not become ready within the timeout."
+          echo "Dev deployment verification failed"
+          exit 1
+
+  deploy-prod:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod'
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: node-app
+          path: deployment/
+
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'scribe-server-prod'
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_PROD }}
+          package: deployment/
+          clean: true
+
+      - name: Verify deployment
+        run: |
+          sleep 45
+          for i in $(seq 1 12); do
+            response=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.deploy-to-webapp.outputs.webapp-url }})
+            if [ "$response" -ge 200 ] && [ "$response" -lt 400 ]; then
+              echo "Production deployment successful (HTTP $response)"
+              exit 0
+            else
+              echo "App not ready yet (HTTP $response). Retrying in 15 seconds..."
+              sleep 15
+            fi
+          done
+          echo "Production deployment verification failed"
           exit 1
