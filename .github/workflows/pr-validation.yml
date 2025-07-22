@@ -17,21 +17,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.15.0'
-          cache: 'npm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: pnpm install
 
       - name: Lint and format check
         run: |
-          npm run lint --if-present
-          npm run format:check --if-present
+          pnpm lint --if-present
+          pnpm format:check --if-present
 
       - name: Type check
-        run: npm run typecheck
+        run: pnpm typecheck
 
       - name: Run tests
-        run: npm test --if-present
+        run: pnpm test --if-present
 
       - name: Build test
-        run: npm run build
+        run: pnpm build
