@@ -1,0 +1,37 @@
+# Validates Pull Requests by running linting, testing, and type checking.
+# This workflow runs on every PR targeting the 'main' branch.
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js version
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.15.0'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Lint and format check
+        run: |
+          npm run lint --if-present
+          npm run format:check --if-present
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test --if-present
+
+      - name: Build test
+        run: npm run build
