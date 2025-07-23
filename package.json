@@ -38,6 +38,7 @@
     "cross-env": "^7.0.3",
     "drizzle-kit": "^0.31.1",
     "eslint": "^9.28.0",
+    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-format": "^1.0.1",
     "prettier": "^3.5.3",
     "tsc-alias": "^1.8.16",
