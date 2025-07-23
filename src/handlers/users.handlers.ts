@@ -1,9 +1,11 @@
 import type { z } from '@hono/zod-openapi';
+
 import { eq, or } from 'drizzle-orm';
 
 import type { insertUsersSchema, patchUsersSchema, selectUsersSchema } from '@/db/schema';
-import { users } from '@/db/schema';
+
 import { db } from '@/db';
+import { users } from '@/db/schema';
 import { logger } from '@/lib/logger';
 
 export type User = z.infer<typeof selectUsersSchema>;
@@ -44,19 +46,19 @@ export async function getUserByEmailOrUsername(identifier: string): Promise<User
 }
 
 export async function createUser(input: CreateUserInput): Promise<User> {
-  logger.debug('Creating new user', { 
-    username: input.username, 
-    email: input.email 
+  logger.debug('Creating new user', {
+    username: input.username,
+    email: input.email,
   });
-  
+
   const [inserted] = await db.insert(users).values(input).returning();
-  
-  logger.info('User created successfully', { 
-    id: inserted.id, 
-    username: inserted.username, 
-    email: inserted.email 
+
+  logger.info('User created successfully', {
+    id: inserted.id,
+    username: inserted.username,
+    email: inserted.email,
   });
-  
+
   return inserted;
 }
 
@@ -72,15 +74,15 @@ export async function updateUser(id: string, input: UpdateUserInput): Promise<Us
 
   // Update the user
   const [updated] = await db.update(users).set(input).where(eq(users.id, id)).returning();
-  
+
   if (updated) {
-    logger.info('User updated successfully', { 
-      id: updated.id, 
-      username: updated.username, 
-      email: updated.email 
+    logger.info('User updated successfully', {
+      id: updated.id,
+      username: updated.username,
+      email: updated.email,
     });
   }
-  
+
   return updated || null;
 }
 
@@ -95,15 +97,15 @@ export async function deleteUser(id: string): Promise<boolean> {
   }
 
   const result = await db.delete(users).where(eq(users.id, id));
-  
+
   if (result.count > 0) {
-    logger.info('User deleted successfully', { 
-      id: existingUser.id, 
-      username: existingUser.username, 
-      email: existingUser.email 
+    logger.info('User deleted successfully', {
+      id: existingUser.id,
+      username: existingUser.username,
+      email: existingUser.email,
     });
   }
-  
+
   return result.count > 0;
 }
 
@@ -123,16 +125,16 @@ export async function toggleUserStatus(id: string): Promise<User | null> {
     .set({ isActive: newStatus })
     .where(eq(users.id, id))
     .returning();
-  
+
   if (updated) {
-    logger.info('User status toggled successfully', { 
-      id: updated.id, 
-      username: updated.username, 
+    logger.info('User status toggled successfully', {
+      id: updated.id,
+      username: updated.username,
       email: updated.email,
-      isActive: updated.isActive 
+      isActive: updated.isActive,
     });
   }
-  
+
   return updated || null;
 }
 
@@ -174,15 +176,15 @@ export async function activateUser(id: string): Promise<User | null> {
     .set({ isActive: true })
     .where(eq(users.id, id))
     .returning();
-  
+
   if (updated) {
-    logger.info('User activated successfully', { 
-      id: updated.id, 
-      username: updated.username, 
-      email: updated.email 
+    logger.info('User activated successfully', {
+      id: updated.id,
+      username: updated.username,
+      email: updated.email,
     });
   }
-  
+
   return updated || null;
 }
 
@@ -206,14 +208,14 @@ export async function deactivateUser(id: string): Promise<User | null> {
     .set({ isActive: false })
     .where(eq(users.id, id))
     .returning();
-  
+
   if (updated) {
-    logger.info('User deactivated successfully', { 
-      id: updated.id, 
-      username: updated.username, 
-      email: updated.email 
+    logger.info('User deactivated successfully', {
+      id: updated.id,
+      username: updated.username,
+      email: updated.email,
     });
   }
-  
+
   return updated || null;
 }

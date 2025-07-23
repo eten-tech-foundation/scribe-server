@@ -224,8 +224,9 @@ Routes are defined using `createRoute` from `@hono/zod-openapi` and registered w
 
 ```typescript
 import { createRoute } from '@hono/zod-openapi';
-import { server } from '@/server/server';
+
 import * as featureHandler from '@/handlers/feature.handler';
+import { server } from '@/server/server';
 
 const listRoute = createRoute({
   tags: ['Feature'],
@@ -249,8 +250,8 @@ Handlers contain pure business logic and database operations:
 
 ```typescript
 import { db } from '@/db';
-import { logger } from '@/lib/logger';
 import { features } from '@/db/schema';
+import { logger } from '@/lib/logger';
 
 export async function getAllFeatures(): Promise<Feature[]> {
   logger.debug('Fetching all features');
@@ -277,7 +278,7 @@ We use **Vitest** for testing. Tests are placed next to the code they test:
 Use the shared test utilities in `src/test/utils/test-helpers.ts`:
 
 ```typescript
-import { createMockContext, sampleTasks, resetAllMocks } from '@/test/utils/test-helpers';
+import { createMockContext, resetAllMocks, sampleTasks } from '@/test/utils/test-helpers';
 ```
 
 Available utilities:
@@ -291,8 +292,9 @@ Available utilities:
 Follow the existing test patterns in `src/handlers/task.handler.test.ts`:
 
 ```typescript
-import { describe, it, expect, beforeEach } from 'vitest';
-import { createMockContext, sampleTasks, resetAllMocks } from '@/test/utils/test-helpers';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { createMockContext, resetAllMocks, sampleTasks } from '@/test/utils/test-helpers';
 
 describe('Feature Handler', () => {
   beforeEach(() => {
@@ -381,8 +383,8 @@ import { z } from '@hono/zod-openapi';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 
 import { selectTasksSchema } from '@/db/schema';
-import { logger } from '@/lib/logger';
 import * as taskHandler from '@/handlers/task.handler';
+import { logger } from '@/lib/logger';
 import { server } from '@/server/server';
 ```
 

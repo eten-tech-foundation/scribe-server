@@ -1,5 +1,5 @@
 import { z } from '@hono/zod-openapi';
-import { boolean, pgTable, uuid, varchar, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 import { createSchemaFactory } from 'drizzle-zod';
 
 export const users = pgTable('users', {

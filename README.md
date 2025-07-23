@@ -189,19 +189,19 @@ The project includes a complete **Tasks** feature implementation demonstrating t
 
 ### Protected Endpoints (Require Auth0 JWT)
 
-| Method | Path             | Description              |
-| ------ | ---------------- | ------------------------ |
-| GET    | `/api/protected` | Protected user data      |
+| Method | Path             | Description         |
+| ------ | ---------------- | ------------------- |
+| GET    | `/api/protected` | Protected user data |
 
 ### Task Management (Examples)
 
-| Method | Path          | Description              |
-| ------ | ------------- | ------------------------ |
-| GET    | `/tasks`      | List all tasks           |
-| POST   | `/tasks`      | Create a task            |
-| GET    | `/tasks/{id}` | Get one task by id       |
-| PATCH  | `/tasks/{id}` | Update one task by id    |
-| DELETE | `/tasks/{id}` | Delete one task by id    |
+| Method | Path          | Description           |
+| ------ | ------------- | --------------------- |
+| GET    | `/tasks`      | List all tasks        |
+| POST   | `/tasks`      | Create a task         |
+| GET    | `/tasks/{id}` | Get one task by id    |
+| PATCH  | `/tasks/{id}` | Update one task by id |
+| DELETE | `/tasks/{id}` | Delete one task by id |
 
 ## Contributing
 

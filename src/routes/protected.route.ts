@@ -3,8 +3,8 @@ import { z } from '@hono/zod-openapi';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 import { jsonContent } from 'stoker/openapi/helpers';
 
-import { auth0Middleware } from '@/middlewares/auth0';
 import { logger } from '@/lib/logger';
+import { auth0Middleware } from '@/middlewares/auth0';
 import { server } from '@/server/server';
 
 // Schema for protected endpoint response
@@ -40,10 +40,7 @@ const protectedDataRoute = createRoute({
   method: 'get',
   path: '/api/protected',
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      protectedDataSchema,
-      'Authenticated user data'
-    ),
+    [HttpStatusCodes.OK]: jsonContent(protectedDataSchema, 'Authenticated user data'),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       z.object({
         error: z.string(),
@@ -60,23 +57,26 @@ const protectedDataRoute = createRoute({
 server.use('/api/protected', auth0Middleware);
 server.openapi(protectedDataRoute, async (c) => {
   const user = c.get('jwtPayload');
-  
+
   logger.info('Protected endpoint accessed', { userId: user?.sub });
-  
-  return c.json({
-    message: '🔒 This is protected data - you are authenticated!',
-    timestamp: new Date().toISOString(),
-    user: {
-      id: user?.sub,
-      email: user?.email,
-      name: user?.name,
+
+  return c.json(
+    {
+      message: '🔒 This is protected data - you are authenticated!',
+      timestamp: new Date().toISOString(),
+      user: {
+        id: user?.sub,
+        email: user?.email,
+        name: user?.name,
+      },
+      data: {
+        secretCode: 'ABC123XYZ',
+        level: 'premium',
+        features: ['feature1', 'feature2', 'feature3'],
+      },
     },
-    data: {
-      secretCode: 'ABC123XYZ',
-      level: 'premium',
-      features: ['feature1', 'feature2', 'feature3'],
-    },
-  }, HttpStatusCodes.OK);
+    HttpStatusCodes.OK
+  );
 });
 
 // Public endpoint (no authentication required)
@@ -85,10 +85,7 @@ const publicDataRoute = createRoute({
   method: 'get',
   path: '/api/public',
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      publicDataSchema,
-      'Public data available to everyone'
-    ),
+    [HttpStatusCodes.OK]: jsonContent(publicDataSchema, 'Public data available to everyone'),
   },
   summary: 'Get public data',
   description: 'Returns public data that anyone can access',
@@ -96,14 +93,17 @@ const publicDataRoute = createRoute({
 
 server.openapi(publicDataRoute, async (c) => {
   logger.info('Public endpoint accessed');
-  
-  return c.json({
-    message: '🌍 This is public data - no authentication required!',
-    timestamp: new Date().toISOString(),
-    data: {
-      publicInfo: 'This is available to everyone',
-      version: '1.0.0',
-      features: ['basic-feature1', 'basic-feature2'],
+
+  return c.json(
+    {
+      message: '🌍 This is public data - no authentication required!',
+      timestamp: new Date().toISOString(),
+      data: {
+        publicInfo: 'This is available to everyone',
+        version: '1.0.0',
+        features: ['basic-feature1', 'basic-feature2'],
+      },
     },
-  }, HttpStatusCodes.OK);
-}); 
+    HttpStatusCodes.OK
+  );
+});

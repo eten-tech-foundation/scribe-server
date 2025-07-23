@@ -1,16 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { sampleUsers, resetAllMocks } from '@/test/utils/test-helpers';
-import { 
-  createUser, 
-  deleteUser, 
-  getAllUsers, 
-  getUserByEmail, 
-  getUserById, 
-  toggleUserStatus, 
-  updateUser 
-} from './users.handlers';
+
 import { db } from '@/db';
 import { logger } from '@/lib/logger';
+import { resetAllMocks, sampleUsers } from '@/test/utils/test-helpers';
+
+import {
+  createUser,
+  deleteUser,
+  getAllUsers,
+  getUserByEmail,
+  getUserById,
+  toggleUserStatus,
+  updateUser,
+} from './users.handlers';
 
 // Mock the database module
 vi.mock('@/db', () => ({
@@ -32,7 +34,7 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-describe('User Handler Functions', () => {
+describe('user Handler Functions', () => {
   const mockUser = sampleUsers.user1;
   const mockUserInput = sampleUsers.newUser;
   const updateData = sampleUsers.updateUser;
@@ -43,7 +45,10 @@ describe('User Handler Functions', () => {
 
   describe('getAllUsers', () => {
     it('should return all users', async () => {
-      const mockUsers = [mockUser, { ...mockUser, id: 'user2-id', email: 'user2@example.com', username: 'user2' }];
+      const mockUsers = [
+        mockUser,
+        { ...mockUser, id: 'user2-id', email: 'user2@example.com', username: 'user2' },
+      ];
 
       (db.select as any).mockReturnValue({
         from: vi.fn().mockResolvedValue(mockUsers),
@@ -123,12 +128,12 @@ describe('User Handler Functions', () => {
 
   describe('createUser', () => {
     it('should create and return a new user', async () => {
-      const createdUser = { 
-        id: 'uuid-123', 
-        ...mockUserInput, 
-        createdAt: new Date(), 
-        updatedAt: new Date(), 
-        isActive: true 
+      const createdUser = {
+        id: 'uuid-123',
+        ...mockUserInput,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isActive: true,
       };
 
       (db.insert as any).mockReturnValue({
@@ -141,7 +146,7 @@ describe('User Handler Functions', () => {
 
       expect(logger.debug).toHaveBeenCalledWith('Creating new user', {
         username: mockUserInput.username,
-        email: mockUserInput.email
+        email: mockUserInput.email,
       });
       expect(result).toEqual(createdUser);
     });
@@ -171,7 +176,10 @@ describe('User Handler Functions', () => {
 
       const result = await updateUser(mockUser.id, updateData);
 
-      expect(logger.debug).toHaveBeenCalledWith(`Updating user with id: ${mockUser.id}`, updateData);
+      expect(logger.debug).toHaveBeenCalledWith(
+        `Updating user with id: ${mockUser.id}`,
+        updateData
+      );
       expect(result).toEqual(updatedUser);
     });
 
@@ -224,7 +232,9 @@ describe('User Handler Functions', () => {
 
       const result = await deleteUser('nonexistent-id');
 
-      expect(logger.warn).toHaveBeenCalledWith('User with id nonexistent-id not found for deletion');
+      expect(logger.warn).toHaveBeenCalledWith(
+        'User with id nonexistent-id not found for deletion'
+      );
       expect(result).toBe(false);
     });
 
@@ -288,7 +298,9 @@ describe('User Handler Functions', () => {
 
       const result = await toggleUserStatus('nonexistent-id');
 
-      expect(logger.warn).toHaveBeenCalledWith('User with id nonexistent-id not found for status toggle');
+      expect(logger.warn).toHaveBeenCalledWith(
+        'User with id nonexistent-id not found for status toggle'
+      );
       expect(result).toBeNull();
     });
   });

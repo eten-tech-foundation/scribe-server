@@ -26,7 +26,7 @@ const RETRYABLE_ERROR_PATTERNS: (string | RegExp)[] = [
 
 // Sleep utility
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // Check if an error is retryable
@@ -39,7 +39,7 @@ function isRetryableError(error: unknown): boolean {
 
   if (isTaggedRetryable) return true;
 
-  return RETRYABLE_ERROR_PATTERNS.some(pattern => {
+  return RETRYABLE_ERROR_PATTERNS.some((pattern) => {
     if (typeof pattern === 'string') {
       return message.includes(pattern) || code === pattern;
     } else {
@@ -54,7 +54,7 @@ export async function withDatabaseRetry<T>(
   options: RetryOptions = {}
 ): Promise<T> {
   const opts = { ...defaultOptions, ...options };
-  let lastError: Error;
+  let lastError = new Error('Operation failed after all retries');
 
   for (let attempt = 1; attempt <= opts.maxRetries; attempt++) {
     try {
@@ -66,10 +66,7 @@ export async function withDatabaseRetry<T>(
         throw lastError;
       }
 
-      const delay = Math.min(
-        opts.baseDelay * Math.pow(opts.backoffFactor, attempt - 1),
-        opts.maxDelay
-      );
+      const delay = Math.min(opts.baseDelay * opts.backoffFactor ** (attempt - 1), opts.maxDelay);
 
       logger.warn('Retrying database operation due to error', {
         attempt,
@@ -82,5 +79,5 @@ export async function withDatabaseRetry<T>(
     }
   }
 
-  throw lastError!;
+  throw lastError;
 }
