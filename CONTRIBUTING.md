@@ -378,8 +378,7 @@ Organize imports following the existing pattern:
 ```typescript
 import type { Context } from 'hono';
 
-import { createRoute } from '@hono/zod-openapi';
-import { z } from '@hono/zod-openapi';
+import { createRoute, z } from '@hono/zod-openapi';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 
 import { selectTasksSchema } from '@/db/schema';
