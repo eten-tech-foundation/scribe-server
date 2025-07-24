@@ -1,9 +1,8 @@
-# Validates Pull Requests by running linting, testing, and type checking.
-# This workflow runs on every PR targeting the 'main' branch.
-name: PR Validation
-
+# Validates Pull Requests by running linting, testing, and type checking
+name: Pre-merge
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
 
 jobs:
@@ -20,7 +19,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Lint and format check
         run: |
@@ -31,7 +30,7 @@ jobs:
         run: npm run typecheck
 
       - name: Run tests
-        run: npm test
+        run: npm run test
 
       - name: Build test
         run: npm run build

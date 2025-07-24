@@ -1,6 +1,5 @@
-# Deploys a Scribe-server Node.js app to an Azure Web App on Linux
-name: Build and deploy Node.js app to Azure Web App - scribe-server-dev
-
+# Deploys Scribe-server Node.js app to Azure Web Apps after merge
+name: Post-merge-deploy
 on:
   push:
     branches:
@@ -34,14 +33,14 @@ jobs:
 
       - name: Lint and format check
         run: |
-          npm run lint --if-present
-          npm run format:check --if-present
+          npm run lint
+          npm run format:check
 
       - name: Type check
         run: npm run typecheck
 
       - name: Run tests
-        run: npm test --if-present
+        run: npm run test
 
       - name: Build application
         run: npm run build

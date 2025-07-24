@@ -1,5 +1,5 @@
-# Auto-cleanup merged branches
-name: Cleanup Merged Branches
+# Auto-cleanup merged branches after PR is closed
+name: PR closed
 
 on:
   pull_request:
