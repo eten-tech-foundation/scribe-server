@@ -56,11 +56,10 @@ const protectedDataRoute = createRoute({
   description: 'Returns protected data for authenticated users',
 });
 
-// Apply Auth0 middleware and register the protected route
 server.use('/api/protected', auth0Middleware);
 server.openapi(protectedDataRoute, async (c) => {
   const user = c.get('jwtPayload');
-  
+
   logger.info('Protected endpoint accessed', { userId: user?.sub });
   
   return c.json({
