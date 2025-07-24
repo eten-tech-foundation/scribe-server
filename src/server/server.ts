@@ -9,6 +9,15 @@ export function createServer() {
     strict: false,
   });
 
+  app.onError((err, c) => {
+    logger.error(`${err.message}`, err, {
+      request: {
+        method: c.req.method,
+        path: c.req.path,
+      },
+    });
+    return c.json({ error: 'Internal Server Error' }, 500);
+  });
   app.use('*', cors());
 
   app.use('*', async (c, next) => {
