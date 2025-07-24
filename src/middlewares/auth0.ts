@@ -1,4 +1,4 @@
-import { MiddlewareHandler } from 'hono';
+import { type MiddlewareHandler } from 'hono';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 import env from '@/env';

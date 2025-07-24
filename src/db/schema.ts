@@ -1,5 +1,5 @@
 import { z } from '@hono/zod-openapi';
-import { boolean, pgTable, uuid, varchar, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, pgTable, uuid, varchar, timestamp, serial, integer } from 'drizzle-orm/pg-core';
 import { createSchemaFactory } from 'drizzle-zod';
 
 export const users = pgTable('users', {
@@ -8,7 +8,7 @@ export const users = pgTable('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   firstName: varchar('first_name', { length: 100 }),
   lastName: varchar('last_name', { length: 100 }),
-  role: uuid('role').notNull(),
+  role: integer('role').notNull(),
   createdBy: uuid('created_by'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
@@ -41,3 +41,12 @@ export const insertUsersSchema = createInsertSchema(users, {
   });
 
 export const patchUsersSchema = insertUsersSchema.partial();
+
+export const roles = pgTable('roles', {
+  id: serial('id').primaryKey(),
+  name: varchar('name').notNull().unique(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
