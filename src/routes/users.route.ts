@@ -1,4 +1,3 @@
-import { createRoute } from '@hono/zod-openapi';
 import { z } from '@hono/zod-openapi';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 import * as HttpStatusPhrases from 'stoker/http-status-phrases';
@@ -8,10 +7,10 @@ import { insertUsersSchema, patchUsersSchema, selectUsersSchema } from '@/db/sch
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import * as userHandler from '@/handlers/users.handlers';
-import { server } from '@/server/server';
+import { createProtectedRoute } from '@/utils/protecteRoute';
 
-// List all users route
-const listUsersRoute = createRoute({
+//list users
+ createProtectedRoute({
   tags: ['Users'],
   method: 'get',
   path: '/users',
@@ -22,17 +21,14 @@ const listUsersRoute = createRoute({
     ),
   },
   summary: 'Get all users',
-  description: 'Returns a list of all users',
-});
-
-server.openapi(listUsersRoute, async (c) => {
-  logger.info('Getting all users');
+  description: 'Returns a list of all users (Protected)',
+}, async (c) => {
   const users = await userHandler.getAllUsers();
   return c.json(users);
 });
 
-// Create user route
-const createUserRoute = createRoute({
+//create user
+ createProtectedRoute({
   tags: ['Users'],
   method: 'post',
   path: '/users',
@@ -63,12 +59,9 @@ const createUserRoute = createRoute({
     ),
   },
   summary: 'Create a new user',
-  description: 'Creates a new user with the provided data',
-});
-
-server.openapi(createUserRoute, async (c) => {
+  description: 'Creates a new user with the provided data (Protected)',
+}, async (c) => {
   const userData = await c.req.json();
-  logger.info('Creating user', { username: userData.username, email: userData.email });
   
   try {
     const created = await userHandler.createUser(userData);
@@ -83,7 +76,9 @@ server.openapi(createUserRoute, async (c) => {
       );
     }
 
-    logger.error('Error creating user', { error: error instanceof Error ? error.message : 'Unknown error' });
+    logger.error('Error creating user', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
     return c.json(
       { message: error instanceof Error ? error.message : HttpStatusPhrases.INTERNAL_SERVER_ERROR },
       HttpStatusCodes.BAD_REQUEST
@@ -91,100 +86,8 @@ server.openapi(createUserRoute, async (c) => {
   }
 });
 
-// Get user by ID route
-const getUserRoute = createRoute({
-  tags: ['Users'],
-  method: 'get',
-  path: '/users/{id}',
-  request: {
-    params: z.object({
-      id: z.string().uuid('Invalid UUID format').openapi({
-        param: {
-          name: 'id',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-      }),
-    }),
-  },
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectUsersSchema, 'The user'),
-    [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-      'User not found'
-    ),
-  },
-  summary: 'Get a user by ID',
-  description: 'Returns a single user by their ID',
-});
-
-server.openapi(getUserRoute, async (c) => {
-  const { id } = c.req.param();
-  logger.info(`Getting user ${id}`);
-  const user = await userHandler.getUserById(id);
-
-  if (!user) {
-    return c.json(
-      {
-        message: HttpStatusPhrases.NOT_FOUND,
-      },
-      HttpStatusCodes.NOT_FOUND
-    );
-  }
-
-  return c.json(user, HttpStatusCodes.OK);
-});
-
-// Get user by email route
-const getUserByEmailRoute = createRoute({
-  tags: ['Users'],
-  method: 'get',
-  path: '/users/email/{email}',
-  request: {
-    params: z.object({
-      email: z.string().email('Invalid email format').openapi({
-        param: {
-          name: 'email',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 'user@example.com',
-      }),
-    }),
-  },
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectUsersSchema, 'The user'),
-    [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-      'User not found'
-    ),
-  },
-  summary: 'Get a user by email',
-  description: 'Returns a single user by their email address',
-});
-
-server.openapi(getUserByEmailRoute, async (c) => {
-  const { email } = c.req.param();
-  logger.info(`Getting user by email ${email}`);
-  const user = await userHandler.getUserByEmail(email);
-
-  if (!user) {
-    return c.json(
-      {
-        message: HttpStatusPhrases.NOT_FOUND,
-      },
-      HttpStatusCodes.NOT_FOUND
-    );
-  }
-
-  return c.json(user, HttpStatusCodes.OK);
-});
-
-// Update user route
-const updateUserRoute = createRoute({
+//update user
+ createProtectedRoute({
   tags: ['Users'],
   method: 'patch',
   path: '/users/{id}',
@@ -230,14 +133,10 @@ const updateUserRoute = createRoute({
     ),
   },
   summary: 'Update a user',
-  description: 'Updates a user with the provided data',
-});
-
-server.openapi(updateUserRoute, async (c) => {
+  description: 'Updates a user with the provided data (Protected)',
+}, async (c) => {
   const { id } = c.req.param();
   const updates = await c.req.json();
-
-  logger.info(`Updating user ${id}`, { updates });
 
   if (Object.keys(updates).length === 0) {
     return c.json(
@@ -281,7 +180,6 @@ server.openapi(updateUserRoute, async (c) => {
       );
     }
 
-    logger.error('Error updating user', { error: error instanceof Error ? error.message : 'Unknown error' });
     return c.json(
       { message: error instanceof Error ? error.message : HttpStatusPhrases.INTERNAL_SERVER_ERROR },
       HttpStatusCodes.BAD_REQUEST
@@ -289,8 +187,9 @@ server.openapi(updateUserRoute, async (c) => {
   }
 });
 
-// Delete user route
-const deleteUserRoute = createRoute({
+
+//delete user
+ createProtectedRoute({
   tags: ['Users'],
   method: 'delete',
   path: '/users/{id}',
@@ -317,13 +216,10 @@ const deleteUserRoute = createRoute({
     ),
   },
   summary: 'Delete a user',
-  description: 'Deletes a user by their ID',
-});
-
-server.openapi(deleteUserRoute, async (c) => {
+  description: 'Deletes a user by their ID (Protected)',
+}, async (c) => {
   const { id } = c.req.param();
-  logger.info(`Deleting user ${id}`);
-
+  
   const success = await userHandler.deleteUser(id);
 
   if (!success) {
@@ -336,51 +232,4 @@ server.openapi(deleteUserRoute, async (c) => {
   }
 
   return c.body(null, HttpStatusCodes.NO_CONTENT);
-});
-
-// Toggle user status route
-const toggleUserStatusRoute = createRoute({
-  tags: ['Users'],
-  method: 'patch',
-  path: '/users/{id}/toggle-status',
-  request: {
-    params: z.object({
-      id: z.string().uuid('Invalid UUID format').openapi({
-        param: {
-          name: 'id',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-      }),
-    }),
-  },
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectUsersSchema, 'User status toggled'),
-    [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-      'User not found'
-    ),
-  },
-  summary: 'Toggle user status',
-  description: 'Toggles the active status of a user',
-});
-
-server.openapi(toggleUserStatusRoute, async (c) => {
-  const { id } = c.req.param();
-  logger.info(`Toggling user status for ${id}`);
-
-  const user = await userHandler.toggleUserStatus(id);
-
-  if (!user) {
-    return c.json(
-      {
-        message: HttpStatusPhrases.NOT_FOUND,
-      },
-      HttpStatusCodes.NOT_FOUND
-    );
-  }
-
-  return c.json(user, HttpStatusCodes.OK);
 });

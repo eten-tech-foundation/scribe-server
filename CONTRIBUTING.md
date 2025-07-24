@@ -32,6 +32,8 @@ src/
 │   ├── logger.ts                # Logging configuration
 │   ├── constants.ts             # Application constants
 │   └── types.ts                 # Type definitions
+├── modules/              # python hono discovery
+│   ├── python.ts                # python service
 ├── middlewares/          # Custom middleware
 ├── server/               # Server configuration
 │   └── server.ts                # Base server setup

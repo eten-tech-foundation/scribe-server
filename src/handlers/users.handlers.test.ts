@@ -137,7 +137,7 @@ describe('User Handler Functions', () => {
         }),
       });
 
-      const result = await createUser(mockUserInput);
+      const result = await createUser(mockUserInput as any);
 
       expect(logger.debug).toHaveBeenCalledWith('Creating new user', {
         username: mockUserInput.username,
