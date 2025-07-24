@@ -64,7 +64,7 @@ The backend/server for the Scribe application built with Hono and OpenAPI. This 
    ```bash
    git clone <repository-url>
    cd scribe-server
-   pnpm install
+   npm install
    ```
 
 2. **Set up environment variables:**
@@ -89,13 +89,13 @@ The backend/server for the Scribe application built with Hono and OpenAPI. This 
 
    ```bash
    # Push schema to database
-   pnpm drizzle-kit push
+   npx drizzle-kit push
    ```
 
 4. **Start development server:**
 
    ```bash
-   pnpm dev
+   npm run dev
    ```
 
 5. **View API documentation:**
@@ -106,28 +106,28 @@ The backend/server for the Scribe application built with Hono and OpenAPI. This 
 
 ```bash
 # Development server with hot reload
-pnpm dev
+npm run dev
 
 # Type checking
-pnpm typecheck
+npm run typecheck
 
 # Linting
-pnpm lint
-pnpm lint:fix
+npm run lint
+npm run lint:fix
 
 # Code formatting
-pnpm format
-pnpm format:check
+npm run format
+npm run format:check
 
 # Testing
-pnpm test
-pnpm test --watch
+npm run test
+npm run test --watch
 
 # Build for production
-pnpm build
+npm run build
 
 # Production server
-pnpm start
+npm run start
 ```
 
 ## Code Tour

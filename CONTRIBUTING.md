@@ -48,7 +48,7 @@ src/
 1. **Install dependencies:**
 
    ```bash
-   pnpm install
+   npm install
    ```
 
 2. **Set up environment variables:**
@@ -70,18 +70,18 @@ src/
 3. **Push database schema:**
 
    ```bash
-   pnpm drizzle-kit push
+   npx drizzle-kit push
    ```
 
 4. **Start development server:**
 
    ```bash
-   pnpm dev
+   npm run dev
    ```
 
 5. **Run tests:**
    ```bash
-   pnpm test
+   npm run test
    ```
 
 ## Adding a New Feature
@@ -212,7 +212,7 @@ export default server;
 To add a new feature (e.g., "Users"), follow these steps using the tasks implementation as your guide:
 
 1. **Database Schema**: Add your table to `src/db/schema.ts` following the `tasks` table pattern
-2. **Database Migration**: Run `pnpm drizzle-kit push` to apply schema changes
+2. **Database Migration**: Run `npx drizzle-kit push` to apply schema changes
 3. **Handler Functions**: Create `src/handlers/[feature].handler.ts` following `task.handler.ts` patterns
 4. **Route Definitions**: Create `src/routes/[feature].route.ts` following `task.route.ts` patterns
 5. **Application Import**: Add your route import to `src/app.ts`
@@ -311,13 +311,13 @@ describe('Feature Handler', () => {
 
 ```bash
 # Run all tests
-pnpm test
+npm run test
 
 # Run tests in watch mode
-pnpm test --watch
+npm run test --watch
 
 # Run tests with coverage
-pnpm test --coverage
+npm run test --coverage
 ```
 
 ## Database Changes
@@ -325,8 +325,8 @@ pnpm test --coverage
 ### Schema Changes
 
 1. Update `src/db/schema.ts` with new tables or columns
-2. Push schema changes: `pnpm drizzle-kit push`
-3. For production, generate proper migrations: `pnpm drizzle-kit generate`
+2. Push schema changes: `npx drizzle-kit push`
+3. For production, generate proper migrations: `npx drizzle-kit generate`
 
 ### Environment Variables
 
@@ -346,21 +346,21 @@ The project uses ESLint with `@antfu/eslint-config` and Prettier:
 
 ```bash
 # Check linting
-pnpm lint
+npm run lint
 
 # Fix linting issues
-pnpm lint:fix
+npm run lint:fix
 
 # Format code
-pnpm format
+npm run format
 
 # Check formatting
-pnpm format:check
+npm run format:check
 ```
 
 ### TypeScript
 
-- Strict TypeScript configuration (`pnpm typecheck`)
+- Strict TypeScript configuration (`npm run typecheck`)
 - Prefer `type` over `interface` for type definitions
 - Use proper typing for all functions and variables
 
@@ -413,19 +413,19 @@ refactor: simplify route error handling
 
 ```bash
 # Type checking
-pnpm typecheck
+npm run typecheck
 
 # Linting
-pnpm lint
+npm run lint
 
 # Testing
-pnpm test
+npm run test
 
 # Formatting
-pnpm format:check
+npm run format:check
 
 # Build
-pnpm build
+npm run build
 ```
 
 ## Getting Help
