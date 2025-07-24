@@ -9,6 +9,10 @@ export type User = z.infer<typeof selectUsersSchema>;
 export type CreateUserInput = z.infer<typeof insertUsersSchema>;
 export type UpdateUserInput = z.infer<typeof patchUsersSchema>;
 
+export type Result<T, E = { message: string }> = 
+  | { ok: true; data: T }
+  | { ok: false; error: E };
+
 export async function getAllUsers(): Promise<User[]> {
   return await db.select().from(users);
 }
@@ -42,32 +46,27 @@ export async function createUser(input: CreateUserInput): Promise<User> {
   return inserted;
 }
 
-export async function updateUser(id: string, input: UpdateUserInput): Promise<User | null> {
-  const existingUser = await getUserById(id);
-  if (!existingUser) {
-    return null;
-  }
-
+export async function updateUser(id: string, input: UpdateUserInput): Promise<Result<User>> {
   const [updated] = await db.update(users).set(input).where(eq(users.id, id)).returning();
 
-  return updated || null;
+  return updated 
+    ? { ok: true, data: updated } 
+    : { ok: false, error: { message: 'User not found' } };
 }
 
-export async function deleteUser(id: string): Promise<boolean> {
-  const existingUser = await getUserById(id);
-  if (!existingUser) {
-    return false;
-  }
+export async function deleteUser(id: string): Promise<Result<boolean>> {
+  const result = await db.delete(users).where(eq(users.id, id)).returning({ id: users.id });
 
-  const result = await db.delete(users).where(eq(users.id, id));
-
-  return result.count > 0;
+  return result.length > 0
+    ? { ok: true, data: true }
+    : { ok: false, error: { message: 'User not found' } };
 }
 
-export async function toggleUserStatus(id: string): Promise<User | null> {
+export async function toggleUserStatus(id: string): Promise<Result<User>> {
+  // First get the current user to determine the new status
   const existingUser = await getUserById(id);
   if (!existingUser) {
-    return null;
+    return { ok: false, error: { message: 'User not found' } };
   }
 
   const newStatus = !existingUser.isActive;
@@ -77,7 +76,9 @@ export async function toggleUserStatus(id: string): Promise<User | null> {
     .where(eq(users.id, id))
     .returning();
 
-  return updated || null;
+  return updated 
+    ? { ok: true, data: updated }
+    : { ok: false, error: { message: 'User not found' } };
 }
 
 export async function getUsersCount(): Promise<number> {
@@ -93,40 +94,10 @@ export async function getInactiveUsers(): Promise<User[]> {
   return await db.select().from(users).where(eq(users.isActive, false));
 }
 
-export async function activateUser(id: string): Promise<User | null> {
-  const existingUser = await getUserById(id);
-  if (!existingUser) {
-    return null;
-  }
-
-  if (existingUser.isActive) {
-    return existingUser;
-  }
-
-  const [updated] = await db
-    .update(users)
-    .set({ isActive: true })
-    .where(eq(users.id, id))
-    .returning();
-
-  return updated || null;
+export async function activateUser(id: string): Promise<Result<User>> {
+  return await updateUser(id, { isActive: true });
 }
 
-export async function deactivateUser(id: string): Promise<User | null> {
-  const existingUser = await getUserById(id);
-  if (!existingUser) {
-    return null;
-  }
-
-  if (!existingUser.isActive) {
-    return existingUser;
-  }
-
-  const [updated] = await db
-    .update(users)
-    .set({ isActive: false })
-    .where(eq(users.id, id))
-    .returning();
-
-  return updated || null;
+export async function deactivateUser(id: string): Promise<Result<User>> {
+  return await updateUser(id, { isActive: false });
 }
