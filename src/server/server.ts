@@ -2,6 +2,7 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import { cors } from 'hono/cors';
 
 import type { AppBindings } from '@/lib/types';
+
 import { logger } from '@/lib/logger';
 
 export function createServer() {
