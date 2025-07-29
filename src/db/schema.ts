@@ -1,9 +1,9 @@
 import { z } from '@hono/zod-openapi';
-import { boolean, pgTable, varchar, timestamp, serial, integer } from 'drizzle-orm/pg-core';
+import { boolean, integer, pgTable, serial, timestamp, varchar } from 'drizzle-orm/pg-core';
 import { createSchemaFactory } from 'drizzle-zod';
 
 export const roles = pgTable('roles', {
-  id: serial('id').primaryKey(),  
+  id: serial('id').primaryKey(),
   name: varchar('name').notNull().unique(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
@@ -17,7 +17,9 @@ export const users = pgTable('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   firstName: varchar('first_name', { length: 100 }),
   lastName: varchar('last_name', { length: 100 }),
-  role: integer('role').notNull().references(() => roles.id),
+  role: integer('role')
+    .notNull()
+    .references(() => roles.id),
   createdBy: integer('created_by'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
