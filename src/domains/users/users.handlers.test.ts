@@ -10,7 +10,6 @@ import {
   updateUser,
 } from './users.handlers';
 import { db } from '@/db';
-import { logger } from '@/lib/logger';
 
 vi.mock('@/db', () => ({
   db: {
@@ -40,256 +39,147 @@ describe('User Handler Functions', () => {
   });
 
   describe('getAllUsers', () => {
-    it('should return all users', async () => {
-      const mockUsers = [
-        mockUser,
-        { ...mockUser, id: 'user2-id', email: 'user2@example.com', username: 'user2' },
-      ];
-
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockResolvedValue(mockUsers),
-      });
+    it('should return all users in a result object', async () => {
+      const mockUsers = [mockUser];
+      (db.select as any).mockReturnValue({ from: vi.fn().mockResolvedValue(mockUsers) });
 
       const result = await getAllUsers();
 
-      expect(db.select).toHaveBeenCalledOnce();
-      expect(logger.debug).toHaveBeenCalledWith('Fetching all users');
-      expect(result).toEqual(mockUsers);
+      expect(result).toEqual({ ok: true, data: mockUsers });
+    });
+
+    it('should return an error result if db call fails', async () => {
+      (db.select as any).mockReturnValue({ from: vi.fn().mockResolvedValue(undefined) });
+
+      const result = await getAllUsers();
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('No Users found - or internal error');
+      }
     });
   });
 
   describe('getUserById', () => {
-    it('should return user by ID', async () => {
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([mockUser]),
-          }),
-        }),
-      });
+    it('should return user by ID in a result object', async () => {
+      (db.select as any).mockReturnValue({ from: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([mockUser]) }) }) });
 
       const result = await getUserById(mockUser.id);
 
-      expect(db.select).toHaveBeenCalledOnce();
-      expect(logger.debug).toHaveBeenCalledWith(`Fetching user with id: ${mockUser.id}`);
-      expect(result).toEqual(mockUser);
+      expect(result).toEqual({ ok: true, data: mockUser });
     });
 
-    it('should return null when user not found', async () => {
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([]),
-          }),
-        }),
-      });
+    it('should return an error result when user not found', async () => {
+      (db.select as any).mockReturnValue({ from: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }) }) });
 
       const result = await getUserById('nonexistent-id');
 
-      expect(result).toBeNull();
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('User not found');
+      }
     });
   });
 
   describe('getUserByEmail', () => {
-    it('should return user by email', async () => {
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([mockUser]),
-          }),
-        }),
-      });
+    it('should return user by email in a result object', async () => {
+      (db.select as any).mockReturnValue({ from: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([mockUser]) }) }) });
 
       const result = await getUserByEmail(mockUser.email);
 
-      expect(db.select).toHaveBeenCalledOnce();
-      expect(logger.debug).toHaveBeenCalledWith(`Fetching user with email: ${mockUser.email}`);
-      expect(result).toEqual(mockUser);
+      expect(result).toEqual({ ok: true, data: mockUser });
     });
 
-    it('should return null when user not found', async () => {
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([]),
-          }),
-        }),
-      });
+    it('should return an error result when user not found', async () => {
+      (db.select as any).mockReturnValue({ from: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }) }) });
 
       const result = await getUserByEmail('noone@example.com');
 
-      expect(result).toBeNull();
+      expect(result.ok).toBe(false);
     });
   });
 
   describe('createUser', () => {
-    it('should create and return a new user', async () => {
-      const createdUser = {
-        id: 'uuid-123',
-        ...mockUserInput,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        isActive: true,
-      };
-
-      (db.insert as any).mockReturnValue({
-        values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([createdUser]),
-        }),
-      });
+    it('should create and return a new user in a result object', async () => {
+      const createdUser = { ...mockUserInput, id: 'new-id', createdAt: new Date(), updatedAt: new Date(), isActive: true };
+      (db.insert as any).mockReturnValue({ values: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([createdUser]) }) });
 
       const result = await createUser(mockUserInput);
 
-      expect(logger.debug).toHaveBeenCalledWith('Creating new user', {
-        username: mockUserInput.username,
-        email: mockUserInput.email,
-      });
-      expect(result).toEqual(createdUser);
+      expect(result).toEqual({ ok: true, data: createdUser });
+    });
+
+    it('should return an error result if creation fails', async () => {
+      (db.insert as any).mockReturnValue({ values: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }) });
+
+      const result = await createUser(mockUserInput);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Unable to create user');
+      }
     });
   });
 
   describe('updateUser', () => {
-    it('should update and return the user when it exists', async () => {
+    it('should update and return the user in a result object', async () => {
       const updatedUser = { ...mockUser, ...updateData };
-
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([mockUser]),
-          }),
-        }),
-      });
-
-      (db.update as any).mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([updatedUser]),
-          }),
-        }),
-      });
+      (db.update as any).mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([updatedUser]) }) }) });
 
       const result = await updateUser(mockUser.id, updateData);
 
-      expect(logger.debug).toHaveBeenCalledWith(
-        `Updating user with id: ${mockUser.id}`,
-        updateData
-      );
-      expect(result).toEqual(updatedUser);
+      expect(result).toEqual({ ok: true, data: updatedUser });
     });
 
-    it('should return null when user does not exist', async () => {
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([]),
-          }),
-        }),
-      });
+    it('should return an error result when user to update is not found', async () => {
+      (db.update as any).mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }) }) });
 
       const result = await updateUser('nonexistent-id', updateData);
 
-      expect(logger.warn).toHaveBeenCalledWith('User with id nonexistent-id not found for update');
-      expect(result).toBeNull();
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Cannot update user');
+      }
     });
   });
 
   describe('deleteUser', () => {
-    it('should delete the user and return true when it exists', async () => {
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([mockUser]),
-          }),
-        }),
-      });
-
-      (db.delete as any).mockReturnValue({
-        where: vi.fn().mockResolvedValue({ count: 1 }),
-      });
+    it('should delete the user and return a success result', async () => {
+      (db.delete as any).mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: mockUser.id }]) }) });
 
       const result = await deleteUser(mockUser.id);
 
-      expect(logger.debug).toHaveBeenCalledWith(`Deleting user with id: ${mockUser.id}`);
-      expect(result).toBe(true);
+      expect(result).toEqual({ ok: true, data: true });
     });
 
-    it('should return false when user does not exist', async () => {
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([]),
-          }),
-        }),
-      });
+    it('should return an error result when user to delete is not found', async () => {
+      (db.delete as any).mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }) });
 
       const result = await deleteUser('nonexistent-id');
 
-      expect(logger.warn).toHaveBeenCalledWith(
-        'User with id nonexistent-id not found for deletion'
-      );
-      expect(result).toBe(false);
-    });
-
-    it('should return false when delete operation fails', async () => {
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([mockUser]),
-          }),
-        }),
-      });
-
-      (db.delete as any).mockReturnValue({
-        where: vi.fn().mockResolvedValue({ count: 0 }),
-      });
-
-      const result = await deleteUser(mockUser.id);
-
-      expect(result).toBe(false);
+      expect(result.ok).toBe(false);
     });
   });
 
   describe('toggleUserStatus', () => {
-    it('should toggle user status and return updated user', async () => {
+    it('should toggle user status and return updated user in a result object', async () => {
       const toggledUser = { ...mockUser, isActive: !mockUser.isActive };
-
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([mockUser]),
-          }),
-        }),
-      });
-
-      (db.update as any).mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([toggledUser]),
-          }),
-        }),
-      });
+      (db.update as any).mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([toggledUser]) }) }) });
 
       const result = await toggleUserStatus(mockUser.id);
 
-      expect(logger.debug).toHaveBeenCalledWith(`Toggling user status for id: ${mockUser.id}`);
-      expect(result).toEqual(toggledUser);
+      expect(result).toEqual({ ok: true, data: toggledUser });
     });
 
-    it('should return null when user does not exist', async () => {
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([]),
-          }),
-        }),
-      });
+    it('should return an error result when user to toggle is not found', async () => {
+      (db.update as any).mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }) }) });
 
       const result = await toggleUserStatus('nonexistent-id');
 
-      expect(logger.warn).toHaveBeenCalledWith(
-        'User with id nonexistent-id not found for status toggle'
-      );
-      expect(result).toBeNull();
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Cannot toggle user status');
+      }
     });
   });
 });
