@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { sampleUsers, resetAllMocks } from '@/test/utils/test-helpers';
+
+import { db } from '@/db';
+import { resetAllMocks, sampleUsers } from '@/test/utils/test-helpers';
+
 import {
   createUser,
   deleteUser,
@@ -9,7 +12,6 @@ import {
   toggleUserStatus,
   updateUser,
 } from './users.handlers';
-import { db } from '@/db';
 
 vi.mock('@/db', () => ({
   db: {
@@ -29,7 +31,7 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-describe('User Handler Functions', () => {
+describe('user Handler Functions', () => {
   const mockUser = sampleUsers.user1;
   const mockUserInput = sampleUsers.newUser;
   const updateData = sampleUsers.updateUser;
@@ -62,7 +64,11 @@ describe('User Handler Functions', () => {
 
   describe('getUserById', () => {
     it('should return user by ID in a result object', async () => {
-      (db.select as any).mockReturnValue({ from: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([mockUser]) }) }) });
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([mockUser]) }),
+        }),
+      });
 
       const result = await getUserById(mockUser.id);
 
@@ -70,7 +76,11 @@ describe('User Handler Functions', () => {
     });
 
     it('should return an error result when user not found', async () => {
-      (db.select as any).mockReturnValue({ from: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }) }) });
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }),
+        }),
+      });
 
       const result = await getUserById('nonexistent-id');
 
@@ -83,7 +93,11 @@ describe('User Handler Functions', () => {
 
   describe('getUserByEmail', () => {
     it('should return user by email in a result object', async () => {
-      (db.select as any).mockReturnValue({ from: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([mockUser]) }) }) });
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([mockUser]) }),
+        }),
+      });
 
       const result = await getUserByEmail(mockUser.email);
 
@@ -91,7 +105,11 @@ describe('User Handler Functions', () => {
     });
 
     it('should return an error result when user not found', async () => {
-      (db.select as any).mockReturnValue({ from: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }) }) });
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }),
+        }),
+      });
 
       const result = await getUserByEmail('noone@example.com');
 
@@ -101,8 +119,16 @@ describe('User Handler Functions', () => {
 
   describe('createUser', () => {
     it('should create and return a new user in a result object', async () => {
-      const createdUser = { ...mockUserInput, id: 'new-id', createdAt: new Date(), updatedAt: new Date(), isActive: true };
-      (db.insert as any).mockReturnValue({ values: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([createdUser]) }) });
+      const createdUser = {
+        ...mockUserInput,
+        id: 'new-id',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isActive: true,
+      };
+      (db.insert as any).mockReturnValue({
+        values: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([createdUser]) }),
+      });
 
       const result = await createUser(mockUserInput);
 
@@ -110,7 +136,9 @@ describe('User Handler Functions', () => {
     });
 
     it('should return an error result if creation fails', async () => {
-      (db.insert as any).mockReturnValue({ values: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }) });
+      (db.insert as any).mockReturnValue({
+        values: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
+      });
 
       const result = await createUser(mockUserInput);
 
@@ -124,7 +152,11 @@ describe('User Handler Functions', () => {
   describe('updateUser', () => {
     it('should update and return the user in a result object', async () => {
       const updatedUser = { ...mockUser, ...updateData };
-      (db.update as any).mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([updatedUser]) }) }) });
+      (db.update as any).mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([updatedUser]) }),
+        }),
+      });
 
       const result = await updateUser(mockUser.id, updateData);
 
@@ -132,7 +164,11 @@ describe('User Handler Functions', () => {
     });
 
     it('should return an error result when user to update is not found', async () => {
-      (db.update as any).mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }) }) });
+      (db.update as any).mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
+        }),
+      });
 
       const result = await updateUser('nonexistent-id', updateData);
 
@@ -145,7 +181,11 @@ describe('User Handler Functions', () => {
 
   describe('deleteUser', () => {
     it('should delete the user and return a success result', async () => {
-      (db.delete as any).mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: mockUser.id }]) }) });
+      (db.delete as any).mockReturnValue({
+        where: vi
+          .fn()
+          .mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: mockUser.id }]) }),
+      });
 
       const result = await deleteUser(mockUser.id);
 
@@ -153,7 +193,9 @@ describe('User Handler Functions', () => {
     });
 
     it('should return an error result when user to delete is not found', async () => {
-      (db.delete as any).mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }) });
+      (db.delete as any).mockReturnValue({
+        where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
+      });
 
       const result = await deleteUser('nonexistent-id');
 
@@ -164,7 +206,11 @@ describe('User Handler Functions', () => {
   describe('toggleUserStatus', () => {
     it('should toggle user status and return updated user in a result object', async () => {
       const toggledUser = { ...mockUser, isActive: !mockUser.isActive };
-      (db.update as any).mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([toggledUser]) }) }) });
+      (db.update as any).mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([toggledUser]) }),
+        }),
+      });
 
       const result = await toggleUserStatus(mockUser.id);
 
@@ -172,7 +218,11 @@ describe('User Handler Functions', () => {
     });
 
     it('should return an error result when user to toggle is not found', async () => {
-      (db.update as any).mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }) }) });
+      (db.update as any).mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
+        }),
+      });
 
       const result = await toggleUserStatus('nonexistent-id');
 

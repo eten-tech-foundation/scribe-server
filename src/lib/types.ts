@@ -36,8 +36,5 @@ export type AppOpenAPI<S extends Schema = {}> = OpenAPIHono<AppBindings, S>;
 
 export type AppRouteHandler<R extends RouteConfig> = RouteHandler<R, AppBindings>;
 
-
 // Generic Result type
-export type Result<T, E = { message: string }> = 
-  | { ok: true; data: T }
-  | { ok: false; error: E };
+export type Result<T, E = { message: string }> = { ok: true; data: T } | { ok: false; error: E };

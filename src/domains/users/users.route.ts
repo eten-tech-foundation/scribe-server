@@ -6,8 +6,9 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { insertUsersSchema, patchUsersSchema, selectUsersSchema } from '@/db/schema';
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
-import * as userHandler from './users.handlers';
 import { server } from '@/server/server';
+
+import * as userHandler from './users.handlers';
 
 const listUsersRoute = createRoute({
   tags: ['Users'],
@@ -21,7 +22,7 @@ const listUsersRoute = createRoute({
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
       'Internal server error'
-    )
+    ),
   },
   summary: 'Get all users',
   description: 'Returns a list of all users',
