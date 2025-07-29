@@ -23,4 +23,4 @@ server.openapi(indexRoute, (c) => {
   );
 });
 
-export default server
+export default server;

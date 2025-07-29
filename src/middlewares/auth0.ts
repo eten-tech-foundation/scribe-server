@@ -1,8 +1,10 @@
-import { MiddlewareHandler } from 'hono';
+import type { MiddlewareHandler } from 'hono';
+
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
-import env from '@/env';
 import type { Auth0JWTPayload } from '@/lib/types';
+
+import env from '@/env';
 
 const jwks = createRemoteJWKSet(new URL(`https://${env.AUTH0_DOMAIN}/.well-known/jwks.json`));
 
@@ -17,11 +19,11 @@ export const auth0Middleware: MiddlewareHandler = async (c, next) => {
       issuer: `https://${env.AUTH0_DOMAIN}/`,
       audience: env.AUTH0_AUDIENCE,
     });
-    
+
     // Cast to Auth0JWTPayload for type safety
     c.set('jwtPayload', payload as Auth0JWTPayload);
     await next();
   } catch (err) {
     return c.json({ error: 'Invalid or expired token', details: (err as Error).message }, 401);
   }
-}; 
+};

@@ -1,13 +1,13 @@
-import { createRoute } from '@hono/zod-openapi';
-import { z } from '@hono/zod-openapi';
+import { createRoute, z } from '@hono/zod-openapi';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
+
 import { insertUsersSchema, patchUsersSchema, selectUsersSchema } from '@/db/schema';
+import * as userHandler from '@/handlers/users.handlers';
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
 import { logger } from '@/lib/logger';
-import * as userHandler from '@/handlers/users.handlers';
 import { server } from '@/server/server';
 
 // List all users route
@@ -69,7 +69,7 @@ const createUserRoute = createRoute({
 server.openapi(createUserRoute, async (c) => {
   const userData = await c.req.json();
   logger.info('Creating user', { username: userData.username, email: userData.email });
-  
+
   try {
     const created = await userHandler.createUser(userData);
     return c.json(created, HttpStatusCodes.CREATED);
@@ -77,13 +77,12 @@ server.openapi(createUserRoute, async (c) => {
     const code = (error as any)?.cause?.code;
 
     if (code === '23505') {
-      return c.json(
-        { message: 'Username or email already exists' },
-        HttpStatusCodes.BAD_REQUEST
-      );
+      return c.json({ message: 'Username or email already exists' }, HttpStatusCodes.BAD_REQUEST);
     }
 
-    logger.error('Error creating user', { error: error instanceof Error ? error.message : 'Unknown error' });
+    logger.error('Error creating user', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
     return c.json(
       { message: error instanceof Error ? error.message : HttpStatusPhrases.INTERNAL_SERVER_ERROR },
       HttpStatusCodes.BAD_REQUEST
@@ -98,15 +97,18 @@ const getUserRoute = createRoute({
   path: '/users/{id}',
   request: {
     params: z.object({
-      id: z.string().uuid('Invalid UUID format').openapi({
-        param: {
-          name: 'id',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-      }),
+      id: z
+        .string()
+        .uuid('Invalid UUID format')
+        .openapi({
+          param: {
+            name: 'id',
+            in: 'path',
+            required: true,
+            allowReserved: false,
+          },
+          example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+        }),
     }),
   },
   responses: {
@@ -144,15 +146,18 @@ const getUserByEmailRoute = createRoute({
   path: '/users/email/{email}',
   request: {
     params: z.object({
-      email: z.string().email('Invalid email format').openapi({
-        param: {
-          name: 'email',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 'user@example.com',
-      }),
+      email: z
+        .string()
+        .email('Invalid email format')
+        .openapi({
+          param: {
+            name: 'email',
+            in: 'path',
+            required: true,
+            allowReserved: false,
+          },
+          example: 'user@example.com',
+        }),
     }),
   },
   responses: {
@@ -190,15 +195,18 @@ const updateUserRoute = createRoute({
   path: '/users/{id}',
   request: {
     params: z.object({
-      id: z.string().uuid('Invalid UUID format').openapi({
-        param: {
-          name: 'id',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-      }),
+      id: z
+        .string()
+        .uuid('Invalid UUID format')
+        .openapi({
+          param: {
+            name: 'id',
+            in: 'path',
+            required: true,
+            allowReserved: false,
+          },
+          example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+        }),
     }),
     body: jsonContent(patchUsersSchema, 'The user updates'),
   },
@@ -275,13 +283,12 @@ server.openapi(updateUserRoute, async (c) => {
     const code = (error as any)?.cause?.code;
 
     if (code === '23505') {
-      return c.json(
-        { message: 'Username or email already exists' },
-        HttpStatusCodes.BAD_REQUEST
-      );
+      return c.json({ message: 'Username or email already exists' }, HttpStatusCodes.BAD_REQUEST);
     }
 
-    logger.error('Error updating user', { error: error instanceof Error ? error.message : 'Unknown error' });
+    logger.error('Error updating user', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
     return c.json(
       { message: error instanceof Error ? error.message : HttpStatusPhrases.INTERNAL_SERVER_ERROR },
       HttpStatusCodes.BAD_REQUEST
@@ -296,15 +303,18 @@ const deleteUserRoute = createRoute({
   path: '/users/{id}',
   request: {
     params: z.object({
-      id: z.string().uuid('Invalid UUID format').openapi({
-        param: {
-          name: 'id',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-      }),
+      id: z
+        .string()
+        .uuid('Invalid UUID format')
+        .openapi({
+          param: {
+            name: 'id',
+            in: 'path',
+            required: true,
+            allowReserved: false,
+          },
+          example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+        }),
     }),
   },
   responses: {
@@ -345,15 +355,18 @@ const toggleUserStatusRoute = createRoute({
   path: '/users/{id}/toggle-status',
   request: {
     params: z.object({
-      id: z.string().uuid('Invalid UUID format').openapi({
-        param: {
-          name: 'id',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-      }),
+      id: z
+        .string()
+        .uuid('Invalid UUID format')
+        .openapi({
+          param: {
+            name: 'id',
+            in: 'path',
+            required: true,
+            allowReserved: false,
+          },
+          example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+        }),
     }),
   },
   responses: {
