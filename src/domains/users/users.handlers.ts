@@ -1,49 +1,61 @@
 import type { z } from '@hono/zod-openapi';
-import { eq, or } from 'drizzle-orm';
+import { count, eq, or, not } from 'drizzle-orm';
 
 import type { insertUsersSchema, patchUsersSchema, selectUsersSchema } from '@/db/schema';
 import { users } from '@/db/schema';
 import { db } from '@/db';
+import { Result } from '@/lib/types';
 
 export type User = z.infer<typeof selectUsersSchema>;
 export type CreateUserInput = z.infer<typeof insertUsersSchema>;
 export type UpdateUserInput = z.infer<typeof patchUsersSchema>;
 
-export type Result<T, E = { message: string }> = 
-  | { ok: true; data: T }
-  | { ok: false; error: E };
-
 export async function getAllUsers(): Promise<User[]> {
   return await db.select().from(users);
 }
 
-export async function getUserById(id: string): Promise<User | null> {
-  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
-  return result[0] || null;
+export async function getUserById(id: string): Promise<Result<User>> {
+  const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+
+  return user 
+    ? { ok: true, data: user }
+    : { ok: false, error: { message: 'User not found' } };
 }
 
-export async function getUserByEmail(email: string): Promise<User | null> {
-  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  return result[0] || null;
+export async function getUserByEmail(email: string): Promise<Result<User>> {
+  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  
+  return user 
+    ? { ok: true, data: user }
+    : { ok: false, error: { message: 'User not found' } };
 }
 
-export async function getUserByUsername(username: string): Promise<User | null> {
-  const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
-  return result[0] || null;
+export async function getUserByUsername(username: string): Promise<Result<User>> {
+  const [user] = await db.select().from(users).where(eq(users.username, username)).limit(1);
+  
+  return user 
+    ? { ok: true, data: user }
+    : { ok: false, error: { message: 'User not found' } };
 }
 
-export async function getUserByEmailOrUsername(identifier: string): Promise<User | null> {
-  const result = await db
+export async function getUserByEmailOrUsername(identifier: string): Promise<Result<User>> {
+  const [user] = await db
     .select()
     .from(users)
     .where(or(eq(users.email, identifier), eq(users.username, identifier)))
     .limit(1);
-  return result[0] || null;
+  
+  return user 
+    ? { ok: true, data: user }
+    : { ok: false, error: { message: 'User not found' } };
 }
 
-export async function createUser(input: CreateUserInput): Promise<User> {
-  const [inserted] = await db.insert(users).values(input).returning();
-  return inserted;
+export async function createUser(input: CreateUserInput): Promise<Result<User>> {
+  const [user] = await db.insert(users).values(input).returning();
+  
+  return user
+    ? { ok: true, data: user }
+    : { ok: false, error: { message: 'Unable to create user' } };
 }
 
 export async function updateUser(id: string, input: UpdateUserInput): Promise<Result<User>> {
@@ -51,7 +63,7 @@ export async function updateUser(id: string, input: UpdateUserInput): Promise<Re
 
   return updated 
     ? { ok: true, data: updated } 
-    : { ok: false, error: { message: 'User not found' } };
+    : { ok: false, error: { message: 'Cannot update user' } };
 }
 
 export async function deleteUser(id: string): Promise<Result<boolean>> {
@@ -59,30 +71,24 @@ export async function deleteUser(id: string): Promise<Result<boolean>> {
 
   return result.length > 0
     ? { ok: true, data: true }
-    : { ok: false, error: { message: 'User not found' } };
+    : { ok: false, error: { message: 'Cannot delete user' } };
 }
 
 export async function toggleUserStatus(id: string): Promise<Result<User>> {
-  // First get the current user to determine the new status
-  const existingUser = await getUserById(id);
-  if (!existingUser) {
-    return { ok: false, error: { message: 'User not found' } };
-  }
-
-  const newStatus = !existingUser.isActive;
-  const [updated] = await db
+  const [updatedUser] = await db
     .update(users)
-    .set({ isActive: newStatus })
+    .set({ isActive: not(users.isActive) })
     .where(eq(users.id, id))
     .returning();
 
-  return updated 
-    ? { ok: true, data: updated }
-    : { ok: false, error: { message: 'User not found' } };
+  return updatedUser 
+    ? { ok: true, data: updatedUser } 
+    : { ok: false, error: { message: 'Cannot toggle user status' } };
 }
 
 export async function getUsersCount(): Promise<number> {
-  const result = await db.select({ count: users.id }).from(users);
+  const result = await db.select({ count: count() }).from(users);
+
   return result.length;
 }
 
