@@ -8,7 +8,6 @@ import { insertUsersSchema, patchUsersSchema, selectUsersSchema } from '@/db/sch
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
 import * as userHandler from './users.handlers';
 import { server } from '@/server/server';
-import { logger } from '@/lib/logger';
 
 const listUsersRoute = createRoute({
   tags: ['Users'],
@@ -19,14 +18,23 @@ const listUsersRoute = createRoute({
       selectUsersSchema.array().openapi('Users'),
       'The list of users'
     ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    )
   },
   summary: 'Get all users',
   description: 'Returns a list of all users',
 });
 
 server.openapi(listUsersRoute, async (c) => {
-  const users = await userHandler.getAllUsers();
-  return c.json(users);
+  const result = await userHandler.getAllUsers();
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
 const createUserRoute = createRoute({
@@ -66,24 +74,13 @@ const createUserRoute = createRoute({
 server.openapi(createUserRoute, async (c) => {
   const userData = await c.req.json();
 
-  try {
-    const created = await userHandler.createUser(userData);
-    return c.json(created, HttpStatusCodes.CREATED);
-  } catch (error) {
-    const code = (error as any)?.cause?.code;
+  const result = await userHandler.createUser(userData);
 
-    if (code === '23505') {
-      return c.json({ message: 'Username or email already exists' }, HttpStatusCodes.BAD_REQUEST);
-    }
-
-    logger.error('Error creating user', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-    return c.json(
-      { message: error instanceof Error ? error.message : HttpStatusPhrases.INTERNAL_SERVER_ERROR },
-      HttpStatusCodes.BAD_REQUEST
-    );
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.CREATED);
   }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
 });
 
 const getUserRoute = createRoute({
@@ -120,18 +117,13 @@ const getUserRoute = createRoute({
 server.openapi(getUserRoute, async (c) => {
   const { id } = c.req.param();
 
-  const user = await userHandler.getUserById(id);
+  const result = await userHandler.getUserById(id);
 
-  if (!user) {
-    return c.json(
-      {
-        message: HttpStatusPhrases.NOT_FOUND,
-      },
-      HttpStatusCodes.NOT_FOUND
-    );
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
   }
 
-  return c.json(user, HttpStatusCodes.OK);
+  return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
 });
 
 const getUserByEmailRoute = createRoute({
@@ -168,18 +160,13 @@ const getUserByEmailRoute = createRoute({
 server.openapi(getUserByEmailRoute, async (c) => {
   const { email } = c.req.param();
 
-  const user = await userHandler.getUserByEmail(email);
+  const result = await userHandler.getUserByEmail(email);
 
-  if (!user) {
-    return c.json(
-      {
-        message: HttpStatusPhrases.NOT_FOUND,
-      },
-      HttpStatusCodes.NOT_FOUND
-    );
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
   }
 
-  return c.json(user, HttpStatusCodes.OK);
+  return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
 });
 
 const updateUserRoute = createRoute({
@@ -257,34 +244,13 @@ server.openapi(updateUserRoute, async (c) => {
     );
   }
 
-  try {
-    const user = await userHandler.updateUser(id, updates);
+  const result = await userHandler.updateUser(id, updates);
 
-    if (!user) {
-      return c.json(
-        {
-          message: HttpStatusPhrases.NOT_FOUND,
-        },
-        HttpStatusCodes.NOT_FOUND
-      );
-    }
-
-    return c.json(user, HttpStatusCodes.OK);
-  } catch (error) {
-    const code = (error as any)?.cause?.code;
-
-    if (code === '23505') {
-      return c.json({ message: 'Username or email already exists' }, HttpStatusCodes.BAD_REQUEST);
-    }
-
-    logger.error('Error updating user', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-    return c.json(
-      { message: error instanceof Error ? error.message : HttpStatusPhrases.INTERNAL_SERVER_ERROR },
-      HttpStatusCodes.BAD_REQUEST
-    );
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
   }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
 });
 
 const deleteUserRoute = createRoute({
@@ -323,18 +289,13 @@ const deleteUserRoute = createRoute({
 server.openapi(deleteUserRoute, async (c) => {
   const { id } = c.req.param();
 
-  const success = await userHandler.deleteUser(id);
+  const result = await userHandler.deleteUser(id);
 
-  if (!success) {
-    return c.json(
-      {
-        message: HttpStatusPhrases.NOT_FOUND,
-      },
-      HttpStatusCodes.NOT_FOUND
-    );
+  if (result.ok) {
+    return c.body(null, HttpStatusCodes.NO_CONTENT);
   }
 
-  return c.body(null, HttpStatusCodes.NO_CONTENT);
+  return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
 });
 
 const toggleUserStatusRoute = createRoute({
@@ -371,16 +332,11 @@ const toggleUserStatusRoute = createRoute({
 server.openapi(toggleUserStatusRoute, async (c) => {
   const { id } = c.req.param();
 
-  const user = await userHandler.toggleUserStatus(id);
+  const result = await userHandler.toggleUserStatus(id);
 
-  if (!user) {
-    return c.json(
-      {
-        message: HttpStatusPhrases.NOT_FOUND,
-      },
-      HttpStatusCodes.NOT_FOUND
-    );
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
   }
 
-  return c.json(user, HttpStatusCodes.OK);
+  return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
 });

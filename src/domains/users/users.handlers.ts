@@ -10,8 +10,12 @@ export type User = z.infer<typeof selectUsersSchema>;
 export type CreateUserInput = z.infer<typeof insertUsersSchema>;
 export type UpdateUserInput = z.infer<typeof patchUsersSchema>;
 
-export async function getAllUsers(): Promise<User[]> {
-  return await db.select().from(users);
+export async function getAllUsers(): Promise<Result<User[]>> {
+  const userList = await db.select().from(users);
+
+  return userList
+    ? { ok: true, data: userList }
+    : { ok: false, error: { message: 'No Users found - or internal error' } };
 }
 
 export async function getUserById(id: string): Promise<Result<User>> {
