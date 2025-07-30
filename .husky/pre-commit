@@ -1,0 +1,7 @@
+bun run format
+bun run format:check
+
+bun run lint:fix
+bun run lint
+
+bun run test
