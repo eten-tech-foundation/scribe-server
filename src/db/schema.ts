@@ -1,5 +1,5 @@
 import { z } from '@hono/zod-openapi';
-import { boolean, integer, jsonb, pgTable, serial, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { boolean, integer, pgTable, serial, timestamp, varchar } from 'drizzle-orm/pg-core';
 import { createSchemaFactory } from 'drizzle-zod';
 
 export const roles = pgTable('roles', {
@@ -14,7 +14,6 @@ export const roles = pgTable('roles', {
 export const organizations = pgTable('organizations', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 100 }).notNull().unique(),
-  metadata: jsonb('metadata').default({}),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
@@ -77,7 +76,6 @@ export const insertRolesSchema = createInsertSchema(roles, {
 
 export const insertOrganizationsSchema = createInsertSchema(organizations, {
   name: (schema) => schema.min(1).max(100),
-  metadata: (schema) => schema.optional(),
 })
   .required({ name: true })
   .omit({ id: true, createdAt: true, updatedAt: true });
