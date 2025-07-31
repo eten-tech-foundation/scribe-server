@@ -20,7 +20,7 @@ export async function getAllUsers(): Promise<Result<User[]>> {
     : { ok: false, error: { message: 'No Users found - or internal error' } };
 }
 
-export async function getUserById(id: string): Promise<Result<User>> {
+export async function getUserById(id: number): Promise<Result<User>> {
   const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
 
   return user ? { ok: true, data: user } : { ok: false, error: { message: 'User not found' } };
@@ -56,7 +56,7 @@ export async function createUser(input: CreateUserInput): Promise<Result<User>> 
     : { ok: false, error: { message: 'Unable to create user' } };
 }
 
-export async function updateUser(id: string, input: UpdateUserInput): Promise<Result<User>> {
+export async function updateUser(id: number, input: UpdateUserInput): Promise<Result<User>> {
   const [updated] = await db.update(users).set(input).where(eq(users.id, id)).returning();
 
   return updated
@@ -64,7 +64,7 @@ export async function updateUser(id: string, input: UpdateUserInput): Promise<Re
     : { ok: false, error: { message: 'Cannot update user' } };
 }
 
-export async function deleteUser(id: string): Promise<Result<boolean>> {
+export async function deleteUser(id: number): Promise<Result<boolean>> {
   const result = await db.delete(users).where(eq(users.id, id)).returning({ id: users.id });
 
   return result.length > 0
@@ -72,7 +72,7 @@ export async function deleteUser(id: string): Promise<Result<boolean>> {
     : { ok: false, error: { message: 'Cannot delete user' } };
 }
 
-export async function toggleUserStatus(id: string): Promise<Result<User>> {
+export async function toggleUserStatus(id: number): Promise<Result<User>> {
   const [updatedUser] = await db
     .update(users)
     .set({ isActive: not(users.isActive) })
@@ -98,10 +98,10 @@ export async function getInactiveUsers(): Promise<User[]> {
   return await db.select().from(users).where(eq(users.isActive, false));
 }
 
-export async function activateUser(id: string): Promise<Result<User>> {
+export async function activateUser(id: number): Promise<Result<User>> {
   return await updateUser(id, { isActive: true });
 }
 
-export async function deactivateUser(id: string): Promise<Result<User>> {
+export async function deactivateUser(id: number): Promise<Result<User>> {
   return await updateUser(id, { isActive: false });
 }

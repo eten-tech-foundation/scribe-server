@@ -1,15 +1,38 @@
 import { z } from '@hono/zod-openapi';
-import { boolean, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { boolean, integer, pgTable, serial, timestamp, varchar } from 'drizzle-orm/pg-core';
 import { createSchemaFactory } from 'drizzle-zod';
 
+export const roles = pgTable('roles', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull().unique(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const organizations = pgTable('organizations', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 100 }).notNull().unique(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
 export const users = pgTable('users', {
-  id: uuid('id').primaryKey().defaultRandom(),
+  id: serial('id').primaryKey(),
   username: varchar('username', { length: 100 }).notNull().unique(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   firstName: varchar('first_name', { length: 100 }),
   lastName: varchar('last_name', { length: 100 }),
-  role: uuid('role').notNull(),
-  createdBy: uuid('created_by'),
+  role: integer('role')
+    .notNull()
+    .references(() => roles.id),
+  organization: integer('organization')
+    .notNull()
+    .references(() => organizations.id),
+  createdBy: integer('created_by'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
@@ -22,17 +45,20 @@ const { createInsertSchema, createSelectSchema } = createSchemaFactory({
 });
 
 export const selectUsersSchema = createSelectSchema(users);
+export const selectRolesSchema = createSelectSchema(roles);
+export const selectOrganizationsSchema = createSelectSchema(organizations);
 
 export const insertUsersSchema = createInsertSchema(users, {
-  username: (str) => str.min(1).max(100),
-  email: (str) => str.email().max(255),
-  firstName: (str) => str.max(100).optional(),
-  lastName: (str) => str.max(100).optional(),
+  username: (schema) => schema.min(1).max(100),
+  email: (schema) => schema.email().max(255),
+  firstName: (schema) => schema.max(100).optional(),
+  lastName: (schema) => schema.max(100).optional(),
 })
   .required({
     username: true,
     email: true,
     role: true,
+    organization: true,
   })
   .omit({
     id: true,
@@ -40,4 +66,20 @@ export const insertUsersSchema = createInsertSchema(users, {
     updatedAt: true,
   });
 
+export const insertRolesSchema = createInsertSchema(roles, {
+  name: (schema) => schema.min(1).max(255),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertOrganizationsSchema = createInsertSchema(organizations, {
+  name: (schema) => schema.min(1).max(100),
+})
+  .required({ name: true })
+  .omit({ id: true, createdAt: true, updatedAt: true });
+
 export const patchUsersSchema = insertUsersSchema.partial();
+export const patchRolesSchema = insertRolesSchema.partial();
+export const patchOrganizationsSchema = insertOrganizationsSchema.partial();
