@@ -11,7 +11,7 @@ export interface Auth0JWTPayload {
   exp: number; // Expiration time
   azp?: string; // Authorized party
   scope?: string; // Scopes
-  
+
   // Auth0 user claims
   email?: string;
   email_verified?: boolean;
@@ -19,7 +19,7 @@ export interface Auth0JWTPayload {
   nickname?: string;
   picture?: string;
   updated_at?: string;
-  
+
   // Custom claims (namespace prefixed)
   [key: string]: any;
 }
@@ -35,3 +35,6 @@ export interface AppBindings {
 export type AppOpenAPI<S extends Schema = {}> = OpenAPIHono<AppBindings, S>;
 
 export type AppRouteHandler<R extends RouteConfig> = RouteHandler<R, AppBindings>;
+
+// Generic Result type
+export type Result<T, E = { message: string }> = { ok: true; data: T } | { ok: false; error: E };

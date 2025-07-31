@@ -1,18 +1,16 @@
 import antfu from '@antfu/eslint-config';
+import prettier from 'eslint-config-prettier';
 
 export default antfu(
   {
     type: 'app',
     typescript: true,
     formatters: true,
-    stylistic: {
-      indent: 2,
-      semi: true,
-      quotes: 'double',
-    },
+    stylistic: false,
     ignores: ['**/migrations/*'],
   },
   {
+    ...prettier,
     rules: {
       'max-lines': [
         'warn',
@@ -25,7 +23,7 @@ export default antfu(
       'no-console': ['warn'],
       'antfu/no-top-level-await': ['off'],
       'node/prefer-global/process': ['off'],
-      'node/no-process-env': ['error'],
+      'node/no-process-env': ['off'],
       'perfectionist/sort-imports': [
         'error',
         {
@@ -36,7 +34,7 @@ export default antfu(
         'error',
         {
           case: 'kebabCase',
-          ignore: ['*.md'],
+          ignore: ['.*\\.md$'],
         },
       ],
     },

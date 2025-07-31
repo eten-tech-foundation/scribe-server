@@ -1,4 +1,3 @@
-/* eslint-disable node/no-process-env */
 import { z } from '@hono/zod-openapi';
 import { config } from 'dotenv';
 import { expand } from 'dotenv-expand';

@@ -48,7 +48,7 @@ src/
 1. **Install dependencies:**
 
    ```bash
-   pnpm install
+   npm install
    ```
 
 2. **Set up environment variables:**
@@ -70,18 +70,18 @@ src/
 3. **Push database schema:**
 
    ```bash
-   pnpm drizzle-kit push
+   npx drizzle-kit push
    ```
 
 4. **Start development server:**
 
    ```bash
-   pnpm dev
+   npm run dev
    ```
 
 5. **Run tests:**
    ```bash
-   pnpm test
+   npm run test
    ```
 
 ## Adding a New Feature
@@ -212,7 +212,7 @@ export default server;
 To add a new feature (e.g., "Users"), follow these steps using the tasks implementation as your guide:
 
 1. **Database Schema**: Add your table to `src/db/schema.ts` following the `tasks` table pattern
-2. **Database Migration**: Run `pnpm drizzle-kit push` to apply schema changes
+2. **Database Migration**: Run `npx drizzle-kit push` to apply schema changes
 3. **Handler Functions**: Create `src/handlers/[feature].handler.ts` following `task.handler.ts` patterns
 4. **Route Definitions**: Create `src/routes/[feature].route.ts` following `task.route.ts` patterns
 5. **Application Import**: Add your route import to `src/app.ts`
@@ -224,8 +224,9 @@ Routes are defined using `createRoute` from `@hono/zod-openapi` and registered w
 
 ```typescript
 import { createRoute } from '@hono/zod-openapi';
-import { server } from '@/server/server';
+
 import * as featureHandler from '@/handlers/feature.handler';
+import { server } from '@/server/server';
 
 const listRoute = createRoute({
   tags: ['Feature'],
@@ -249,8 +250,8 @@ Handlers contain pure business logic and database operations:
 
 ```typescript
 import { db } from '@/db';
-import { logger } from '@/lib/logger';
 import { features } from '@/db/schema';
+import { logger } from '@/lib/logger';
 
 export async function getAllFeatures(): Promise<Feature[]> {
   logger.debug('Fetching all features');
@@ -277,7 +278,7 @@ We use **Vitest** for testing. Tests are placed next to the code they test:
 Use the shared test utilities in `src/test/utils/test-helpers.ts`:
 
 ```typescript
-import { createMockContext, sampleTasks, resetAllMocks } from '@/test/utils/test-helpers';
+import { createMockContext, resetAllMocks, sampleTasks } from '@/test/utils/test-helpers';
 ```
 
 Available utilities:
@@ -291,8 +292,9 @@ Available utilities:
 Follow the existing test patterns in `src/handlers/task.handler.test.ts`:
 
 ```typescript
-import { describe, it, expect, beforeEach } from 'vitest';
-import { createMockContext, sampleTasks, resetAllMocks } from '@/test/utils/test-helpers';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { createMockContext, resetAllMocks, sampleTasks } from '@/test/utils/test-helpers';
 
 describe('Feature Handler', () => {
   beforeEach(() => {
@@ -309,13 +311,13 @@ describe('Feature Handler', () => {
 
 ```bash
 # Run all tests
-pnpm test
+npm run test
 
 # Run tests in watch mode
-pnpm test --watch
+npm run test --watch
 
 # Run tests with coverage
-pnpm test --coverage
+npm run test --coverage
 ```
 
 ## Database Changes
@@ -323,8 +325,8 @@ pnpm test --coverage
 ### Schema Changes
 
 1. Update `src/db/schema.ts` with new tables or columns
-2. Push schema changes: `pnpm drizzle-kit push`
-3. For production, generate proper migrations: `pnpm drizzle-kit generate`
+2. Push schema changes: `npx drizzle-kit push`
+3. For production, generate proper migrations: `npx drizzle-kit generate`
 
 ### Environment Variables
 
@@ -344,21 +346,21 @@ The project uses ESLint with `@antfu/eslint-config` and Prettier:
 
 ```bash
 # Check linting
-pnpm lint
+npm run lint
 
 # Fix linting issues
-pnpm lint:fix
+npm run lint:fix
 
 # Format code
-pnpm format
+npm run format
 
 # Check formatting
-pnpm format:check
+npm run format:check
 ```
 
 ### TypeScript
 
-- Strict TypeScript configuration (`pnpm typecheck`)
+- Strict TypeScript configuration (`npm run typecheck`)
 - Prefer `type` over `interface` for type definitions
 - Use proper typing for all functions and variables
 
@@ -376,13 +378,12 @@ Organize imports following the existing pattern:
 ```typescript
 import type { Context } from 'hono';
 
-import { createRoute } from '@hono/zod-openapi';
-import { z } from '@hono/zod-openapi';
+import { createRoute, z } from '@hono/zod-openapi';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 
 import { selectTasksSchema } from '@/db/schema';
-import { logger } from '@/lib/logger';
 import * as taskHandler from '@/handlers/task.handler';
+import { logger } from '@/lib/logger';
 import { server } from '@/server/server';
 ```
 
@@ -412,19 +413,19 @@ refactor: simplify route error handling
 
 ```bash
 # Type checking
-pnpm typecheck
+npm run typecheck
 
 # Linting
-pnpm lint
+npm run lint
 
 # Testing
-pnpm test
+npm run test
 
 # Formatting
-pnpm format:check
+npm run format:check
 
 # Build
-pnpm build
+npm run build
 ```
 
 ## Getting Help

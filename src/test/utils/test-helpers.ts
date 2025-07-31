@@ -1,4 +1,5 @@
 import type { Context } from 'hono';
+
 import { vi } from 'vitest';
 
 /**
@@ -31,12 +32,13 @@ export function createMockContext(overrides: Partial<Context> = {}): Context {
  */
 export const sampleUsers = {
   user1: {
-    id: '123e4567-e89b-12d3-a456-426614174000',
+    id: 1,
     username: 'testuser',
     email: 'test@example.com',
     firstName: 'John',
     lastName: 'Doe',
-    role: '456e7890-e89b-12d3-a456-426614174001',
+    role: 1,
+    organization: 1,
     createdBy: null,
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
@@ -47,7 +49,8 @@ export const sampleUsers = {
     email: 'test@example.com',
     firstName: 'John',
     lastName: 'Doe',
-    role: '456e7890-e89b-12d3-a456-426614174001',
+    role: 1,
+    organization: 1,
     createdBy: null,
   },
   updateUser: {
