@@ -38,6 +38,7 @@ export const sampleUsers = {
     firstName: 'John',
     lastName: 'Doe',
     role: 1,
+    organization: 1,
     createdBy: null,
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
@@ -49,6 +50,7 @@ export const sampleUsers = {
     firstName: 'John',
     lastName: 'Doe',
     role: 1,
+    organization: 1,
     createdBy: null,
   },
   updateUser: {
