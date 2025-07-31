@@ -16,7 +16,9 @@ export const organizations = pgTable('organizations', {
   name: varchar('name', { length: 100 }).notNull().unique(),
   metadata: jsonb('metadata').default({}),
   createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 });
 
 export const users = pgTable('users', {
