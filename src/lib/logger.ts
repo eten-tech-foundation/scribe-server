@@ -14,27 +14,6 @@ enum SeverityLevel {
   Critical = 4,
 }
 
-export const logger: BaseLogger = createLogger();
-
-function createLogger(): BaseLogger {
-  if (env.NODE_ENV === 'production') {
-    const connectionString = env.APPLICATIONINSIGHTS_CONNECTION_STRING;
-
-    if (connectionString) {
-      appInsights.setup(connectionString).start();
-    } else {
-      console.warn('Application Insights connection string not set. Telemetry will not be sent.');
-    }
-
-    const client = appInsights.defaultClient;
-
-    return new AppInsightsLogger(client);
-  }
-
-  // Use Pino in development
-  return pino({ level: 'debug', transport: { target: 'pino-pretty' } });
-}
-
 class AppInsightsLogger implements BaseLogger {
   level: 'silent' | 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' = 'info';
 
@@ -226,3 +205,24 @@ class AppInsightsLogger implements BaseLogger {
     return formatted;
   }
 }
+
+function createLogger(): BaseLogger {
+  if (env.NODE_ENV === 'production') {
+    const connectionString = env.APPLICATIONINSIGHTS_CONNECTION_STRING;
+
+    if (connectionString) {
+      appInsights.setup(connectionString).start();
+    } else {
+      console.warn('Application Insights connection string not set. Telemetry will not be sent.');
+    }
+
+    const client = appInsights.defaultClient;
+
+    return new AppInsightsLogger(client);
+  }
+
+  // Use Pino in development
+  return pino({ level: 'debug', transport: { target: 'pino-pretty' } });
+}
+
+export const logger: BaseLogger = createLogger();
