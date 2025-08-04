@@ -90,18 +90,15 @@ const getUserRoute = createRoute({
   path: '/users/{id}',
   request: {
     params: z.object({
-      id: z
-        .string()
-        .uuid('Invalid UUID format')
-        .openapi({
-          param: {
-            name: 'id',
-            in: 'path',
-            required: true,
-            allowReserved: false,
-          },
-          example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-        }),
+      id: z.coerce.number().openapi({
+        param: {
+          name: 'id',
+          in: 'path',
+          required: true,
+          allowReserved: false,
+        },
+        example: 1,
+      }),
     }),
   },
   responses: {
@@ -116,7 +113,7 @@ const getUserRoute = createRoute({
 });
 
 server.openapi(getUserRoute, async (c) => {
-  const { id } = c.req.param();
+  const { id } = c.req.valid('param');
 
   const result = await userHandler.getUserById(id);
 
@@ -176,18 +173,15 @@ const updateUserRoute = createRoute({
   path: '/users/{id}',
   request: {
     params: z.object({
-      id: z
-        .string()
-        .uuid('Invalid UUID format')
-        .openapi({
-          param: {
-            name: 'id',
-            in: 'path',
-            required: true,
-            allowReserved: false,
-          },
-          example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-        }),
+      id: z.coerce.number().openapi({
+        param: {
+          name: 'id',
+          in: 'path',
+          required: true,
+          allowReserved: false,
+        },
+        example: 1,
+      }),
     }),
     body: jsonContent(patchUsersSchema, 'The user updates'),
   },
@@ -223,7 +217,7 @@ const updateUserRoute = createRoute({
 });
 
 server.openapi(updateUserRoute, async (c) => {
-  const { id } = c.req.param();
+  const { id } = c.req.valid('param');
   const updates = await c.req.json();
 
   if (Object.keys(updates).length === 0) {
@@ -260,18 +254,15 @@ const deleteUserRoute = createRoute({
   path: '/users/{id}',
   request: {
     params: z.object({
-      id: z
-        .string()
-        .uuid('Invalid UUID format')
-        .openapi({
-          param: {
-            name: 'id',
-            in: 'path',
-            required: true,
-            allowReserved: false,
-          },
-          example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-        }),
+      id: z.coerce.number().openapi({
+        param: {
+          name: 'id',
+          in: 'path',
+          required: true,
+          allowReserved: false,
+        },
+        example: 1,
+      }),
     }),
   },
   responses: {
@@ -288,7 +279,7 @@ const deleteUserRoute = createRoute({
 });
 
 server.openapi(deleteUserRoute, async (c) => {
-  const { id } = c.req.param();
+  const { id } = c.req.valid('param');
 
   const result = await userHandler.deleteUser(id);
 
@@ -305,18 +296,15 @@ const toggleUserStatusRoute = createRoute({
   path: '/users/{id}/toggle-status',
   request: {
     params: z.object({
-      id: z
-        .string()
-        .uuid('Invalid UUID format')
-        .openapi({
-          param: {
-            name: 'id',
-            in: 'path',
-            required: true,
-            allowReserved: false,
-          },
-          example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-        }),
+      id: z.coerce.number().openapi({
+        param: {
+          name: 'id',
+          in: 'path',
+          required: true,
+          allowReserved: false,
+        },
+        example: 1,
+      }),
     }),
   },
   responses: {
@@ -331,7 +319,7 @@ const toggleUserStatusRoute = createRoute({
 });
 
 server.openapi(toggleUserStatusRoute, async (c) => {
-  const { id } = c.req.param();
+  const { id } = c.req.valid('param');
 
   const result = await userHandler.toggleUserStatus(id);
 

@@ -82,7 +82,7 @@ describe('user Handler Functions', () => {
         }),
       });
 
-      const result = await getUserById('nonexistent-id');
+      const result = await getUserById(999);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -121,7 +121,7 @@ describe('user Handler Functions', () => {
     it('should create and return a new user in a result object', async () => {
       const createdUser = {
         ...mockUserInput,
-        id: 'new-id',
+        id: 2,
         createdAt: new Date(),
         updatedAt: new Date(),
         isActive: true,
@@ -170,7 +170,7 @@ describe('user Handler Functions', () => {
         }),
       });
 
-      const result = await updateUser('nonexistent-id', updateData);
+      const result = await updateUser(999, updateData);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -197,7 +197,7 @@ describe('user Handler Functions', () => {
         where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
       });
 
-      const result = await deleteUser('nonexistent-id');
+      const result = await deleteUser(999);
 
       expect(result.ok).toBe(false);
     });
@@ -224,7 +224,7 @@ describe('user Handler Functions', () => {
         }),
       });
 
-      const result = await toggleUserStatus('nonexistent-id');
+      const result = await toggleUserStatus(999);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
