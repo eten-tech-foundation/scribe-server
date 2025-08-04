@@ -1,4 +1,4 @@
-import type {BaseLogger} from 'pino';
+import type { BaseLogger } from 'pino';
 
 import appInsights from 'applicationinsights';
 import pino from 'pino';
@@ -14,7 +14,6 @@ enum SeverityLevel {
   Critical = 4,
 }
 
-
 export const logger: BaseLogger = createLogger();
 
 function createLogger(): BaseLogger {
@@ -24,7 +23,6 @@ function createLogger(): BaseLogger {
     if (connectionString) {
       appInsights.setup(connectionString).start();
     } else {
-      // eslint-disable-next-line no-console
       console.warn('Application Insights connection string not set. Telemetry will not be sent.');
     }
 
@@ -37,7 +35,6 @@ function createLogger(): BaseLogger {
   return pino({ level: 'debug', transport: { target: 'pino-pretty' } });
 }
 
-
 class AppInsightsLogger implements BaseLogger {
   level: 'silent' | 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' = 'info';
 
@@ -48,14 +45,17 @@ class AppInsightsLogger implements BaseLogger {
     if (this.client) {
       this.client.trackTrace({ message, severity: SeverityLevel.Information as any, properties });
     }
-    
+
+    // eslint-disable-next-line no-console
     console.info(message);
   }
 
   warn(...args: any[]): void {
     const { message, properties } = this.parseArgs(args);
-    if (this.client)
+    if (this.client) {
       this.client.trackTrace({ message, severity: SeverityLevel.Warning as any, properties });
+    }
+
     console.warn(message);
   }
 
@@ -82,15 +82,19 @@ class AppInsightsLogger implements BaseLogger {
 
   debug(...args: any[]): void {
     const { message, properties } = this.parseArgs(args);
-    if (this.client)
+    if (this.client) {
       this.client.trackTrace({ message, severity: SeverityLevel.Verbose as any, properties });
+    }
+    // eslint-disable-next-line no-console
     console.debug(message);
   }
 
   trace(...args: any[]): void {
     const { message, properties } = this.parseArgs(args);
-    if (this.client)
+    if (this.client) {
       this.client.trackTrace({ message, severity: SeverityLevel.Verbose as any, properties });
+    }
+    // eslint-disable-next-line no-console
     console.trace(message);
   }
 
@@ -214,11 +218,9 @@ class AppInsightsLogger implements BaseLogger {
 
     if (paramIndex < formatParams.length) {
       const remaining = formatParams.slice(paramIndex);
-      return (
-        `${formatted 
-        } ${ 
-        remaining.map((p) => (typeof p === 'object' ? JSON.stringify(p) : String(p))).join(' ')}`
-      );
+      return `${formatted} ${remaining
+        .map((p) => (typeof p === 'object' ? JSON.stringify(p) : String(p)))
+        .join(' ')}`;
     }
 
     return formatted;

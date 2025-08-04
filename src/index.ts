@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { serve } from '@hono/node-server';
 
 import env from '@/env';
+
 import app from './app';
 
 // eslint-disable-next-line no-console
