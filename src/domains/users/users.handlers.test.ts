@@ -5,13 +5,19 @@ import { resetAllMocks, sampleUsers } from '@/test/utils/test-helpers';
 
 import {
   createUser,
+  createUserWithInvitation,
   deleteUser,
   getAllUsers,
   getUserByEmail,
   getUserById,
+  sendInvitationEmailToExistingUser,
   toggleUserStatus,
   updateUser,
 } from './users.handlers';
+import {
+  createUserWithInvitation as createUserWithInvitationService,
+  sendInvitationToExistingUser as sendInvitationToExistingUserService,
+} from './users.service';
 
 vi.mock('@/db', () => ({
   db: {
@@ -20,6 +26,11 @@ vi.mock('@/db', () => ({
     update: vi.fn(),
     delete: vi.fn(),
   },
+}));
+
+vi.mock('./users.service', () => ({
+  createUserWithInvitation: vi.fn(),
+  sendInvitationToExistingUser: vi.fn(),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -146,6 +157,119 @@ describe('user Handler Functions', () => {
       if (!result.ok) {
         expect(result.error.message).toBe('Unable to create user');
       }
+    });
+  });
+
+  describe('createUserWithInvitation', () => {
+    it('should create user with invitation and return result', async () => {
+      const mockResult = {
+        user: mockUser,
+        auth0_user_id: 'auth0|123456',
+        ticket_url: 'https://example.com/ticket/abc123',
+      };
+      const expectedResult = { ok: true, data: mockResult };
+
+      (createUserWithInvitationService as any).mockResolvedValue(expectedResult);
+
+      const result = await createUserWithInvitation(mockUserInput);
+
+      expect(result).toEqual(expectedResult);
+      expect(createUserWithInvitationService).toHaveBeenCalledWith(mockUserInput);
+    });
+
+    it('should return error result when service fails', async () => {
+      const errorResult = {
+        ok: false,
+        error: { message: 'A user with this email already exists.' },
+      };
+      (createUserWithInvitationService as any).mockResolvedValue(errorResult);
+
+      const result = await createUserWithInvitation(mockUserInput);
+
+      expect(result).toEqual(errorResult);
+      expect(createUserWithInvitationService).toHaveBeenCalledWith(mockUserInput);
+    });
+
+    it('should handle Auth0 sync failures with rollback', async () => {
+      const errorResult = {
+        ok: false,
+        error: {
+          message:
+            'User creation failed during Auth0 sync and was rolled back. Reason: Auth0 API error',
+        },
+      };
+      (createUserWithInvitationService as any).mockResolvedValue(errorResult);
+
+      const result = await createUserWithInvitation(mockUserInput);
+
+      expect(result).toEqual(errorResult);
+    });
+  });
+
+  describe('sendInvitationEmailToExistingUser', () => {
+    it('should send invitation to existing user and return ticket URL', async () => {
+      const expectedResult = {
+        ok: true,
+        data: { ticket_url: 'https://example.com/ticket/xyz789' },
+      };
+      (sendInvitationToExistingUserService as any).mockResolvedValue(expectedResult);
+
+      const result = await sendInvitationEmailToExistingUser(
+        'auth0|123456',
+        'user@example.com',
+        'John',
+        'Doe'
+      );
+
+      expect(result).toEqual(expectedResult);
+      expect(sendInvitationToExistingUserService).toHaveBeenCalledWith(
+        'auth0|123456',
+        'user@example.com',
+        'John',
+        'Doe'
+      );
+    });
+
+    it('should send invitation without optional names', async () => {
+      const expectedResult = {
+        ok: true,
+        data: { ticket_url: 'https://example.com/ticket/xyz789' },
+      };
+      (sendInvitationToExistingUserService as any).mockResolvedValue(expectedResult);
+
+      const result = await sendInvitationEmailToExistingUser('auth0|123456', 'user@example.com');
+
+      expect(result).toEqual(expectedResult);
+      expect(sendInvitationToExistingUserService).toHaveBeenCalledWith(
+        'auth0|123456',
+        'user@example.com',
+        undefined,
+        undefined
+      );
+    });
+
+    it('should return error result when service fails', async () => {
+      const errorResult = {
+        ok: false,
+        error: { message: 'Failed to send invitation' },
+      };
+      (sendInvitationToExistingUserService as any).mockResolvedValue(errorResult);
+
+      const result = await sendInvitationEmailToExistingUser('auth0|123456', 'user@example.com');
+
+      expect(result).toEqual(errorResult);
+    });
+
+    it('should handle Auth0 ticket creation failures', async () => {
+      const errorResult = {
+        ok: false,
+        error: { message: 'Failed to generate password change ticket.' },
+      };
+      (sendInvitationToExistingUserService as any).mockResolvedValue(errorResult);
+
+      const result = await sendInvitationEmailToExistingUser('invalid-user-id', 'user@example.com');
+
+      expect(result).toEqual(errorResult);
     });
   });
 

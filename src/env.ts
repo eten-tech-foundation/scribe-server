@@ -24,6 +24,7 @@ const EnvSchema = z.object({
   AUTH0_M2M_CLIENT_SECRET: z.string(),
   EMAIL_SERVICE_API_KEY: z.string(),
   EMAIL_SERVICE_DOMAIN: z.string(),
+  EMAIL_SERVICE_SENDER: z.string(),
   FRONTEND_URL: z.string(),
 });
 

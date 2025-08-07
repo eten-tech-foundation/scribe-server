@@ -93,15 +93,32 @@ const createUserWithInvitationRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.CREATED]: jsonContent(
-      selectUsersSchema.extend({
-        auth0_user_id: z.string().optional(),
-        invitation_sent: z.boolean().optional(),
+      z.object({
+        user: selectUsersSchema,
+        auth0_user_id: z.string(),
+        ticket_url: z.string(),
       }),
       'User created and invitation sent'
     ),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
       createMessageObjectSchema('Bad Request'),
       'Validation error, duplicate user, or Auth0 error'
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      z.object({
+        success: z.boolean(),
+        error: z.object({
+          issues: z.array(
+            z.object({
+              code: z.string(),
+              path: z.array(z.string()),
+              message: z.string(),
+            })
+          ),
+          name: z.string(),
+        }),
+      }),
+      'The validation error'
     ),
   },
   summary: 'Create user and send Auth0 invitation',
@@ -117,12 +134,7 @@ server.openapi(createUserWithInvitationRoute, async (c) => {
     return c.json(result.data, HttpStatusCodes.CREATED);
   }
 
-  return c.json(
-    {
-      message: result.error.message,
-    },
-    HttpStatusCodes.BAD_REQUEST
-  );
+  return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
 });
 
 const getUserRoute = createRoute({

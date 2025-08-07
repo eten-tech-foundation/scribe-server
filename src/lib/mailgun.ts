@@ -21,7 +21,6 @@ export async function sendInvitationEmail({
   firstName,
   lastName,
 }: InvitationEmailData): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  // Validate required environment variables
   if (!process.env.EMAIL_SERVICE_API_KEY) {
     return {
       success: false,
@@ -36,12 +35,19 @@ export async function sendInvitationEmail({
     };
   }
 
+  if (!process.env.EMAIL_SERVICE_SENDER) {
+    return {
+      success: false,
+      error: 'Email service sender is not configured',
+    };
+  }
+
   try {
     const userName =
       firstName && lastName ? `${firstName} ${lastName}`.trim() : firstName || lastName;
 
     const emailData = {
-      from: 'no-reply@fluent.bible',
+      from: process.env.EMAIL_SERVICE_SENDER,
       to: email,
       subject: 'Welcome! Complete Your Account Setup',
       html: createInvitationEmailTemplate(ticketUrl, userName),
