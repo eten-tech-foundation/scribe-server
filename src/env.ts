@@ -20,6 +20,11 @@ const EnvSchema = z.object({
   AUTH0_DOMAIN: z.string(),
   AUTH0_AUDIENCE: z.string(),
   APPLICATIONINSIGHTS_CONNECTION_STRING: z.string(),
+  AUTH0_M2M_CLIENT_ID: z.string(),
+  AUTH0_M2M_CLIENT_SECRET: z.string(),
+  EMAIL_SERVICE_API_KEY: z.string(),
+  EMAIL_SERVICE_DOMAIN: z.string(),
+  FRONTEND_URL: z.string(),
 });
 
 export type env = z.infer<typeof EnvSchema>;
