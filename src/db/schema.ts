@@ -32,6 +32,7 @@ export const users = pgTable('users', {
   organization: integer('organization')
     .notNull()
     .references(() => organizations.id),
+  status: varchar('status', { length: 20 }).notNull().default('invited'),
   createdBy: integer('created_by'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')

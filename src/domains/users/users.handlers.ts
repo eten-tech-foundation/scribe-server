@@ -1,6 +1,7 @@
 import type { z } from '@hono/zod-openapi';
 
 import { count, eq, not, or } from 'drizzle-orm';
+import { randomBytes } from 'node:crypto';
 
 import type { insertUsersSchema, patchUsersSchema, selectUsersSchema } from '@/db/schema';
 import type { Result } from '@/lib/types';
@@ -83,9 +84,8 @@ export async function createUserWithInvitation(
           : input.firstName || input.lastName || input.email,
       connection: 'Username-Password-Authentication',
       email_verified: false,
-      password: 'Scribepaw@4488',
-      verify_email: false, // We'll handle verification through the password change ticket
-      // Don't set a password - let them set it through the invitation
+      password: randomBytes(16).toString('base64').slice(0, 16), // Temporary password
+      verify_email: false,
     });
 
     if (!auth0User.data.user_id) {
@@ -105,7 +105,7 @@ export async function createUserWithInvitation(
       throw new Error('Failed to generate password change ticket.');
     }
 
-    // 5. Send invitation email via Mailgun
+    // 5. Send invitation email
     const emailResult = await sendInvitationEmail({
       email: input.email,
       ticketUrl: ticket.data.ticket,
