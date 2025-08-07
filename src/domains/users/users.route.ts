@@ -84,6 +84,59 @@ server.openapi(createUserRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
 });
 
+const createUserWithInvitationRoute = createRoute({
+  tags: ['Users'],
+  method: 'post',
+  path: '/users/invite',
+  request: {
+    body: jsonContent(insertUsersSchema, 'The user to create and invite'),
+  },
+  responses: {
+    [HttpStatusCodes.CREATED]: jsonContent(
+      z.object({
+        user: selectUsersSchema,
+        auth0_user_id: z.string(),
+        ticket_url: z.string(),
+      }),
+      'User created and invitation sent'
+    ),
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+      createMessageObjectSchema('Bad Request'),
+      'Validation error, duplicate user, or Auth0 error'
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      z.object({
+        success: z.boolean(),
+        error: z.object({
+          issues: z.array(
+            z.object({
+              code: z.string(),
+              path: z.array(z.string()),
+              message: z.string(),
+            })
+          ),
+          name: z.string(),
+        }),
+      }),
+      'The validation error'
+    ),
+  },
+  summary: 'Create user and send Auth0 invitation',
+  description: 'Creates a new user in database and sends Auth0 invitation email',
+});
+
+server.openapi(createUserWithInvitationRoute, async (c) => {
+  const userData = await c.req.json();
+
+  const result = await userHandler.createUserWithInvitation(userData);
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.CREATED);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
+});
+
 const getUserRoute = createRoute({
   tags: ['Users'],
   method: 'get',
