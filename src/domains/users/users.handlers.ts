@@ -27,6 +27,13 @@ export async function getAllUsers(): Promise<Result<User[]>> {
     : { ok: false, error: { message: 'No Users found - or internal error' } };
 }
 
+export async function getUsersByOrganization(organization: number): Promise<Result<User[]>> {
+  const userList = await db.select().from(users).where(eq(users.organization, organization));
+  return userList
+    ? { ok: true, data: userList }
+    : { ok: false, error: { message: 'No Users found in organization - or internal error' } };
+}
+
 export async function getUserById(id: number): Promise<Result<User>> {
   const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
 
@@ -108,7 +115,6 @@ export async function toggleUserStatus(id: number): Promise<Result<User>> {
 
 export async function getUsersCount(): Promise<number> {
   const result = await db.select({ count: count() }).from(users);
-
   return result.length;
 }
 

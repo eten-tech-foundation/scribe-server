@@ -15,7 +15,7 @@ export default antfu(
       'max-lines': [
         'warn',
         {
-          max: 400,
+          max: 500,
           skipBlankLines: true,
           skipComments: true,
         },
