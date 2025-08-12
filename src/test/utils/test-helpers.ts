@@ -68,15 +68,6 @@ export const sampleUsers = {
     createdBy: null,
     status: 'invited' as const,
   },
-  invitationUser: {
-    username: 'inviteuser',
-    email: 'invite@example.com',
-    firstName: 'Invited',
-    lastName: 'User',
-    role: 1,
-    organization: 1,
-    createdBy: null,
-  },
   updateUser: {
     firstName: 'Jane',
     lastName: 'Smith',
@@ -89,29 +80,16 @@ export const sampleUsers = {
 };
 
 /**
- * Sample invitation result data for testing
- */
-export const sampleInvitationResults = {
-  successResult: {
-    user: sampleUsers.user1,
-    auth0_user_id: 'auth0|123456789',
-    ticket_url: 'https://example.auth0.com/lo/reset?ticket=abc123xyz',
-  },
-  ticketResult: {
-    ticket_url: 'https://example.auth0.com/lo/reset?ticket=def456uvw',
-  },
-};
-
-/**
  * Sample error messages for testing
  */
 export const sampleErrors = {
+  userNotFound: 'User not found',
   userExists: 'A user with this email already exists.',
-  auth0Error: 'Auth0 user creation failed',
-  rollbackError:
-    'User creation failed during Auth0 sync and was rolled back. Reason: Auth0 API error',
-  ticketError: 'Failed to generate password change ticket.',
-  invitationError: 'Failed to send invitation',
+  unableToCreate: 'Unable to create user',
+  cannotUpdate: 'Cannot update user',
+  cannotDelete: 'Cannot delete user',
+  noUsersFound: 'No Users found - or internal error',
+  noUsersInOrganization: 'No Users found in organization - or internal error',
 };
 
 /**
@@ -122,30 +100,6 @@ export function resetAllMocks() {
 }
 
 /**
- * Creates mock Auth0 user data
- */
-export function createMockAuth0User(overrides: Partial<any> = {}) {
-  return {
-    user_id: 'auth0|123456789',
-    email: 'test@example.com',
-    name: 'John Doe',
-    connection: 'Username-Password-Authentication',
-    email_verified: false,
-    ...overrides,
-  };
-}
-
-/**
- * Creates mock password change ticket
- */
-export function createMockTicket(overrides: Partial<any> = {}) {
-  return {
-    ticket: 'https://example.auth0.com/lo/reset?ticket=abc123xyz',
-    ...overrides,
-  };
-}
-
-/**
  * Helper to create result objects for testing
  */
 export function createResult<T>(data: T, success: boolean = true) {
@@ -153,3 +107,37 @@ export function createResult<T>(data: T, success: boolean = true) {
     ? { ok: true, data }
     : { ok: false, error: { message: typeof data === 'string' ? data : 'Error occurred' } };
 }
+
+/**
+ * Creates mock database query builder chains
+ */
+export function createMockQueryBuilder() {
+  return {
+    select: vi.fn().mockReturnThis(),
+    from: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockReturnThis(),
+    values: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+    set: vi.fn().mockReturnThis(),
+    delete: vi.fn().mockReturnThis(),
+    returning: vi.fn(),
+  };
+}
+
+/**
+ * Mock data generators for consistent testing
+ */
+export const mockDataGenerators = {
+  createUser: (overrides: Partial<any> = {}) => ({
+    ...sampleUsers.user1,
+    ...overrides,
+  }),
+
+  createUserArray: (count: number = 2) => [sampleUsers.user1, sampleUsers.user2].slice(0, count),
+
+  createEmptyResult: () => [],
+
+  createCountResult: (count: number = 5) => [{ count }],
+};

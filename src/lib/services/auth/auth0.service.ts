@@ -1,13 +1,20 @@
+import { ManagementClient } from 'auth0';
 import { randomBytes } from 'node:crypto';
 
+import type { CreateUserInput, User } from '@/domains/users/users.handlers';
 import type { Result } from '@/lib/types';
 
-import management from '@/lib/auth0-management';
-import { sendInvitationEmail } from '@/lib/mailgun';
+import { createUser, deleteUser, getUserByEmail } from '@/domains/users/users.handlers';
+import env from '@/env';
+import { sendInvitationEmail } from '@/lib/services/notifications/mailgun.service';
 
-import type { CreateUserInput, User } from './users.handlers';
+const management = new ManagementClient({
+  domain: env.AUTH0_DOMAIN,
+  clientId: env.AUTH0_M2M_CLIENT_ID,
+  clientSecret: env.AUTH0_M2M_CLIENT_SECRET,
+});
 
-import { createUser, deleteUser, getUserByEmail } from './users.handlers';
+export default management;
 
 export interface UserInvitationResult {
   user: User;
@@ -19,13 +26,14 @@ export async function createUserWithInvitation(
   input: CreateUserInput
 ): Promise<Result<UserInvitationResult>> {
   const normalizedInput = { ...input, email: input.email.toLowerCase() };
+
   // 1. Check if user already exists
   const existingUserResult = await getUserByEmail(normalizedInput.email);
   if (existingUserResult.ok) {
     return { ok: false, error: { message: 'A user with this email already exists.' } };
   }
 
-  // 2. Create user in local database
+  // 2. Create user in local database using handler
   const dbResult = await createUser(normalizedInput);
   if (!dbResult.ok) {
     return { ok: false, error: dbResult.error };
@@ -95,7 +103,7 @@ export async function sendInvitationToExistingUser(
 async function createAuth0User(input: CreateUserInput) {
   const auth0User = await management.users.create({
     email: input.email,
-    name: buildUserDisplayName(input),
+    name: input.username,
     connection: 'Username-Password-Authentication',
     email_verified: false,
     password: generateTemporaryPassword(),
@@ -112,10 +120,10 @@ async function createAuth0User(input: CreateUserInput) {
 async function createPasswordChangeTicket(userId: string): Promise<string> {
   const ticket = await management.tickets.changePassword({
     user_id: userId,
-    result_url: process.env.FRONTEND_URL || 'http://localhost:5173',
     mark_email_as_verified: true,
     ttl_sec: 604800, // 7 days
     includeEmailInRedirect: false,
+    result_url: process.env.FRONTEND_URL,
   });
 
   if (!ticket.data.ticket) {
@@ -139,13 +147,6 @@ async function sendUserInvitationEmail(
   if (!emailResult.success) {
     console.error('Failed to send invitation email:', emailResult.error);
   }
-}
-
-function buildUserDisplayName(input: CreateUserInput): string {
-  if (input.firstName && input.lastName) {
-    return `${input.firstName} ${input.lastName}`.trim();
-  }
-  return input.firstName || input.lastName || input.email;
 }
 
 function generateTemporaryPassword(): string {

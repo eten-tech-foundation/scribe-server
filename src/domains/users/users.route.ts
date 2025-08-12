@@ -6,6 +6,7 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { insertUsersSchema, patchUsersSchema, selectUsersSchema } from '@/db/schema';
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
+import { createUserWithInvitation } from '@/lib/services/auth/auth0.service';
 import {
   requireManagerAccess,
   requireManagerUserAccess,
@@ -158,7 +159,7 @@ server.openapi(createUserWithInvitationRoute, async (c) => {
 
   userData.organization = currentUser!.organization;
 
-  const result = await userHandler.createUserWithInvitation(userData);
+  const result = await createUserWithInvitation(userData);
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.CREATED);

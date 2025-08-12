@@ -4,20 +4,21 @@ import { db } from '@/db';
 import { resetAllMocks, sampleUsers } from '@/test/utils/test-helpers';
 
 import {
+  activateUser,
   createUser,
-  createUserWithInvitation,
+  deactivateUser,
   deleteUser,
+  getActiveUsers,
   getAllUsers,
+  getInactiveUsers,
   getUserByEmail,
   getUserByEmailOrUsername,
   getUserById,
-  sendInvitationEmailToExistingUser,
+  getUserByUsername,
+  getUsersByOrganization,
+  getUsersCount,
   updateUser,
 } from './users.handlers';
-import {
-  createUserWithInvitation as createUserWithInvitationService,
-  sendInvitationToExistingUser as sendInvitationToExistingUserService,
-} from './users.service';
 
 vi.mock('@/db', () => ({
   db: {
@@ -26,11 +27,6 @@ vi.mock('@/db', () => ({
     update: vi.fn(),
     delete: vi.fn(),
   },
-}));
-
-vi.mock('./users.service', () => ({
-  createUserWithInvitation: vi.fn(),
-  sendInvitationToExistingUser: vi.fn(),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -69,6 +65,36 @@ describe('user Handler Functions', () => {
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.message).toBe('No Users found - or internal error');
+      }
+    });
+  });
+
+  describe('getUsersByOrganization', () => {
+    it('should return users by organization in a result object', async () => {
+      const mockUsers = [mockUser];
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(mockUsers),
+        }),
+      });
+
+      const result = await getUsersByOrganization(1);
+
+      expect(result).toEqual({ ok: true, data: mockUsers });
+    });
+
+    it('should return an error result if no users found in organization', async () => {
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined),
+        }),
+      });
+
+      const result = await getUsersByOrganization(999);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('No Users found in organization - or internal error');
       }
     });
   });
@@ -140,6 +166,35 @@ describe('user Handler Functions', () => {
     });
   });
 
+  describe('getUserByUsername', () => {
+    it('should return user by username in a result object', async () => {
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([mockUser]) }),
+        }),
+      });
+
+      const result = await getUserByUsername(mockUser.username);
+
+      expect(result).toEqual({ ok: true, data: mockUser });
+    });
+
+    it('should return an error result when user not found', async () => {
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }),
+        }),
+      });
+
+      const result = await getUserByUsername('nonexistent');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('User not found');
+      }
+    });
+  });
+
   describe('getUserByEmailOrUsername', () => {
     it('should return user by email or username in a result object', async () => {
       (db.select as any).mockReturnValue({
@@ -188,7 +243,6 @@ describe('user Handler Functions', () => {
         id: 2,
         createdAt: new Date(),
         updatedAt: new Date(),
-        isActive: true,
         email: mockUserInput.email.toLowerCase(),
       };
       (db.insert as any).mockReturnValue({
@@ -228,119 +282,6 @@ describe('user Handler Functions', () => {
       if (!result.ok) {
         expect(result.error.message).toBe('Unable to create user');
       }
-    });
-  });
-
-  describe('createUserWithInvitation', () => {
-    it('should create user with invitation and return result', async () => {
-      const mockResult = {
-        user: mockUser,
-        auth0_user_id: 'auth0|123456',
-        ticket_url: 'https://example.com/ticket/abc123',
-      };
-      const expectedResult = { ok: true, data: mockResult };
-
-      (createUserWithInvitationService as any).mockResolvedValue(expectedResult);
-
-      const result = await createUserWithInvitation(mockUserInput);
-
-      expect(result).toEqual(expectedResult);
-      expect(createUserWithInvitationService).toHaveBeenCalledWith(mockUserInput);
-    });
-
-    it('should return error result when service fails', async () => {
-      const errorResult = {
-        ok: false,
-        error: { message: 'A user with this email already exists.' },
-      };
-      (createUserWithInvitationService as any).mockResolvedValue(errorResult);
-
-      const result = await createUserWithInvitation(mockUserInput);
-
-      expect(result).toEqual(errorResult);
-      expect(createUserWithInvitationService).toHaveBeenCalledWith(mockUserInput);
-    });
-
-    it('should handle Auth0 sync failures with rollback', async () => {
-      const errorResult = {
-        ok: false,
-        error: {
-          message:
-            'User creation failed during Auth0 sync and was rolled back. Reason: Auth0 API error',
-        },
-      };
-      (createUserWithInvitationService as any).mockResolvedValue(errorResult);
-
-      const result = await createUserWithInvitation(mockUserInput);
-
-      expect(result).toEqual(errorResult);
-    });
-  });
-
-  describe('sendInvitationEmailToExistingUser', () => {
-    it('should send invitation to existing user and return ticket URL', async () => {
-      const expectedResult = {
-        ok: true,
-        data: { ticket_url: 'https://example.com/ticket/xyz789' },
-      };
-      (sendInvitationToExistingUserService as any).mockResolvedValue(expectedResult);
-
-      const result = await sendInvitationEmailToExistingUser(
-        'auth0|123456',
-        'user@example.com',
-        'John',
-        'Doe'
-      );
-
-      expect(result).toEqual(expectedResult);
-      expect(sendInvitationToExistingUserService).toHaveBeenCalledWith(
-        'auth0|123456',
-        'user@example.com',
-        'John',
-        'Doe'
-      );
-    });
-
-    it('should send invitation without optional names', async () => {
-      const expectedResult = {
-        ok: true,
-        data: { ticket_url: 'https://example.com/ticket/xyz789' },
-      };
-      (sendInvitationToExistingUserService as any).mockResolvedValue(expectedResult);
-
-      const result = await sendInvitationEmailToExistingUser('auth0|123456', 'user@example.com');
-
-      expect(result).toEqual(expectedResult);
-      expect(sendInvitationToExistingUserService).toHaveBeenCalledWith(
-        'auth0|123456',
-        'user@example.com',
-        undefined,
-        undefined
-      );
-    });
-
-    it('should return error result when service fails', async () => {
-      const errorResult = {
-        ok: false,
-        error: { message: 'Failed to send invitation' },
-      };
-      (sendInvitationToExistingUserService as any).mockResolvedValue(errorResult);
-
-      const result = await sendInvitationEmailToExistingUser('auth0|123456', 'user@example.com');
-
-      expect(result).toEqual(errorResult);
-    });
-
-    it('should handle Auth0 ticket creation failures', async () => {
-      const errorResult = {
-        ok: false,
-        error: { message: 'Failed to generate password change ticket.' },
-      };
-      (sendInvitationToExistingUserService as any).mockResolvedValue(errorResult);
-
-      const result = await sendInvitationEmailToExistingUser('invalid-user-id', 'user@example.com');
-
-      expect(result).toEqual(errorResult);
     });
   });
 
@@ -422,6 +363,149 @@ describe('user Handler Functions', () => {
       const result = await deleteUser(999);
 
       expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Cannot delete user');
+      }
+    });
+  });
+
+  describe('getUsersCount', () => {
+    it('should return the count of users', async () => {
+      const mockCount = [{ count: 5 }];
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockResolvedValue(mockCount),
+      });
+
+      const result = await getUsersCount();
+
+      expect(result).toBe(1);
+    });
+
+    it('should return 0 when no users exist', async () => {
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockResolvedValue([]),
+      });
+
+      const result = await getUsersCount();
+
+      expect(result).toBe(0);
+    });
+  });
+
+  describe('getActiveUsers', () => {
+    it('should return all active users', async () => {
+      const activeUsers = [mockUser, sampleUsers.user2];
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(activeUsers),
+        }),
+      });
+
+      const result = await getActiveUsers();
+
+      expect(result).toEqual(activeUsers);
+    });
+
+    it('should return empty array when no active users', async () => {
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([]),
+        }),
+      });
+
+      const result = await getActiveUsers();
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('getInactiveUsers', () => {
+    it('should return all inactive users', async () => {
+      const inactiveUser = { ...mockUser, status: 'inactive' };
+      const inactiveUsers = [inactiveUser];
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(inactiveUsers),
+        }),
+      });
+
+      const result = await getInactiveUsers();
+
+      expect(result).toEqual(inactiveUsers);
+    });
+
+    it('should return empty array when no inactive users', async () => {
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([]),
+        }),
+      });
+
+      const result = await getInactiveUsers();
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('activateUser', () => {
+    it('should activate user by setting status to verified', async () => {
+      const activatedUser = { ...mockUser, status: 'verified' };
+      (db.update as any).mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([activatedUser]) }),
+        }),
+      });
+
+      const result = await activateUser(mockUser.id);
+
+      expect(result).toEqual({ ok: true, data: activatedUser });
+    });
+
+    it('should return error if user activation fails', async () => {
+      (db.update as any).mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
+        }),
+      });
+
+      const result = await activateUser(999);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Cannot update user');
+      }
+    });
+  });
+
+  describe('deactivateUser', () => {
+    it('should deactivate user by setting status to inactive', async () => {
+      const deactivatedUser = { ...mockUser, status: 'inactive' };
+      (db.update as any).mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi
+            .fn()
+            .mockReturnValue({ returning: vi.fn().mockResolvedValue([deactivatedUser]) }),
+        }),
+      });
+
+      const result = await deactivateUser(mockUser.id);
+
+      expect(result).toEqual({ ok: true, data: deactivatedUser });
+    });
+
+    it('should return error if user deactivation fails', async () => {
+      (db.update as any).mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
+        }),
+      });
+
+      const result = await deactivateUser(999);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Cannot update user');
+      }
     });
   });
 });

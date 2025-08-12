@@ -8,13 +8,6 @@ import type { Result } from '@/lib/types';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 
-import type { UserInvitationResult } from './users.service';
-
-import {
-  createUserWithInvitation as createUserWithInvitationService,
-  sendInvitationToExistingUser as sendInvitationToExistingUserService,
-} from './users.service';
-
 export type User = z.infer<typeof selectUsersSchema>;
 export type CreateUserInput = z.infer<typeof insertUsersSchema>;
 export type UpdateUserInput = z.infer<typeof patchUsersSchema>;
@@ -71,21 +64,6 @@ export async function createUser(input: CreateUserInput): Promise<Result<User>> 
   return user
     ? { ok: true, data: user }
     : { ok: false, error: { message: 'Unable to create user' } };
-}
-
-export async function createUserWithInvitation(
-  input: CreateUserInput
-): Promise<Result<UserInvitationResult>> {
-  return await createUserWithInvitationService(input);
-}
-
-export async function sendInvitationEmailToExistingUser(
-  userId: string,
-  email: string,
-  firstName?: string,
-  lastName?: string
-): Promise<Result<{ ticket_url: string }>> {
-  return await sendInvitationToExistingUserService(userId, email, firstName, lastName);
 }
 
 export async function updateUser(id: number, input: UpdateUserInput): Promise<Result<User>> {
