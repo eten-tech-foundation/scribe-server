@@ -30,7 +30,7 @@ export interface User {
   email: string;
   role: number;
   organization: number;
-  isActive: boolean;
+  status: 'invited' | 'verified' | 'inactive';
   [key: string]: any;
 }
 

@@ -43,7 +43,7 @@ export const sampleUsers = {
     createdBy: null,
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
-    isActive: true,
+    status: 'verified' as const,
   },
   user2: {
     id: 2,
@@ -56,7 +56,7 @@ export const sampleUsers = {
     createdBy: null,
     createdAt: new Date('2024-01-02T00:00:00Z'),
     updatedAt: new Date('2024-01-02T00:00:00Z'),
-    isActive: false,
+    status: 'invited' as const,
   },
   newUser: {
     username: 'newuser',
@@ -66,6 +66,7 @@ export const sampleUsers = {
     role: 1,
     organization: 1,
     createdBy: null,
+    status: 'invited' as const,
   },
   invitationUser: {
     username: 'inviteuser',
@@ -79,6 +80,11 @@ export const sampleUsers = {
   updateUser: {
     firstName: 'Jane',
     lastName: 'Smith',
+  },
+  updateUserWithEmail: {
+    firstName: 'Jane',
+    lastName: 'Smith',
+    email: 'updated@example.com',
   },
 };
 

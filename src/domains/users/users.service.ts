@@ -18,27 +18,28 @@ export interface UserInvitationResult {
 export async function createUserWithInvitation(
   input: CreateUserInput
 ): Promise<Result<UserInvitationResult>> {
+  const normalizedInput = { ...input, email: input.email.toLowerCase() };
   // 1. Check if user already exists
-  const existingUserResult = await getUserByEmail(input.email);
+  const existingUserResult = await getUserByEmail(normalizedInput.email);
   if (existingUserResult.ok) {
     return { ok: false, error: { message: 'A user with this email already exists.' } };
   }
 
   // 2. Create user in local database
-  const dbResult = await createUser(input);
+  const dbResult = await createUser(normalizedInput);
   if (!dbResult.ok) {
     return { ok: false, error: dbResult.error };
   }
 
   try {
     // 3. Create user in Auth0
-    const auth0User = await createAuth0User(input);
+    const auth0User = await createAuth0User(normalizedInput);
 
     // 4. Create password change ticket (invitation link)
     const ticketUrl = await createPasswordChangeTicket(auth0User.user_id!);
 
     // 5. Send invitation email
-    await sendUserInvitationEmail(input, ticketUrl);
+    await sendUserInvitationEmail(normalizedInput, ticketUrl);
 
     return {
       ok: true,
@@ -69,10 +70,11 @@ export async function sendInvitationToExistingUser(
   lastName?: string
 ): Promise<Result<{ ticket_url: string }>> {
   try {
+    const lowercaseEmail = email.toLowerCase();
     const ticketUrl = await createPasswordChangeTicket(userId);
 
     await sendUserInvitationEmail(
-      { email, firstName: firstName ?? null, lastName: lastName ?? null },
+      { email: lowercaseEmail, firstName: firstName ?? null, lastName: lastName ?? null },
       ticketUrl
     );
 

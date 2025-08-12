@@ -12,6 +12,17 @@ export const ROLES = {
   TRANSLATOR: 2,
 } as const;
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+export function emailMatch(sourceEmail: string, targetEmail: string): boolean {
+  const sourceEmailNormalized = normalizeEmail(sourceEmail);
+  const targetEmailNormalized = normalizeEmail(targetEmail);
+
+  return sourceEmailNormalized === targetEmailNormalized;
+}
+
 async function getAuthenticatedUser(c: Context<AppBindings>) {
   const userEmail = c.get('loggedInUserEmail');
   if (!userEmail) {
@@ -28,7 +39,7 @@ async function getAuthenticatedUser(c: Context<AppBindings>) {
   }
 
   const user = userResult.data;
-  if (!user.isActive) {
+  if (user.status === 'inactive') {
     throw new HTTPException(HttpStatusCodes.FORBIDDEN, {
       message: 'User account is inactive',
     });
@@ -39,10 +50,11 @@ async function getAuthenticatedUser(c: Context<AppBindings>) {
 
 async function ensureSameOrganization(managerOrg: number, targetUserId?: string) {
   if (!targetUserId) return;
-  const targetUserResult = await getUserById(Number.parseInt(targetUserId));
+  const targetUserResult = await getUserById(Number.parseInt(targetUserId, 10));
+  // 404 for both "user not found" and "user in different org"
   if (!targetUserResult.ok || managerOrg !== targetUserResult.data.organization) {
-    throw new HTTPException(HttpStatusCodes.FORBIDDEN, {
-      message: 'Cannot access users from different organization',
+    throw new HTTPException(HttpStatusCodes.NOT_FOUND, {
+      message: 'User not found',
     });
   }
 }
@@ -80,7 +92,7 @@ export const requireUserAccess: MiddlewareHandler<AppBindings> = async (c, next)
   } else if (user.role === ROLES.TRANSLATOR) {
     if (
       (targetUserId && user.id !== Number.parseInt(targetUserId)) ||
-      (targetUserEmail && user.email !== targetUserEmail)
+      (targetUserEmail && !emailMatch(user.email, targetUserEmail))
     ) {
       throw new HTTPException(HttpStatusCodes.FORBIDDEN, {
         message: 'You can only access your own profile',

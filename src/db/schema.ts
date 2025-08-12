@@ -1,6 +1,7 @@
 import { z } from '@hono/zod-openapi';
-import { boolean, integer, pgTable, serial, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { integer, pgEnum, pgTable, serial, timestamp, varchar } from 'drizzle-orm/pg-core';
 import { createSchemaFactory } from 'drizzle-zod';
+export const userStatusEnum = pgEnum('user_status', ['invited', 'verified', 'inactive']);
 
 export const roles = pgTable('roles', {
   id: serial('id').primaryKey(),
@@ -32,13 +33,12 @@ export const users = pgTable('users', {
   organization: integer('organization')
     .notNull()
     .references(() => organizations.id),
-  status: varchar('status', { length: 20 }).notNull().default('invited'),
+  status: userStatusEnum('status').notNull().default('invited'),
   createdBy: integer('created_by'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
     .$onUpdate(() => new Date()),
-  isActive: boolean('is_active').notNull().default(true),
 });
 
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({
@@ -54,6 +54,7 @@ export const insertUsersSchema = createInsertSchema(users, {
   email: (schema) => schema.email().max(255),
   firstName: (schema) => schema.max(100).optional(),
   lastName: (schema) => schema.max(100).optional(),
+  status: z.enum(['invited', 'verified', 'inactive']).default('invited'),
 })
   .required({
     username: true,

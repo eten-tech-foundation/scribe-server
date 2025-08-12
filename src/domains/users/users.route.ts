@@ -259,7 +259,8 @@ const getUserByEmailRoute = createRoute({
 server.openapi(getUserByEmailRoute, async (c) => {
   const { email } = c.req.param();
 
-  const result = await userHandler.getUserByEmail(email);
+  const lowercaseEmail = email.toLowerCase();
+  const result = await userHandler.getUserByEmail(lowercaseEmail);
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
@@ -412,56 +413,6 @@ server.openapi(deleteUserRoute, async (c) => {
 
   if (result.ok) {
     return c.body(null, HttpStatusCodes.NO_CONTENT);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
-});
-
-const toggleUserStatusRoute = createRoute({
-  tags: ['Users'],
-  method: 'patch',
-  path: '/users/{id}/toggle-status',
-  request: {
-    params: z.object({
-      id: z.coerce.number().openapi({
-        param: {
-          name: 'id',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 1,
-      }),
-    }),
-  },
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectUsersSchema, 'User status toggled'),
-    [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-      'User not found'
-    ),
-    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      createMessageObjectSchema('Unauthorized'),
-      'Authentication required'
-    ),
-    [HttpStatusCodes.FORBIDDEN]: jsonContent(
-      createMessageObjectSchema('Forbidden'),
-      'Manager access required'
-    ),
-  },
-  summary: 'Toggle user status',
-  description: 'Toggles the active status of a user',
-});
-
-server.use('/users/:id/toggle-status', requireManagerUserAccess);
-
-server.openapi(toggleUserStatusRoute, async (c) => {
-  const { id } = c.req.valid('param');
-
-  const result = await userHandler.toggleUserStatus(id);
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
   }
 
   return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);

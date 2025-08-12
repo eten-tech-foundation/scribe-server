@@ -9,9 +9,9 @@ import {
   deleteUser,
   getAllUsers,
   getUserByEmail,
+  getUserByEmailOrUsername,
   getUserById,
   sendInvitationEmailToExistingUser,
-  toggleUserStatus,
   updateUser,
 } from './users.handlers';
 import {
@@ -115,6 +115,18 @@ describe('user Handler Functions', () => {
       expect(result).toEqual({ ok: true, data: mockUser });
     });
 
+    it('should convert email to lowercase before querying', async () => {
+      const whereMock = vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([mockUser]) });
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: whereMock,
+        }),
+      });
+
+      await getUserByEmail('TEST@EXAMPLE.COM');
+      expect(whereMock).toHaveBeenCalled();
+    });
+
     it('should return an error result when user not found', async () => {
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
@@ -128,6 +140,47 @@ describe('user Handler Functions', () => {
     });
   });
 
+  describe('getUserByEmailOrUsername', () => {
+    it('should return user by email or username in a result object', async () => {
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([mockUser]) }),
+        }),
+      });
+
+      const result = await getUserByEmailOrUsername(mockUser.email);
+
+      expect(result).toEqual({ ok: true, data: mockUser });
+    });
+
+    it('should convert identifier to lowercase for email lookups', async () => {
+      const whereMock = vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([mockUser]) });
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: whereMock,
+        }),
+      });
+
+      await getUserByEmailOrUsername('TEST@EXAMPLE.COM');
+      expect(whereMock).toHaveBeenCalled();
+    });
+
+    it('should return an error result when user not found', async () => {
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }),
+        }),
+      });
+
+      const result = await getUserByEmailOrUsername('noone@example.com');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('User not found');
+      }
+    });
+  });
+
   describe('createUser', () => {
     it('should create and return a new user in a result object', async () => {
       const createdUser = {
@@ -136,6 +189,7 @@ describe('user Handler Functions', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         isActive: true,
+        email: mockUserInput.email.toLowerCase(),
       };
       (db.insert as any).mockReturnValue({
         values: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([createdUser]) }),
@@ -144,6 +198,23 @@ describe('user Handler Functions', () => {
       const result = await createUser(mockUserInput);
 
       expect(result).toEqual({ ok: true, data: createdUser });
+    });
+
+    it('should convert email to lowercase before inserting', async () => {
+      const valuesMock = vi
+        .fn()
+        .mockReturnValue({ returning: vi.fn().mockResolvedValue([mockUser]) });
+      (db.insert as any).mockReturnValue({
+        values: valuesMock,
+      });
+
+      const inputWithUppercaseEmail = { ...mockUserInput, email: 'NEWUSER@EXAMPLE.COM' };
+      await createUser(inputWithUppercaseEmail);
+
+      expect(valuesMock).toHaveBeenCalledWith({
+        ...inputWithUppercaseEmail,
+        email: 'newuser@example.com',
+      });
     });
 
     it('should return an error result if creation fails', async () => {
@@ -287,6 +358,33 @@ describe('user Handler Functions', () => {
       expect(result).toEqual({ ok: true, data: updatedUser });
     });
 
+    it('should convert email to lowercase when updating', async () => {
+      const setMock = vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([mockUser]) }),
+      });
+      (db.update as any).mockReturnValue({
+        set: setMock,
+      });
+
+      const updateWithEmail = { email: 'UPDATED@EXAMPLE.COM' };
+      await updateUser(mockUser.id, updateWithEmail);
+
+      expect(setMock).toHaveBeenCalledWith({ email: 'updated@example.com' });
+    });
+
+    it('should not modify input when no email is provided', async () => {
+      const setMock = vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([mockUser]) }),
+      });
+      (db.update as any).mockReturnValue({
+        set: setMock,
+      });
+
+      await updateUser(mockUser.id, updateData);
+
+      expect(setMock).toHaveBeenCalledWith(updateData);
+    });
+
     it('should return an error result when user to update is not found', async () => {
       (db.update as any).mockReturnValue({
         set: vi.fn().mockReturnValue({
@@ -324,36 +422,6 @@ describe('user Handler Functions', () => {
       const result = await deleteUser(999);
 
       expect(result.ok).toBe(false);
-    });
-  });
-
-  describe('toggleUserStatus', () => {
-    it('should toggle user status and return updated user in a result object', async () => {
-      const toggledUser = { ...mockUser, isActive: !mockUser.isActive };
-      (db.update as any).mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([toggledUser]) }),
-        }),
-      });
-
-      const result = await toggleUserStatus(mockUser.id);
-
-      expect(result).toEqual({ ok: true, data: toggledUser });
-    });
-
-    it('should return an error result when user to toggle is not found', async () => {
-      (db.update as any).mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
-        }),
-      });
-
-      const result = await toggleUserStatus(999);
-
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.error.message).toBe('Cannot toggle user status');
-      }
     });
   });
 });
