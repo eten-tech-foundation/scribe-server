@@ -5,6 +5,16 @@ import type { AppBindings } from '@/lib/types';
 
 import { logger } from '@/lib/logger';
 
+const processEmailFromUI = async (c: any, next: any) => {
+  const emailFromUI = c.req.header('x-user-email');
+
+  if (emailFromUI) {
+    c.set('loggedInUserEmail', emailFromUI);
+  }
+
+  await next();
+};
+
 export function createServer() {
   const app = new OpenAPIHono<AppBindings>({
     strict: false,
@@ -20,6 +30,13 @@ export function createServer() {
     return c.json({ error: 'Internal Server Error' }, 500);
   });
   app.use('*', cors());
+
+  app.use('*', processEmailFromUI);
+
+  app.use('*', async (c, next) => {
+    c.set('logger', logger as any);
+    await next();
+  });
 
   app.use('*', async (c, next) => {
     const start = Date.now();

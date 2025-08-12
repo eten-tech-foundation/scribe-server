@@ -24,10 +24,23 @@ export interface Auth0JWTPayload {
   [key: string]: any;
 }
 
+// User
+export interface User {
+  id: number;
+  email: string;
+  role: number;
+  organization: number;
+  status: 'invited' | 'verified' | 'inactive';
+  [key: string]: any;
+}
+
 export interface AppBindings {
   Variables: {
     logger: PinoLogger;
     jwtPayload?: Auth0JWTPayload;
+    user?: User;
+    requestId: string;
+    loggedInUserEmail?: string;
   };
 }
 

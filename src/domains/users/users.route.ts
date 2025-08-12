@@ -6,6 +6,12 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { insertUsersSchema, patchUsersSchema, selectUsersSchema } from '@/db/schema';
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
+import { createUserWithInvitation } from '@/lib/services/auth/auth0.service';
+import {
+  requireManagerAccess,
+  requireManagerUserAccess,
+  requireUserAccess,
+} from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as userHandler from './users.handlers';
@@ -17,7 +23,15 @@ const listUsersRoute = createRoute({
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       selectUsersSchema.array().openapi('Users'),
-      'The list of users'
+      'The list of users within the organization'
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'Manager access required'
     ),
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
@@ -25,11 +39,15 @@ const listUsersRoute = createRoute({
     ),
   },
   summary: 'Get all users',
-  description: 'Returns a list of all users',
+  description: "Returns a list of all users within the manager's organization",
 });
 
+server.use('/users', requireManagerAccess);
+
 server.openapi(listUsersRoute, async (c) => {
-  const result = await userHandler.getAllUsers();
+  const currentUser = c.get('user');
+
+  const result = await userHandler.getUsersByOrganization(currentUser!.organization);
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
@@ -84,6 +102,72 @@ server.openapi(createUserRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
 });
 
+const createUserWithInvitationRoute = createRoute({
+  tags: ['Users'],
+  method: 'post',
+  path: '/users/invite',
+  request: {
+    body: jsonContent(insertUsersSchema, 'The user to create and invite'),
+  },
+  responses: {
+    [HttpStatusCodes.CREATED]: jsonContent(
+      z.object({
+        user: selectUsersSchema,
+        auth0_user_id: z.string(),
+        ticket_url: z.string(),
+      }),
+      'User created and invitation sent'
+    ),
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+      createMessageObjectSchema('Bad Request'),
+      'Validation error, duplicate user, or Auth0 error'
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'Manager access required'
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      z.object({
+        success: z.boolean(),
+        error: z.object({
+          issues: z.array(
+            z.object({
+              code: z.string(),
+              path: z.array(z.string()),
+              message: z.string(),
+            })
+          ),
+          name: z.string(),
+        }),
+      }),
+      'The validation error'
+    ),
+  },
+  summary: 'Create user and send Auth0 invitation',
+  description: 'Creates a new user in database and sends Auth0 invitation email',
+});
+
+server.use('/users/invite', requireManagerAccess);
+
+server.openapi(createUserWithInvitationRoute, async (c) => {
+  const userData = c.req.valid('json');
+  const currentUser = c.get('user');
+
+  userData.organization = currentUser!.organization;
+
+  const result = await createUserWithInvitation(userData);
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.CREATED);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
+});
+
 const getUserRoute = createRoute({
   tags: ['Users'],
   method: 'get',
@@ -107,10 +191,20 @@ const getUserRoute = createRoute({
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'User not found'
     ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'Access denied'
+    ),
   },
   summary: 'Get a user by ID',
   description: 'Returns a single user by their ID',
 });
+
+server.use('/users/:id', requireUserAccess);
 
 server.openapi(getUserRoute, async (c) => {
   const { id } = c.req.valid('param');
@@ -150,6 +244,14 @@ const getUserByEmailRoute = createRoute({
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'User not found'
     ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'Access denied'
+    ),
   },
   summary: 'Get a user by email',
   description: 'Returns a single user by their email address',
@@ -158,7 +260,8 @@ const getUserByEmailRoute = createRoute({
 server.openapi(getUserByEmailRoute, async (c) => {
   const { email } = c.req.param();
 
-  const result = await userHandler.getUserByEmail(email);
+  const lowercaseEmail = email.toLowerCase();
+  const result = await userHandler.getUserByEmail(lowercaseEmail);
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
@@ -195,6 +298,14 @@ const updateUserRoute = createRoute({
       createMessageObjectSchema('Bad Request'),
       'Validation or constraint error'
     ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'Access denied'
+    ),
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
       z.object({
         success: z.boolean(),
@@ -216,9 +327,12 @@ const updateUserRoute = createRoute({
   description: 'Updates a user with the provided data',
 });
 
+server.use('/users/:id', requireUserAccess);
+
 server.openapi(updateUserRoute, async (c) => {
   const { id } = c.req.valid('param');
-  const updates = await c.req.json();
+  const updates = c.req.valid('json');
+  const currentUser = c.get('user');
 
   if (Object.keys(updates).length === 0) {
     return c.json(
@@ -237,6 +351,11 @@ server.openapi(updateUserRoute, async (c) => {
       },
       HttpStatusCodes.UNPROCESSABLE_ENTITY
     );
+  }
+
+  if (currentUser!.role !== 1) {
+    delete updates.role;
+    delete updates.organization;
   }
 
   const result = await userHandler.updateUser(id, updates);
@@ -273,10 +392,20 @@ const deleteUserRoute = createRoute({
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'User not found'
     ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'Manager access required'
+    ),
   },
   summary: 'Delete a user',
   description: 'Deletes a user by their ID',
 });
+
+server.use('/users/:id', requireManagerUserAccess);
 
 server.openapi(deleteUserRoute, async (c) => {
   const { id } = c.req.valid('param');
@@ -285,46 +414,6 @@ server.openapi(deleteUserRoute, async (c) => {
 
   if (result.ok) {
     return c.body(null, HttpStatusCodes.NO_CONTENT);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
-});
-
-const toggleUserStatusRoute = createRoute({
-  tags: ['Users'],
-  method: 'patch',
-  path: '/users/{id}/toggle-status',
-  request: {
-    params: z.object({
-      id: z.coerce.number().openapi({
-        param: {
-          name: 'id',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 1,
-      }),
-    }),
-  },
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectUsersSchema, 'User status toggled'),
-    [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-      'User not found'
-    ),
-  },
-  summary: 'Toggle user status',
-  description: 'Toggles the active status of a user',
-});
-
-server.openapi(toggleUserStatusRoute, async (c) => {
-  const { id } = c.req.valid('param');
-
-  const result = await userHandler.toggleUserStatus(id);
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
   }
 
   return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);

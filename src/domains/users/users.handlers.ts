@@ -20,6 +20,13 @@ export async function getAllUsers(): Promise<Result<User[]>> {
     : { ok: false, error: { message: 'No Users found - or internal error' } };
 }
 
+export async function getUsersByOrganization(organization: number): Promise<Result<User[]>> {
+  const userList = await db.select().from(users).where(eq(users.organization, organization));
+  return userList
+    ? { ok: true, data: userList }
+    : { ok: false, error: { message: 'No Users found in organization - or internal error' } };
+}
+
 export async function getUserById(id: number): Promise<Result<User>> {
   const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
 
@@ -27,7 +34,8 @@ export async function getUserById(id: number): Promise<Result<User>> {
 }
 
 export async function getUserByEmail(email: string): Promise<Result<User>> {
-  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  const lowercaseEmail = email.toLowerCase();
+  const [user] = await db.select().from(users).where(eq(users.email, lowercaseEmail)).limit(1);
 
   return user ? { ok: true, data: user } : { ok: false, error: { message: 'User not found' } };
 }
@@ -39,17 +47,19 @@ export async function getUserByUsername(username: string): Promise<Result<User>>
 }
 
 export async function getUserByEmailOrUsername(identifier: string): Promise<Result<User>> {
+  const lowercaseIdentifier = identifier.toLowerCase();
   const [user] = await db
     .select()
     .from(users)
-    .where(or(eq(users.email, identifier), eq(users.username, identifier)))
+    .where(or(eq(users.email, lowercaseIdentifier), eq(users.username, identifier)))
     .limit(1);
 
   return user ? { ok: true, data: user } : { ok: false, error: { message: 'User not found' } };
 }
 
 export async function createUser(input: CreateUserInput): Promise<Result<User>> {
-  const [user] = await db.insert(users).values(input).returning();
+  const userInput = { ...input, email: input.email.toLowerCase() };
+  const [user] = await db.insert(users).values(userInput).returning();
 
   return user
     ? { ok: true, data: user }
@@ -57,7 +67,8 @@ export async function createUser(input: CreateUserInput): Promise<Result<User>> 
 }
 
 export async function updateUser(id: number, input: UpdateUserInput): Promise<Result<User>> {
-  const [updated] = await db.update(users).set(input).where(eq(users.id, id)).returning();
+  const updateInput = input.email ? { ...input, email: input.email.toLowerCase() } : input;
+  const [updated] = await db.update(users).set(updateInput).where(eq(users.id, id)).returning();
 
   return updated
     ? { ok: true, data: updated }
@@ -72,36 +83,26 @@ export async function deleteUser(id: number): Promise<Result<boolean>> {
     : { ok: false, error: { message: 'Cannot delete user' } };
 }
 
-export async function toggleUserStatus(id: number): Promise<Result<User>> {
-  const [updatedUser] = await db
-    .update(users)
-    .set({ isActive: not(users.isActive) })
-    .where(eq(users.id, id))
-    .returning();
-
-  return updatedUser
-    ? { ok: true, data: updatedUser }
-    : { ok: false, error: { message: 'Cannot toggle user status' } };
-}
-
 export async function getUsersCount(): Promise<number> {
   const result = await db.select({ count: count() }).from(users);
-
   return result.length;
 }
 
 export async function getActiveUsers(): Promise<User[]> {
-  return await db.select().from(users).where(eq(users.isActive, true));
+  return await db
+    .select()
+    .from(users)
+    .where(not(eq(users.status, 'inactive')));
 }
 
 export async function getInactiveUsers(): Promise<User[]> {
-  return await db.select().from(users).where(eq(users.isActive, false));
+  return await db.select().from(users).where(eq(users.status, 'inactive'));
 }
 
 export async function activateUser(id: number): Promise<Result<User>> {
-  return await updateUser(id, { isActive: true });
+  return await updateUser(id, { status: 'verified' });
 }
 
 export async function deactivateUser(id: number): Promise<Result<User>> {
-  return await updateUser(id, { isActive: false });
+  return await updateUser(id, { status: 'inactive' });
 }
