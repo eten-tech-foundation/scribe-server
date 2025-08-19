@@ -12,6 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { createSchemaFactory } from 'drizzle-zod';
 export const userStatusEnum = pgEnum('user_status', ['invited', 'verified', 'inactive']);
+export const scriptDirectionEnum = pgEnum('script_direction', ['ltr', 'rtl']);
 
 export const roles = pgTable('roles', {
   id: serial('id').primaryKey(),
@@ -55,8 +56,8 @@ export const languages = pgTable('languages', {
   id: serial('id').primaryKey(),
   langName: varchar('lang_name', { length: 100 }),
   langNameLocalized: varchar('lang_name_localized', { length: 100 }),
-  langCodeIso6393: varchar('lang_code_iso_639_3', { length: 10 }),
-  scriptDirection: varchar('script_direction', { length: 10 }).default('ltr'),
+  langCodeIso6393: varchar('lang_code_iso_639_3', { length: 3 }),
+  scriptDirection: scriptDirectionEnum('script_direction').default('ltr'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
@@ -73,6 +74,7 @@ export const projects = pgTable('projects', {
     .references(() => languages.id),
   isActive: boolean('is_active').default(true),
   createdBy: integer('created_by').references(() => users.id),
+  assignedTo: integer('assigned_by').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
@@ -132,7 +134,7 @@ export const insertLanguagesSchema = createInsertSchema(languages, {
   langName: (schema) => schema.max(100).optional(),
   langNameLocalized: (schema) => schema.max(100).optional(),
   langCodeIso6393: (schema) => schema.max(10).optional(),
-  scriptDirection: (schema) => schema.max(10).optional(),
+  scriptDirection: z.enum(['ltr', 'rtl']).default('ltr'),
 }).omit({
   id: true,
   createdAt: true,

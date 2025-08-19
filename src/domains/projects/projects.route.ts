@@ -30,7 +30,7 @@ const listProjectsRoute = createRoute({
     ),
     [HttpStatusCodes.FORBIDDEN]: jsonContent(
       createMessageObjectSchema('Forbidden'),
-      'User access required'
+      'Manager access required'
     ),
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
@@ -38,10 +38,10 @@ const listProjectsRoute = createRoute({
     ),
   },
   summary: 'Get all projects',
-  description: "Returns a list of all projects within the user's organization",
+  description: 'Returns a list of all projects within the organization',
 });
 
-server.use('/projects', requireUserAccess);
+server.use('/projects', requireManagerAccess);
 
 server.openapi(listProjectsRoute, async (c) => {
   const currentUser = c.get('user');
@@ -74,7 +74,7 @@ const createProjectRoute = createRoute({
     ),
     [HttpStatusCodes.FORBIDDEN]: jsonContent(
       createMessageObjectSchema('Forbidden'),
-      'User access required'
+      'Manager access required'
     ),
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
       z.object({
@@ -96,6 +96,8 @@ const createProjectRoute = createRoute({
   summary: 'Create a new project',
   description: 'Creates a new project with the provided data',
 });
+
+server.use('/projects', requireManagerAccess);
 
 server.openapi(createProjectRoute, async (c) => {
   const projectData = c.req.valid('json');
@@ -162,10 +164,10 @@ server.openapi(getProjectRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
 });
 
-const getProjectsByUserRoute = createRoute({
+const getAssignedProjectsRoute = createRoute({
   tags: ['Projects'],
   method: 'get',
-  path: '/projects/user/{userId}',
+  path: '/projects/assigned/{userId}',
   request: {
     params: z.object({
       userId: z.coerce.number().openapi({
@@ -181,8 +183,8 @@ const getProjectsByUserRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      selectProjectsSchema.array().openapi('UserProjects'),
-      'The list of projects created by the user'
+      selectProjectsSchema.array().openapi('AssignedProjects'),
+      'The list of projects assigned to the user'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       createMessageObjectSchema('Unauthorized'),
@@ -197,15 +199,15 @@ const getProjectsByUserRoute = createRoute({
       'Internal server error'
     ),
   },
-  summary: 'Get projects by user',
-  description: 'Returns all projects created by a specific user',
+  summary: 'Get projects assigned to user',
+  description: 'Returns all projects assigned to a specific user',
 });
 
-server.use('/projects/user/:userId', requireUserAccess);
-server.openapi(getProjectsByUserRoute, async (c) => {
+server.use('/projects/assigned/:userId', requireUserAccess);
+server.openapi(getAssignedProjectsRoute, async (c) => {
   const { userId } = c.req.valid('param');
 
-  const result = await projectHandler.getProjectsByUser(userId);
+  const result = await projectHandler.getProjectsAssignedToUser(userId);
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);

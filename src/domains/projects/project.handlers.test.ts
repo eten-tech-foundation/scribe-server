@@ -4,17 +4,11 @@ import { db } from '@/db';
 import { resetAllMocks, sampleProjects } from '@/test/utils/test-helpers';
 
 import {
-  activateProject,
   createProject,
-  deactivateProject,
   deleteProject,
-  getActiveProjects,
   getAllProjects,
-  getInactiveProjects,
   getProjectById,
   getProjectsByOrganization,
-  getProjectsByUser,
-  getProjectsCount,
   updateProject,
 } from './projects.handlers';
 
@@ -130,36 +124,6 @@ describe('project Handler Functions', () => {
     });
   });
 
-  describe('getProjectsByUser', () => {
-    it('should return projects by user ID in a result object', async () => {
-      const mockProjects = [mockProject];
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(mockProjects),
-        }),
-      });
-
-      const result = await getProjectsByUser(1);
-
-      expect(result).toEqual({ ok: true, data: mockProjects });
-    });
-
-    it('should return an error result if no projects found for user', async () => {
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined),
-        }),
-      });
-
-      const result = await getProjectsByUser(999);
-
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.error.message).toBe('No Projects found for user - or internal error');
-      }
-    });
-  });
-
   describe('createProject', () => {
     it('should create and return a new project in a result object', async () => {
       const createdProject = {
@@ -246,148 +210,6 @@ describe('project Handler Functions', () => {
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.message).toBe('Cannot delete project');
-      }
-    });
-  });
-
-  describe('getProjectsCount', () => {
-    it('should return the count of projects', async () => {
-      const mockCount = [{ count: 5 }];
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockResolvedValue(mockCount),
-      });
-
-      const result = await getProjectsCount();
-
-      expect(result).toBe(1);
-    });
-
-    it('should return 0 when no projects exist', async () => {
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockResolvedValue([]),
-      });
-
-      const result = await getProjectsCount();
-
-      expect(result).toBe(0);
-    });
-  });
-
-  describe('getActiveProjects', () => {
-    it('should return all active projects', async () => {
-      const activeProjects = [mockProject, sampleProjects.project2];
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(activeProjects),
-        }),
-      });
-
-      const result = await getActiveProjects();
-
-      expect(result).toEqual(activeProjects);
-    });
-
-    it('should return empty array when no active projects', async () => {
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([]),
-        }),
-      });
-
-      const result = await getActiveProjects();
-
-      expect(result).toEqual([]);
-    });
-  });
-
-  describe('getInactiveProjects', () => {
-    it('should return all inactive projects', async () => {
-      const inactiveProject = { ...mockProject, isActive: false };
-      const inactiveProjects = [inactiveProject];
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(inactiveProjects),
-        }),
-      });
-
-      const result = await getInactiveProjects();
-
-      expect(result).toEqual(inactiveProjects);
-    });
-
-    it('should return empty array when no inactive projects', async () => {
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([]),
-        }),
-      });
-
-      const result = await getInactiveProjects();
-
-      expect(result).toEqual([]);
-    });
-  });
-
-  describe('activateProject', () => {
-    it('should activate project by setting isActive to true', async () => {
-      const activatedProject = { ...mockProject, isActive: true };
-      (db.update as any).mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi
-            .fn()
-            .mockReturnValue({ returning: vi.fn().mockResolvedValue([activatedProject]) }),
-        }),
-      });
-
-      const result = await activateProject(mockProject.id);
-
-      expect(result).toEqual({ ok: true, data: activatedProject });
-    });
-
-    it('should return error if project activation fails', async () => {
-      (db.update as any).mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
-        }),
-      });
-
-      const result = await activateProject(999);
-
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.error.message).toBe('Cannot update project');
-      }
-    });
-  });
-
-  describe('deactivateProject', () => {
-    it('should deactivate project by setting isActive to false', async () => {
-      const deactivatedProject = { ...mockProject, isActive: false };
-      (db.update as any).mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi
-            .fn()
-            .mockReturnValue({ returning: vi.fn().mockResolvedValue([deactivatedProject]) }),
-        }),
-      });
-
-      const result = await deactivateProject(mockProject.id);
-
-      expect(result).toEqual({ ok: true, data: deactivatedProject });
-    });
-
-    it('should return error if project deactivation fails', async () => {
-      (db.update as any).mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
-        }),
-      });
-
-      const result = await deactivateProject(999);
-
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.error.message).toBe('Cannot update project');
       }
     });
   });
