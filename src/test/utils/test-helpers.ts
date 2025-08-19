@@ -80,16 +80,224 @@ export const sampleUsers = {
 };
 
 /**
+ * Sample language data for testing
+ */
+export const sampleLanguages = {
+  english: {
+    id: 1,
+    description: 'English language',
+    langName: 'English',
+    langNameLocalized: 'English',
+    langCodeBcp47: 'en',
+    langCodeIso6393: 'eng',
+    altLangNames: 'English',
+    scriptDirection: 'ltr',
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+  french: {
+    id: 2,
+    description: 'French language',
+    langName: 'French',
+    langNameLocalized: 'Français',
+    langCodeBcp47: 'fr',
+    langCodeIso6393: 'fra',
+    altLangNames: 'French',
+    scriptDirection: 'ltr',
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+  spanish: {
+    id: 3,
+    description: 'Spanish language',
+    langName: 'Spanish',
+    langNameLocalized: 'Español',
+    langCodeBcp47: 'es',
+    langCodeIso6393: 'spa',
+    altLangNames: 'Spanish',
+    scriptDirection: 'ltr',
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+  german: {
+    id: 4,
+    description: 'German language',
+    langName: 'German',
+    langNameLocalized: 'Deutsch',
+    langCodeBcp47: 'de',
+    langCodeIso6393: 'deu',
+    altLangNames: 'German',
+    scriptDirection: 'ltr',
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+  italian: {
+    id: 5,
+    description: 'Italian language',
+    langName: 'Italian',
+    langNameLocalized: 'Italiano',
+    langCodeBcp47: 'it',
+    langCodeIso6393: 'ita',
+    altLangNames: 'Italian',
+    scriptDirection: 'ltr',
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+};
+
+/**
+ * Sample project data for testing
+ */
+export const sampleProjects = {
+  project1: {
+    id: 1,
+    name: 'Test Project',
+    description: 'A test project for translations',
+    sourceLanguages: [1, 2], // English and French IDs
+    targetLanguage: 3, // Spanish ID
+    isActive: true,
+    createdBy: 1,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+    metadata: { priority: 'high', category: 'marketing' },
+  },
+  project2: {
+    id: 2,
+    name: 'Second Project',
+    description: 'Another test project',
+    sourceLanguages: [1], // English ID
+    targetLanguage: 4, // German ID
+    isActive: true,
+    createdBy: 2,
+    createdAt: new Date('2024-01-02T00:00:00Z'),
+    updatedAt: new Date('2024-01-02T00:00:00Z'),
+    metadata: { priority: 'medium', category: 'documentation' },
+  },
+  inactiveProject: {
+    id: 3,
+    name: 'Inactive Project',
+    description: 'A deactivated project',
+    sourceLanguages: [1], // English ID
+    targetLanguage: 5, // Italian ID
+    isActive: false,
+    createdBy: 1,
+    createdAt: new Date('2024-01-03T00:00:00Z'),
+    updatedAt: new Date('2024-01-03T00:00:00Z'),
+    metadata: { priority: 'low', category: 'archive' },
+  },
+  newProject: {
+    name: 'New Test Project',
+    description: 'A newly created project',
+    sourceLanguages: [1, 4], // English and German IDs
+    targetLanguage: 2, // French ID
+    isActive: true,
+    createdBy: 1,
+    metadata: { priority: 'high', category: 'product' },
+  },
+  updateProject: {
+    name: 'Updated Project Name',
+    description: 'Updated description',
+    metadata: { priority: 'medium', category: 'updated' },
+  },
+  updateProjectStatus: {
+    isActive: false,
+  },
+  updateProjectLanguages: {
+    sourceLanguages: [2, 3], // French and Spanish IDs
+    targetLanguage: 1, // English ID
+  },
+};
+
+/**
+ * Sample role data for testing
+ */
+export const sampleRoles = {
+  admin: {
+    id: 1,
+    name: 'admin',
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+  user: {
+    id: 2,
+    name: 'user',
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+  translator: {
+    id: 3,
+    name: 'translator',
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+  newRole: {
+    name: 'manager',
+  },
+};
+
+/**
+ * Sample organization data for testing
+ */
+export const sampleOrganizations = {
+  org1: {
+    id: 1,
+    name: 'Test Organization',
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+  org2: {
+    id: 2,
+    name: 'Second Organization',
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+  newOrg: {
+    name: 'New Organization',
+  },
+};
+
+/**
  * Sample error messages for testing
  */
 export const sampleErrors = {
+  // User errors
   userNotFound: 'User not found',
   userExists: 'A user with this email already exists.',
-  unableToCreate: 'Unable to create user',
-  cannotUpdate: 'Cannot update user',
-  cannotDelete: 'Cannot delete user',
+  unableToCreateUser: 'Unable to create user',
+  cannotUpdateUser: 'Cannot update user',
+  cannotDeleteUser: 'Cannot delete user',
   noUsersFound: 'No Users found - or internal error',
   noUsersInOrganization: 'No Users found in organization - or internal error',
+
+  // Project errors
+  projectNotFound: 'Project not found',
+  unableToCreateProject: 'Unable to create project',
+  cannotUpdateProject: 'Cannot update project',
+  cannotDeleteProject: 'Cannot delete project',
+  noProjectsFound: 'No Projects found - or internal error',
+  noProjectsInOrganization: 'No Projects found in organization - or internal error',
+  noProjectsForUser: 'No Projects found for user - or internal error',
+
+  // Language errors
+  languageNotFound: 'Language not found',
+  unableToCreateLanguage: 'Unable to create language',
+  cannotUpdateLanguage: 'Cannot update language',
+  cannotDeleteLanguage: 'Cannot delete language',
+  noLanguagesFound: 'No Languages found - or internal error',
+
+  // Role errors
+  roleNotFound: 'Role not found',
+  unableToCreateRole: 'Unable to create role',
+  cannotUpdateRole: 'Cannot update role',
+  cannotDeleteRole: 'Cannot delete role',
+  noRolesFound: 'No Roles found - or internal error',
+
+  // Organization errors
+  organizationNotFound: 'Organization not found',
+  unableToCreateOrganization: 'Unable to create organization',
+  cannotUpdateOrganization: 'Cannot update organization',
+  cannotDeleteOrganization: 'Cannot delete organization',
+  noOrganizationsFound: 'No Organizations found - or internal error',
 };
 
 /**
@@ -123,6 +331,11 @@ export function createMockQueryBuilder() {
     set: vi.fn().mockReturnThis(),
     delete: vi.fn().mockReturnThis(),
     returning: vi.fn(),
+    innerJoin: vi.fn().mockReturnThis(),
+    leftJoin: vi.fn().mockReturnThis(),
+    rightJoin: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
+    groupBy: vi.fn().mockReturnThis(),
   };
 }
 
@@ -130,6 +343,7 @@ export function createMockQueryBuilder() {
  * Mock data generators for consistent testing
  */
 export const mockDataGenerators = {
+  // User generators
   createUser: (overrides: Partial<any> = {}) => ({
     ...sampleUsers.user1,
     ...overrides,
@@ -137,7 +351,244 @@ export const mockDataGenerators = {
 
   createUserArray: (count: number = 2) => [sampleUsers.user1, sampleUsers.user2].slice(0, count),
 
+  // Project generators
+  createProject: (overrides: Partial<any> = {}) => ({
+    ...sampleProjects.project1,
+    ...overrides,
+  }),
+
+  createProjectArray: (count: number = 2) =>
+    [sampleProjects.project1, sampleProjects.project2].slice(0, count),
+
+  createActiveProjects: () => [sampleProjects.project1, sampleProjects.project2],
+
+  createInactiveProjects: () => [sampleProjects.inactiveProject],
+
+  createProjectsByUser: (userId: number) => [
+    { ...sampleProjects.project1, createdBy: userId },
+    { ...sampleProjects.project2, createdBy: userId },
+  ],
+
+  // Language generators
+  createLanguage: (overrides: Partial<any> = {}) => ({
+    ...sampleLanguages.english,
+    ...overrides,
+  }),
+
+  createLanguageArray: (count: number = 4) =>
+    [
+      sampleLanguages.english,
+      sampleLanguages.french,
+      sampleLanguages.spanish,
+      sampleLanguages.german,
+    ].slice(0, count),
+
+  // Role generators
+  createRole: (overrides: Partial<any> = {}) => ({
+    ...sampleRoles.admin,
+    ...overrides,
+  }),
+
+  createRoleArray: (count: number = 3) =>
+    [sampleRoles.admin, sampleRoles.user, sampleRoles.translator].slice(0, count),
+
+  // Organization generators
+  createOrganization: (overrides: Partial<any> = {}) => ({
+    ...sampleOrganizations.org1,
+    ...overrides,
+  }),
+
+  createOrganizationArray: (count: number = 2) =>
+    [sampleOrganizations.org1, sampleOrganizations.org2].slice(0, count),
+
+  // Generic generators
   createEmptyResult: () => [],
 
   createCountResult: (count: number = 5) => [{ count }],
+
+  createIdResult: (id: number) => [{ id }],
+};
+
+/**
+ * Mock database response helpers
+ */
+export const mockDbResponses = {
+  // Success responses
+  successfulSelect: (data: any) => ({ from: vi.fn().mockResolvedValue(data) }),
+
+  successfulSelectWithWhere: (data: any) => ({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue(data),
+    }),
+  }),
+
+  successfulSelectWithJoin: (data: any) => ({
+    from: vi.fn().mockReturnValue({
+      innerJoin: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(data),
+      }),
+    }),
+  }),
+
+  successfulSelectById: (data: any) => ({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue(data),
+      }),
+    }),
+  }),
+
+  successfulInsert: (data: any) => ({
+    values: vi.fn().mockReturnValue({
+      returning: vi.fn().mockResolvedValue([data]),
+    }),
+  }),
+
+  successfulUpdate: (data: any) => ({
+    set: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([data]),
+      }),
+    }),
+  }),
+
+  successfulDelete: (id: number) => ({
+    where: vi.fn().mockReturnValue({
+      returning: vi.fn().mockResolvedValue([{ id }]),
+    }),
+  }),
+
+  // Failure responses
+  failedSelect: () => ({ from: vi.fn().mockResolvedValue(undefined) }),
+
+  failedSelectWithWhere: () => ({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue(undefined),
+    }),
+  }),
+
+  failedSelectById: () => ({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue([]),
+      }),
+    }),
+  }),
+
+  failedInsert: () => ({
+    values: vi.fn().mockReturnValue({
+      returning: vi.fn().mockResolvedValue([]),
+    }),
+  }),
+
+  failedUpdate: () => ({
+    set: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([]),
+      }),
+    }),
+  }),
+
+  failedDelete: () => ({
+    where: vi.fn().mockReturnValue({
+      returning: vi.fn().mockResolvedValue([]),
+    }),
+  }),
+};
+
+/**
+ * Common test data combinations
+ */
+export const testDataSets = {
+  users: {
+    all: [sampleUsers.user1, sampleUsers.user2],
+    active: [sampleUsers.user1],
+    inactive: [sampleUsers.user2],
+    byOrganization: (orgId: number) => [
+      { ...sampleUsers.user1, organization: orgId },
+      { ...sampleUsers.user2, organization: orgId },
+    ],
+  },
+
+  projects: {
+    all: [sampleProjects.project1, sampleProjects.project2],
+    active: [sampleProjects.project1, sampleProjects.project2],
+    inactive: [sampleProjects.inactiveProject],
+    byUser: (userId: number) => [
+      { ...sampleProjects.project1, createdBy: userId },
+      { ...sampleProjects.project2, createdBy: userId },
+    ],
+    byOrganization: (orgId: number) => [
+      { ...sampleProjects.project1, organization: orgId },
+      { ...sampleProjects.project2, organization: orgId },
+    ],
+  },
+
+  languages: {
+    all: [
+      sampleLanguages.english,
+      sampleLanguages.french,
+      sampleLanguages.spanish,
+      sampleLanguages.german,
+    ],
+    european: [
+      sampleLanguages.english,
+      sampleLanguages.french,
+      sampleLanguages.spanish,
+      sampleLanguages.german,
+    ],
+    romance: [sampleLanguages.french, sampleLanguages.spanish, sampleLanguages.italian],
+  },
+
+  roles: {
+    all: [sampleRoles.admin, sampleRoles.user, sampleRoles.translator],
+    administrative: [sampleRoles.admin],
+    operational: [sampleRoles.user, sampleRoles.translator],
+  },
+
+  organizations: {
+    all: [sampleOrganizations.org1, sampleOrganizations.org2],
+    active: [sampleOrganizations.org1, sampleOrganizations.org2],
+  },
+};
+
+/**
+ * Language mapping utilities for testing
+ */
+export const languageMappings = {
+  // Map language codes to IDs for easier testing
+  codeToId: {
+    en: 1, // English
+    fr: 2, // French
+    es: 3, // Spanish
+    de: 4, // German
+    it: 5, // Italian
+  },
+
+  // Map IDs to language objects
+  idToLanguage: {
+    1: sampleLanguages.english,
+    2: sampleLanguages.french,
+    3: sampleLanguages.spanish,
+    4: sampleLanguages.german,
+    5: sampleLanguages.italian,
+  },
+
+  // Get language IDs from codes
+  getIdsFromCodes: (codes: string[]): number[] => {
+    return codes
+      .map((code) => languageMappings.codeToId[code as keyof typeof languageMappings.codeToId])
+      .filter(Boolean);
+  },
+
+  // Get language codes from IDs
+  getCodesFromIds: (ids: number[]): string[] => {
+    return ids
+      .map((id) => {
+        const lang =
+          languageMappings.idToLanguage[id as keyof typeof languageMappings.idToLanguage];
+        return lang?.langCodeBcp47 || '';
+      })
+      .filter(Boolean);
+  },
 };

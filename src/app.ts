@@ -4,6 +4,7 @@ import '@/routes/index.route';
 import '@/routes/health.route';
 import '@/routes/protected.route';
 import '@/domains/users/users.route';
+import '@/domains/projects/projects.route';
 
 configureOpenAPI(server);
 
