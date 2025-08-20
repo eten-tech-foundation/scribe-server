@@ -153,10 +153,11 @@ export const sampleProjects = {
     id: 1,
     name: 'Test Project',
     description: 'A test project for translations',
-    sourceLanguages: [1, 2], // English and French IDs
+    sourceLanguages: [1, 2], // English + French IDs
     targetLanguage: 3, // Spanish ID
     isActive: true,
     createdBy: 1,
+    organization: 1,
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
     metadata: { priority: 'high', category: 'marketing' },
@@ -169,6 +170,7 @@ export const sampleProjects = {
     targetLanguage: 4, // German ID
     isActive: true,
     createdBy: 2,
+    organization: 1,
     createdAt: new Date('2024-01-02T00:00:00Z'),
     updatedAt: new Date('2024-01-02T00:00:00Z'),
     metadata: { priority: 'medium', category: 'documentation' },
@@ -177,10 +179,11 @@ export const sampleProjects = {
     id: 3,
     name: 'Inactive Project',
     description: 'A deactivated project',
-    sourceLanguages: [1], // English ID
+    sourceLanguages: [1],
     targetLanguage: 5, // Italian ID
     isActive: false,
     createdBy: 1,
+    organization: 2,
     createdAt: new Date('2024-01-03T00:00:00Z'),
     updatedAt: new Date('2024-01-03T00:00:00Z'),
     metadata: { priority: 'low', category: 'archive' },
@@ -188,71 +191,17 @@ export const sampleProjects = {
   newProject: {
     name: 'New Test Project',
     description: 'A newly created project',
-    sourceLanguages: [1, 4], // English and German IDs
+    sourceLanguages: [1, 4], // English + German
     targetLanguage: 2, // French ID
     isActive: true,
     createdBy: 1,
+    organization: 1,
     metadata: { priority: 'high', category: 'product' },
   },
   updateProject: {
     name: 'Updated Project Name',
     description: 'Updated description',
     metadata: { priority: 'medium', category: 'updated' },
-  },
-  updateProjectStatus: {
-    isActive: false,
-  },
-  updateProjectLanguages: {
-    sourceLanguages: [2, 3], // French and Spanish IDs
-    targetLanguage: 1, // English ID
-  },
-};
-
-/**
- * Sample role data for testing
- */
-export const sampleRoles = {
-  admin: {
-    id: 1,
-    name: 'admin',
-    createdAt: new Date('2024-01-01T00:00:00Z'),
-    updatedAt: new Date('2024-01-01T00:00:00Z'),
-  },
-  user: {
-    id: 2,
-    name: 'user',
-    createdAt: new Date('2024-01-01T00:00:00Z'),
-    updatedAt: new Date('2024-01-01T00:00:00Z'),
-  },
-  translator: {
-    id: 3,
-    name: 'translator',
-    createdAt: new Date('2024-01-01T00:00:00Z'),
-    updatedAt: new Date('2024-01-01T00:00:00Z'),
-  },
-  newRole: {
-    name: 'manager',
-  },
-};
-
-/**
- * Sample organization data for testing
- */
-export const sampleOrganizations = {
-  org1: {
-    id: 1,
-    name: 'Test Organization',
-    createdAt: new Date('2024-01-01T00:00:00Z'),
-    updatedAt: new Date('2024-01-01T00:00:00Z'),
-  },
-  org2: {
-    id: 2,
-    name: 'Second Organization',
-    createdAt: new Date('2024-01-01T00:00:00Z'),
-    updatedAt: new Date('2024-01-01T00:00:00Z'),
-  },
-  newOrg: {
-    name: 'New Organization',
   },
 };
 
@@ -284,20 +233,6 @@ export const sampleErrors = {
   cannotUpdateLanguage: 'Cannot update language',
   cannotDeleteLanguage: 'Cannot delete language',
   noLanguagesFound: 'No Languages found - or internal error',
-
-  // Role errors
-  roleNotFound: 'Role not found',
-  unableToCreateRole: 'Unable to create role',
-  cannotUpdateRole: 'Cannot update role',
-  cannotDeleteRole: 'Cannot delete role',
-  noRolesFound: 'No Roles found - or internal error',
-
-  // Organization errors
-  organizationNotFound: 'Organization not found',
-  unableToCreateOrganization: 'Unable to create organization',
-  cannotUpdateOrganization: 'Cannot update organization',
-  cannotDeleteOrganization: 'Cannot delete organization',
-  noOrganizationsFound: 'No Organizations found - or internal error',
 };
 
 /**
@@ -382,24 +317,6 @@ export const mockDataGenerators = {
       sampleLanguages.spanish,
       sampleLanguages.german,
     ].slice(0, count),
-
-  // Role generators
-  createRole: (overrides: Partial<any> = {}) => ({
-    ...sampleRoles.admin,
-    ...overrides,
-  }),
-
-  createRoleArray: (count: number = 3) =>
-    [sampleRoles.admin, sampleRoles.user, sampleRoles.translator].slice(0, count),
-
-  // Organization generators
-  createOrganization: (overrides: Partial<any> = {}) => ({
-    ...sampleOrganizations.org1,
-    ...overrides,
-  }),
-
-  createOrganizationArray: (count: number = 2) =>
-    [sampleOrganizations.org1, sampleOrganizations.org2].slice(0, count),
 
   // Generic generators
   createEmptyResult: () => [],
@@ -538,17 +455,6 @@ export const testDataSets = {
       sampleLanguages.german,
     ],
     romance: [sampleLanguages.french, sampleLanguages.spanish, sampleLanguages.italian],
-  },
-
-  roles: {
-    all: [sampleRoles.admin, sampleRoles.user, sampleRoles.translator],
-    administrative: [sampleRoles.admin],
-    operational: [sampleRoles.user, sampleRoles.translator],
-  },
-
-  organizations: {
-    all: [sampleOrganizations.org1, sampleOrganizations.org2],
-    active: [sampleOrganizations.org1, sampleOrganizations.org2],
   },
 };
 

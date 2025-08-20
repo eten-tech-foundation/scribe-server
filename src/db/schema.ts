@@ -72,9 +72,12 @@ export const projects = pgTable('projects', {
   targetLanguage: integer('target_language')
     .notNull()
     .references(() => languages.id),
+  organization: integer('organization')
+    .notNull()
+    .references(() => organizations.id),
   isActive: boolean('is_active').default(true),
   createdBy: integer('created_by').references(() => users.id),
-  assignedTo: integer('assigned_by').references(() => users.id),
+  assignedTo: integer('assigned_to').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
@@ -143,14 +146,16 @@ export const insertLanguagesSchema = createInsertSchema(languages, {
 
 export const insertProjectsSchema = createInsertSchema(projects, {
   name: (schema) => schema.min(1).max(255),
-  sourceLanguages: z.array(z.number().int().positive()).min(1),
-  targetLanguage: z.number().int().positive(),
-  isActive: z.boolean().default(true),
+  sourceLanguages: (schema) => schema.min(1),
+  targetLanguage: (schema) => schema.int().positive(),
+  organization: (schema) => schema.int().positive(),
+  isActive: (schema) => schema.default(true),
 })
   .required({
     name: true,
     sourceLanguages: true,
     targetLanguage: true,
+    organization: true,
   })
   .omit({
     id: true,

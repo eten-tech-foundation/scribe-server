@@ -97,8 +97,6 @@ const createProjectRoute = createRoute({
   description: 'Creates a new project with the provided data',
 });
 
-server.use('/projects', requireManagerAccess);
-
 server.openapi(createProjectRoute, async (c) => {
   const projectData = c.req.valid('json');
   const currentUser = c.get('user');
