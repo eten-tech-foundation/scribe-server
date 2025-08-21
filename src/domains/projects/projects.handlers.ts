@@ -75,9 +75,11 @@ export async function updateProject(
   try {
     const [updated] = await db.update(projects).set(input).where(eq(projects.id, id)).returning();
 
-    return updated
-      ? { ok: true, data: updated as Project }
-      : { ok: false, error: { message: 'Project not found' } };
+    if (!updated) {
+      return { ok: false, error: { message: 'Project not found' } };
+    }
+
+    return { ok: true, data: updated as Project };
   } catch {
     return { ok: false, error: { message: 'Failed to update project' } };
   }

@@ -143,6 +143,10 @@ const getProjectRoute = createRoute({
       createMessageObjectSchema('Forbidden'),
       'Access denied'
     ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
   },
   summary: 'Get a project by ID',
   description: 'Returns a single project by its ID',
@@ -159,7 +163,11 @@ server.openapi(getProjectRoute, async (c) => {
     return c.json(result.data, HttpStatusCodes.OK);
   }
 
-  return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  if (result.error.message === 'Project not found') {
+    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
 const getAssignedProjectsRoute = createRoute({
@@ -266,6 +274,10 @@ const updateProjectRoute = createRoute({
       }),
       'The validation error'
     ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
   },
   summary: 'Update a project',
   description: 'Updates a project with the provided data',
@@ -302,7 +314,11 @@ server.openapi(updateProjectRoute, async (c) => {
     return c.json(result.data, HttpStatusCodes.OK);
   }
 
-  return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  if (result.error.message === 'Project not found') {
+    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
 const deleteProjectRoute = createRoute({
@@ -338,6 +354,10 @@ const deleteProjectRoute = createRoute({
       createMessageObjectSchema('Forbidden'),
       'Manager access required'
     ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
   },
   summary: 'Delete a project',
   description: 'Deletes a project by its ID',
@@ -354,5 +374,9 @@ server.openapi(deleteProjectRoute, async (c) => {
     return c.body(null, HttpStatusCodes.NO_CONTENT);
   }
 
-  return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  if (result.error.message === 'Project not found') {
+    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
