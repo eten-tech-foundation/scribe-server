@@ -15,7 +15,7 @@ export type UpdateProjectInput = z.infer<typeof patchProjectsSchema>;
 export async function getAllProjects(): Promise<Result<Project[]>> {
   try {
     const projectList = await db.select().from(projects);
-    return { ok: true, data: projectList as Project[] };
+    return { ok: true, data: projectList };
   } catch {
     return { ok: false, error: { message: 'Failed to fetch projects' } };
   }
@@ -30,7 +30,7 @@ export async function getProjectsByOrganization(
       .from(projects)
       .where(eq(projects.organization, organizationId));
 
-    return { ok: true, data: projectList as Project[] };
+    return { ok: true, data: projectList };
   } catch {
     return { ok: false, error: { message: 'Failed to fetch organization projects' } };
   }
@@ -44,7 +44,7 @@ export async function getProjectById(id: number): Promise<Result<Project>> {
       return { ok: false, error: { message: 'Project not found' } };
     }
 
-    return { ok: true, data: project as Project };
+    return { ok: true, data: project };
   } catch {
     return { ok: false, error: { message: 'Failed to fetch project' } };
   }
@@ -53,7 +53,7 @@ export async function getProjectById(id: number): Promise<Result<Project>> {
 export async function getProjectsAssignedToUser(userId: number): Promise<Result<Project[]>> {
   try {
     const projectList = await db.select().from(projects).where(eq(projects.assignedTo, userId));
-    return { ok: true, data: projectList as Project[] };
+    return { ok: true, data: projectList };
   } catch {
     return { ok: false, error: { message: "Failed to fetch user's assigned projects" } };
   }
@@ -62,7 +62,7 @@ export async function getProjectsAssignedToUser(userId: number): Promise<Result<
 export async function createProject(input: CreateProjectInput): Promise<Result<Project>> {
   try {
     const [project] = await db.insert(projects).values(input).returning();
-    return { ok: true, data: project as Project };
+    return { ok: true, data: project };
   } catch {
     return { ok: false, error: { message: 'Failed to create project' } };
   }
@@ -79,7 +79,7 @@ export async function updateProject(
       return { ok: false, error: { message: 'Project not found' } };
     }
 
-    return { ok: true, data: updated as Project };
+    return { ok: true, data: updated };
   } catch {
     return { ok: false, error: { message: 'Failed to update project' } };
   }

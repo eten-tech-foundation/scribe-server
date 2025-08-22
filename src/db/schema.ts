@@ -1,3 +1,5 @@
+import type { Json } from 'drizzle-zod';
+
 import { z } from '@hono/zod-openapi';
 import {
   boolean,
@@ -82,7 +84,7 @@ export const projects = pgTable('projects', {
   updatedAt: timestamp('updated_at')
     .defaultNow()
     .$onUpdate(() => new Date()),
-  metadata: jsonb('metadata').notNull().default({}),
+  metadata: jsonb('metadata').$type<Json>().notNull().default({}),
 });
 
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({
@@ -136,7 +138,7 @@ export const selectProjectsSchema = createSelectSchema(projects);
 export const insertLanguagesSchema = createInsertSchema(languages, {
   langName: (schema) => schema.max(100).optional(),
   langNameLocalized: (schema) => schema.max(100).optional(),
-  langCodeIso6393: (schema) => schema.max(10).optional(),
+  langCodeIso6393: (schema) => schema.max(3).optional(),
   scriptDirection: z.enum(['ltr', 'rtl']).default('ltr'),
 }).omit({
   id: true,
@@ -147,8 +149,8 @@ export const insertLanguagesSchema = createInsertSchema(languages, {
 export const insertProjectsSchema = createInsertSchema(projects, {
   name: (schema) => schema.min(1).max(255),
   sourceLanguages: (schema) => schema.min(1),
-  targetLanguage: (schema) => schema.int().positive(),
-  organization: (schema) => schema.int().positive(),
+  targetLanguage: (schema) => schema.int(),
+  organization: (schema) => schema.int(),
   isActive: (schema) => schema.default(true),
 })
   .required({
