@@ -1,9 +1,21 @@
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
+import type { Json } from 'drizzle-zod';
 
 import { z } from '@hono/zod-openapi';
-import { integer, pgEnum, pgTable, serial, timestamp, varchar } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  varchar,
+} from 'drizzle-orm/pg-core';
 import { createSchemaFactory } from 'drizzle-zod';
 export const userStatusEnum = pgEnum('user_status', ['invited', 'verified', 'inactive']);
+export const scriptDirectionEnum = pgEnum('script_direction', ['ltr', 'rtl']);
 
 export const roles = pgTable('roles', {
   id: serial('id').primaryKey(),
@@ -41,6 +53,41 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at')
     .defaultNow()
     .$onUpdate(() => new Date()),
+});
+
+export const languages = pgTable('languages', {
+  id: serial('id').primaryKey(),
+  langName: varchar('lang_name', { length: 100 }),
+  langNameLocalized: varchar('lang_name_localized', { length: 100 }),
+  langCodeIso6393: varchar('lang_code_iso_639_3', { length: 3 }),
+  scriptDirection: scriptDirectionEnum('script_direction').default('ltr'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const projects = pgTable('projects', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  sourceLanguage: integer('source_language')
+    .notNull()
+    .references(() => languages.id),
+  targetLanguage: integer('target_language')
+    .notNull()
+    .references(() => languages.id),
+  organization: integer('organization')
+    .notNull()
+    .references(() => organizations.id),
+  isActive: boolean('is_active').default(true),
+  createdBy: integer('created_by').references(() => users.id),
+  assignedTo: integer('assigned_to').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+  metadata: jsonb('metadata').$type<Json>().notNull().default({}),
 });
 
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({
@@ -87,3 +134,39 @@ export const insertOrganizationsSchema = createInsertSchema(organizations, {
 export const patchUsersSchema = insertUsersSchema.partial();
 export const patchRolesSchema = insertRolesSchema.partial();
 export const patchOrganizationsSchema = insertOrganizationsSchema.partial();
+
+export const selectLanguagesSchema = createSelectSchema(languages);
+export const selectProjectsSchema = createSelectSchema(projects);
+
+export const insertLanguagesSchema = createInsertSchema(languages, {
+  langName: (schema) => schema.max(100).optional(),
+  langNameLocalized: (schema) => schema.max(100).optional(),
+  langCodeIso6393: (schema) => schema.max(3).optional(),
+  scriptDirection: z.enum(['ltr', 'rtl']).default('ltr'),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertProjectsSchema = createInsertSchema(projects, {
+  name: (schema) => schema.min(1).max(255),
+  sourceLanguage: (schema) => schema.int(),
+  targetLanguage: (schema) => schema.int(),
+  organization: (schema) => schema.int(),
+  isActive: (schema) => schema.default(true),
+})
+  .required({
+    name: true,
+    sourceLanguage: true,
+    targetLanguage: true,
+    organization: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+  });
+
+export const patchLanguagesSchema = insertLanguagesSchema.partial();
+export const patchProjectsSchema = insertProjectsSchema.partial();

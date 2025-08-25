@@ -5,6 +5,7 @@ import * as HttpStatusCodes from 'stoker/http-status-codes';
 
 import type { AppBindings } from '@/lib/types';
 
+import { getProjectById } from '@/domains/projects/projects.handlers';
 import { getUserByEmail, getUserById } from '@/domains/users/users.handlers';
 
 export const ROLES = {
@@ -59,6 +60,35 @@ async function ensureSameOrganization(managerOrg: number, targetUserId?: string)
   }
 }
 
+async function ensureProjectAccess(user: any, projectId: string) {
+  const projectResult = await getProjectById(Number.parseInt(projectId, 10));
+
+  if (!projectResult.ok) {
+    throw new HTTPException(HttpStatusCodes.NOT_FOUND, {
+      message: 'Project not found',
+    });
+  }
+
+  const project = projectResult.data;
+
+  if (user.role === ROLES.MANAGER) {
+    if (project.createdBy) {
+      const creatorResult = await getUserById(project.createdBy);
+      if (!creatorResult.ok || user.organization !== creatorResult.data.organization) {
+        throw new HTTPException(HttpStatusCodes.NOT_FOUND, {
+          message: 'Project not found',
+        });
+      }
+    }
+  } else if (user.role === ROLES.TRANSLATOR) {
+    if (project.createdBy !== user.id) {
+      throw new HTTPException(HttpStatusCodes.FORBIDDEN, {
+        message: 'You can only access your own projects',
+      });
+    }
+  }
+}
+
 export const requireManagerAccess: MiddlewareHandler<AppBindings> = async (c, next) => {
   const user = await getAuthenticatedUser(c);
   if (user.role !== ROLES.MANAGER) {
@@ -98,6 +128,18 @@ export const requireUserAccess: MiddlewareHandler<AppBindings> = async (c, next)
         message: 'You can only access your own profile',
       });
     }
+  }
+
+  c.set('user', user);
+  await next();
+};
+
+export const requireProjectAccess: MiddlewareHandler<AppBindings> = async (c, next) => {
+  const user = await getAuthenticatedUser(c);
+  const projectId = c.req.param('id');
+
+  if (projectId) {
+    await ensureProjectAccess(user, projectId);
   }
 
   c.set('user', user);
