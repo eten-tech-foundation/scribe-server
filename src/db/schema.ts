@@ -1,5 +1,5 @@
 import { z } from '@hono/zod-openapi';
-import { integer, pgEnum, pgTable, serial, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { AnyPgColumn, integer, pgEnum, pgTable, serial, timestamp, varchar } from 'drizzle-orm/pg-core';
 import { createSchemaFactory } from 'drizzle-zod';
 export const userStatusEnum = pgEnum('user_status', ['invited', 'verified', 'inactive']);
 
@@ -34,7 +34,8 @@ export const users = pgTable('users', {
     .notNull()
     .references(() => organizations.id),
   status: userStatusEnum('status').notNull().default('invited'),
-  createdBy: integer('created_by'),
+  createdBy: integer('created_by')
+    .references((): AnyPgColumn => users.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
