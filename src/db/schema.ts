@@ -70,7 +70,9 @@ export const projects = pgTable('projects', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description'),
-  sourceLanguages: integer('source_languages').array().notNull(),
+  sourceLanguage: integer('source_language')
+    .notNull()
+    .references(() => languages.id),
   targetLanguage: integer('target_language')
     .notNull()
     .references(() => languages.id),
@@ -148,14 +150,14 @@ export const insertLanguagesSchema = createInsertSchema(languages, {
 
 export const insertProjectsSchema = createInsertSchema(projects, {
   name: (schema) => schema.min(1).max(255),
-  sourceLanguages: (schema) => schema.min(1),
+  sourceLanguage: (schema) => schema.int(),
   targetLanguage: (schema) => schema.int(),
   organization: (schema) => schema.int(),
   isActive: (schema) => schema.default(true),
 })
   .required({
     name: true,
-    sourceLanguages: true,
+    sourceLanguage: true,
     targetLanguage: true,
     organization: true,
   })
