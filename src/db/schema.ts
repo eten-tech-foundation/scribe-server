@@ -181,7 +181,7 @@ export const insertProjectsSchema = createInsertSchema(projects, {
     updatedAt: true,
   });
 
-   export const insertBiblesSchema = createInsertSchema(bibles, {
+export const insertBiblesSchema = createInsertSchema(bibles, {
   languageId: (schema) => schema.int(),
   name: (schema) => schema.min(1).max(255),
   abbreviation: (schema) => schema.min(1).max(50),
@@ -195,7 +195,7 @@ export const insertProjectsSchema = createInsertSchema(projects, {
     id: true,
     createdAt: true,
     updatedAt: true,
-  }); 
+  });
 
 export const patchLanguagesSchema = insertLanguagesSchema.partial();
 export const patchProjectsSchema = insertProjectsSchema.partial();

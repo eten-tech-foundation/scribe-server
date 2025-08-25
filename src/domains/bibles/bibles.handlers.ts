@@ -2,7 +2,7 @@ import type { z } from '@hono/zod-openapi';
 
 import { eq } from 'drizzle-orm';
 
-import type {  insertBiblesSchema, patchBiblesSchema,selectBiblesSchema} from '@/db/schema';
+import type { insertBiblesSchema, patchBiblesSchema, selectBiblesSchema } from '@/db/schema';
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
@@ -24,7 +24,7 @@ export async function getAllBibles(): Promise<Result<Bible[]>> {
 export async function getBibleById(id: number): Promise<Result<Bible>> {
   try {
     const bible = await db.select().from(bibles).where(eq(bibles.id, id));
-    
+
     if (bible.length === 0) {
       return { ok: false, error: { message: 'Bible not found' } };
     }

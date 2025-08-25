@@ -4,7 +4,7 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent, jsonContentRequired } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { insertBiblesSchema, patchBiblesSchema ,selectBiblesSchema } from '@/db/schema';
+import { insertBiblesSchema, patchBiblesSchema, selectBiblesSchema } from '@/db/schema';
 import { server } from '@/server/server';
 
 import * as bibleHandler from './bibles.handlers';
@@ -42,10 +42,7 @@ const getBibleByIdRoute = createRoute({
     }),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      selectBiblesSchema.openapi('Bible'),
-      'The requested bible'
-    ),
+    [HttpStatusCodes.OK]: jsonContent(selectBiblesSchema.openapi('Bible'), 'The requested bible'),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'Bible not found'
@@ -103,10 +100,7 @@ const updateBibleRoute = createRoute({
     body: jsonContentRequired(patchBiblesSchema, 'The bible data to update'),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      selectBiblesSchema.openapi('Bible'),
-      'The updated bible'
-    ),
+    [HttpStatusCodes.OK]: jsonContent(selectBiblesSchema.openapi('Bible'), 'The updated bible'),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.BAD_REQUEST),
       'Invalid request data'
