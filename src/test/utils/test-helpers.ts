@@ -153,8 +153,8 @@ export const sampleProjects = {
     id: 1,
     name: 'Test Project',
     description: 'A test project for translations',
-    sourceLanguages: [1, 2], // English + French IDs
-    targetLanguage: 3, // Spanish ID
+    sourceLanguage: 1,
+    targetLanguage: 3,
     isActive: true,
     createdBy: 1,
     organization: 1,
@@ -166,8 +166,8 @@ export const sampleProjects = {
     id: 2,
     name: 'Second Project',
     description: 'Another test project',
-    sourceLanguages: [1], // English ID
-    targetLanguage: 4, // German ID
+    sourceLanguage: 1,
+    targetLanguage: 4,
     isActive: true,
     createdBy: 2,
     organization: 1,
@@ -179,8 +179,8 @@ export const sampleProjects = {
     id: 3,
     name: 'Inactive Project',
     description: 'A deactivated project',
-    sourceLanguages: [1],
-    targetLanguage: 5, // Italian ID
+    sourceLanguage: 2,
+    targetLanguage: 5,
     isActive: false,
     createdBy: 1,
     organization: 2,
@@ -191,8 +191,8 @@ export const sampleProjects = {
   newProject: {
     name: 'New Test Project',
     description: 'A newly created project',
-    sourceLanguages: [1, 4], // English + German
-    targetLanguage: 2, // French ID
+    sourceLanguage: 4,
+    targetLanguage: 2,
     isActive: true,
     createdBy: 1,
     organization: 1,
