@@ -6,6 +6,7 @@ import '@/routes/protected.route';
 import '@/domains/users/users.route';
 import '@/domains/projects/projects.route';
 import '@/domains/languages/languages.route';
+import '@/domains/bibles/bibles.route';
 
 configureOpenAPI(server);
 

@@ -89,6 +89,19 @@ export const projects = pgTable('projects', {
   metadata: jsonb('metadata').$type<Json>().notNull().default({}),
 });
 
+export const bibles = pgTable('bibles', {
+  id: serial('id').primaryKey(),
+  languageId: integer('language_id')
+    .notNull()
+    .references(() => languages.id),
+  name: varchar('name', { length: 255 }).notNull().unique(),
+  abbreviation: varchar('abbreviation', { length: 50 }).notNull().unique(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({
   zodInstance: z,
 });
@@ -136,6 +149,7 @@ export const patchOrganizationsSchema = insertOrganizationsSchema.partial();
 
 export const selectLanguagesSchema = createSelectSchema(languages);
 export const selectProjectsSchema = createSelectSchema(projects);
+export const selectBiblesSchema = createSelectSchema(bibles);
 
 export const insertLanguagesSchema = createInsertSchema(languages, {
   langName: (schema) => schema.max(100).optional(),
@@ -167,5 +181,22 @@ export const insertProjectsSchema = createInsertSchema(projects, {
     updatedAt: true,
   });
 
+   export const insertBiblesSchema = createInsertSchema(bibles, {
+  languageId: (schema) => schema.int(),
+  name: (schema) => schema.min(1).max(255),
+  abbreviation: (schema) => schema.min(1).max(50),
+})
+  .required({
+    languageId: true,
+    name: true,
+    abbreviation: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+  }); 
+
 export const patchLanguagesSchema = insertLanguagesSchema.partial();
 export const patchProjectsSchema = insertProjectsSchema.partial();
+export const patchBiblesSchema = insertBiblesSchema.partial();
