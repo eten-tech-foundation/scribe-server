@@ -1,3 +1,4 @@
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import type { Json } from 'drizzle-zod';
 
 import { z } from '@hono/zod-openapi';
@@ -47,7 +48,7 @@ export const users = pgTable('users', {
     .notNull()
     .references(() => organizations.id),
   status: userStatusEnum('status').notNull().default('invited'),
-  createdBy: integer('created_by'),
+  createdBy: integer('created_by').references((): AnyPgColumn => users.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
