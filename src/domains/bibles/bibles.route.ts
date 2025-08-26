@@ -9,7 +9,6 @@ import { server } from '@/server/server';
 
 import * as bibleHandler from './bibles.handlers';
 
-// Route definitions
 const listBiblesRoute = createRoute({
   tags: ['Bibles'],
   method: 'get',
@@ -30,6 +29,16 @@ const listBiblesRoute = createRoute({
   },
   summary: 'Get all bibles',
   description: 'Returns a list of all bibles',
+});
+
+server.openapi(listBiblesRoute, async (c) => {
+  const result = await bibleHandler.getAllBibles();
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
 const getBibleByIdRoute = createRoute({
@@ -60,6 +69,21 @@ const getBibleByIdRoute = createRoute({
   description: 'Returns a specific bible by its ID',
 });
 
+server.openapi(getBibleByIdRoute, async (c) => {
+  const { id } = c.req.valid('param');
+  const result = await bibleHandler.getBibleById(id);
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
+  }
+
+  if (result.error.message === 'Bible not found') {
+    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+});
+
 const createBibleRoute = createRoute({
   tags: ['Bibles'],
   method: 'post',
@@ -87,6 +111,17 @@ const createBibleRoute = createRoute({
   },
   summary: 'Create a new bible',
   description: 'Creates a new bible with the provided data',
+});
+
+server.openapi(createBibleRoute, async (c) => {
+  const bibleData = c.req.valid('json');
+  const result = await bibleHandler.createBible(bibleData);
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.CREATED);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
 const updateBibleRoute = createRoute({
@@ -122,6 +157,22 @@ const updateBibleRoute = createRoute({
   description: 'Updates a specific bible with the provided data',
 });
 
+server.openapi(updateBibleRoute, async (c) => {
+  const { id } = c.req.valid('param');
+  const bibleData = c.req.valid('json');
+  const result = await bibleHandler.updateBible(id, bibleData);
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
+  }
+
+  if (result.error.message === 'Bible not found') {
+    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+});
+
 const deleteBibleRoute = createRoute({
   tags: ['Bibles'],
   method: 'delete',
@@ -151,59 +202,6 @@ const deleteBibleRoute = createRoute({
   },
   summary: 'Delete bible by ID',
   description: 'Deletes a specific bible by its ID',
-});
-
-// Route handlers
-server.openapi(listBiblesRoute, async (c) => {
-  const result = await bibleHandler.getAllBibles();
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
-});
-
-server.openapi(getBibleByIdRoute, async (c) => {
-  const { id } = c.req.valid('param');
-  const result = await bibleHandler.getBibleById(id);
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
-  if (result.error.message === 'Bible not found') {
-    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
-});
-
-server.openapi(createBibleRoute, async (c) => {
-  const bibleData = c.req.valid('json');
-  const result = await bibleHandler.createBible(bibleData);
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.CREATED);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
-});
-
-server.openapi(updateBibleRoute, async (c) => {
-  const { id } = c.req.valid('param');
-  const bibleData = c.req.valid('json');
-  const result = await bibleHandler.updateBible(id, bibleData);
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
-  if (result.error.message === 'Bible not found') {
-    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
 server.openapi(deleteBibleRoute, async (c) => {
