@@ -23,13 +23,11 @@ export async function getAllBibles(): Promise<Result<Bible[]>> {
 
 export async function getBibleById(id: number): Promise<Result<Bible>> {
   try {
-    const bible = await db.select().from(bibles).where(eq(bibles.id, id));
-
-    if (bible.length === 0) {
+    const [bible] = await db.select().from(bibles).where(eq(bibles.id, id)).limit(1);
+    if (!bible) {
       return { ok: false, error: { message: 'Bible not found' } };
     }
-
-    return { ok: true, data: bible[0] };
+    return { ok: true, data: bible };
   } catch {
     return { ok: false, error: { message: 'Failed to fetch bible' } };
   }
@@ -43,7 +41,6 @@ export async function createBible(bibleData: CreateBible): Promise<Result<Bible>
     return { ok: false, error: { message: 'Failed to create bible' } };
   }
 }
-
 export async function updateBible(id: number, bibleData: UpdateBible): Promise<Result<Bible>> {
   try {
     const updatedBible = await db
