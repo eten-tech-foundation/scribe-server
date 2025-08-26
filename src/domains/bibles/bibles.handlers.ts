@@ -35,25 +35,24 @@ export async function getBibleById(id: number): Promise<Result<Bible>> {
 
 export async function createBible(bibleData: CreateBible): Promise<Result<Bible>> {
   try {
-    const newBible = await db.insert(bibles).values(bibleData).returning();
-    return { ok: true, data: newBible[0] };
+    const [newBible] = await db.insert(bibles).values(bibleData).returning();
+    return { ok: true, data: newBible };
   } catch {
     return { ok: false, error: { message: 'Failed to create bible' } };
   }
 }
+
 export async function updateBible(id: number, bibleData: UpdateBible): Promise<Result<Bible>> {
   try {
-    const updatedBible = await db
+    const [updatedBible] = await db
       .update(bibles)
       .set(bibleData)
       .where(eq(bibles.id, id))
       .returning();
-
-    if (updatedBible.length === 0) {
+    if (!updatedBible) {
       return { ok: false, error: { message: 'Bible not found' } };
     }
-
-    return { ok: true, data: updatedBible[0] };
+    return { ok: true, data: updatedBible };
   } catch {
     return { ok: false, error: { message: 'Failed to update bible' } };
   }
@@ -61,9 +60,9 @@ export async function updateBible(id: number, bibleData: UpdateBible): Promise<R
 
 export async function deleteBible(id: number): Promise<Result<{ message: string }>> {
   try {
-    const deletedBible = await db.delete(bibles).where(eq(bibles.id, id)).returning();
+    const [deletedBible] = await db.delete(bibles).where(eq(bibles.id, id)).returning();
 
-    if (deletedBible.length === 0) {
+    if (!deletedBible) {
       return { ok: false, error: { message: 'Bible not found' } };
     }
 
