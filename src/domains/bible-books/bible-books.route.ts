@@ -10,15 +10,19 @@ import { server } from '@/server/server';
 import * as bibleBookHandler from './bible-books.handlers';
 
 const bibleBookWithDetailsSchema = selectBibleBooksSchema.extend({
-  book: z.object({
-    id: z.number(),
-    code: z.string(),
-    eng_display_name: z.string(),
-  }).optional(),
-  bible: z.object({
-    id: z.number(),
-    name: z.string(),
-  }).optional(),
+  book: z
+    .object({
+      id: z.number(),
+      code: z.string(),
+      eng_display_name: z.string(),
+    })
+    .optional(),
+  bible: z
+    .object({
+      id: z.number(),
+      name: z.string(),
+    })
+    .optional(),
 });
 
 const getBibleBooksByBibleRoute = createRoute({
@@ -46,7 +50,7 @@ const getBibleBooksByBibleRoute = createRoute({
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'No books found for this bible'
-    )
+    ),
   },
   summary: 'Get books by bible ID',
   description: 'Returns all books for a specific bible with book and bible details',

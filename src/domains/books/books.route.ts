@@ -37,6 +37,63 @@ server.openapi(listBooksRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
+const getOldTestamentBooksRoute = createRoute({
+  tags: ['Books'],
+  method: 'get',
+  path: '/books/old-testament',
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      selectBooksSchema.array().openapi('OldTestamentBooks'),
+      'The list of Old Testament books'
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
+  },
+  summary: 'Get Old Testament books',
+  description: 'Returns a list of Old Testament books (39 books)',
+});
+
+server.openapi(getOldTestamentBooksRoute, async (c) => {
+  const result = await bookHandler.getOldTestamentBooks();
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+});
+
+const getNewTestamentBooksRoute = createRoute({
+  tags: ['Books'],
+  method: 'get',
+  path: '/books/new-testament',
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      selectBooksSchema.array().openapi('NewTestamentBooks'),
+      'The list of New Testament books'
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
+  },
+  summary: 'Get New Testament books',
+  description: 'Returns a list of New Testament books (27 books)',
+});
+
+server.openapi(getNewTestamentBooksRoute, async (c) => {
+  const result = await bookHandler.getNewTestamentBooks();
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+});
+
+
 const getBookRoute = createRoute({
   tags: ['Books'],
   method: 'get',
@@ -119,60 +176,4 @@ server.openapi(getBookByCodeRoute, async (c) => {
   }
 
   return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
-});
-
-const getOldTestamentBooksRoute = createRoute({
-  tags: ['Books'],
-  method: 'get',
-  path: '/books/old-testament',
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      selectBooksSchema.array().openapi('OldTestamentBooks'),
-      'The list of Old Testament books'
-    ),
-    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
-      'Internal server error'
-    ),
-  },
-  summary: 'Get Old Testament books',
-  description: 'Returns a list of Old Testament books (39 books)',
-});
-
-server.openapi(getOldTestamentBooksRoute, async (c) => {
-  const result = await bookHandler.getOldTestamentBooks();
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
-});
-
-const getNewTestamentBooksRoute = createRoute({
-  tags: ['Books'],
-  method: 'get',
-  path: '/books/new-testament',
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      selectBooksSchema.array().openapi('NewTestamentBooks'),
-      'The list of New Testament books'
-    ),
-    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
-      'Internal server error'
-    ),
-  },
-  summary: 'Get New Testament books',
-  description: 'Returns a list of New Testament books (27 books)',
-});
-
-server.openapi(getNewTestamentBooksRoute, async (c) => {
-  const result = await bookHandler.getNewTestamentBooks();
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });

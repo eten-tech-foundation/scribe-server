@@ -33,7 +33,9 @@ export interface UpdateBibleBookInput {
   updatedAt?: Date;
 }
 
-export async function getBibleBooksByBibleId(bibleId: number): Promise<Result<BibleBookWithDetails[]>> {
+export async function getBibleBooksByBibleId(
+  bibleId: number
+): Promise<Result<BibleBookWithDetails[]>> {
   const rawBibleBookList = await db
     .select({
       bibleId: bible_books.bibleId,
@@ -55,7 +57,7 @@ export async function getBibleBooksByBibleId(bibleId: number): Promise<Result<Bi
     .leftJoin(bibles, eq(bible_books.bibleId, bibles.id))
     .where(eq(bible_books.bibleId, bibleId));
 
-  const bibleBookList = rawBibleBookList.map(item => ({
+  const bibleBookList = rawBibleBookList.map((item) => ({
     ...item,
     book: item.book || undefined,
     bible: item.bible || undefined,

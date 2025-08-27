@@ -214,13 +214,15 @@ export const insertBiblesSchema = createInsertSchema(bibles, {
     updatedAt: true,
   });
 
-export const insertBibleBooksSchema = createInsertSchema(bible_books).required({
-  bibleId: true,
-  bookId: true,
-}).omit({
-  createdAt: true,
-  updatedAt: true,
-})
+export const insertBibleBooksSchema = createInsertSchema(bible_books)
+  .required({
+    bibleId: true,
+    bookId: true,
+  })
+  .omit({
+    createdAt: true,
+    updatedAt: true,
+  });
 
 export const patchUsersSchema = insertUsersSchema.partial();
 export const patchRolesSchema = insertRolesSchema.partial();
