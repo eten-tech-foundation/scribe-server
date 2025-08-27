@@ -93,7 +93,6 @@ server.openapi(getNewTestamentBooksRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
-
 const getBookRoute = createRoute({
   tags: ['Books'],
   method: 'get',
