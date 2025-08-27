@@ -15,13 +15,20 @@ import { server } from '@/server/server';
 
 import * as projectHandler from './projects.handlers';
 
+const projectWithLanguageNamesSchema = selectProjectsSchema
+  .omit({ sourceLanguage: true, targetLanguage: true })
+  .extend({
+    sourceLanguageName: z.string().nullable().optional(),
+    targetLanguageName: z.string().nullable().optional(),
+  });
+
 const listProjectsRoute = createRoute({
   tags: ['Projects'],
   method: 'get',
   path: '/projects',
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      selectProjectsSchema.array().openapi('Projects'),
+      projectWithLanguageNamesSchema.array().openapi('Projects'),
       'The list of projects within the organization'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
@@ -130,7 +137,7 @@ const getProjectRoute = createRoute({
     }),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectProjectsSchema, 'The project'),
+    [HttpStatusCodes.OK]: jsonContent(projectWithLanguageNamesSchema, 'The project'),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'Project not found'
@@ -189,7 +196,7 @@ const getAssignedProjectsRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      selectProjectsSchema.array().openapi('AssignedProjects'),
+      projectWithLanguageNamesSchema.array().openapi('AssignedProjects'),
       'The list of projects assigned to the user'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(

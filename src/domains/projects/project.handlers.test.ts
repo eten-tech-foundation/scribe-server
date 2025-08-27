@@ -33,6 +33,7 @@ vi.mock('@/lib/logger', () => ({
 
 describe('project Handler Functions', () => {
   const mockProject = sampleProjects.project1;
+  const mockProjectWithLanguageNames = sampleProjects.projectWithLanguageNames1;
   const mockProjectInput = sampleProjects.newProject;
   const updateData = sampleProjects.updateProject;
 
@@ -41,9 +42,15 @@ describe('project Handler Functions', () => {
   });
 
   describe('getAllProjects', () => {
-    it('should return all projects in a result object', async () => {
-      const mockProjects = [mockProject];
-      (db.select as any).mockReturnValue({ from: vi.fn().mockResolvedValue(mockProjects) });
+    it('should return all projects with language names in a result object', async () => {
+      const mockProjects = [mockProjectWithLanguageNames];
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          leftJoin: vi.fn().mockReturnValue({
+            leftJoin: vi.fn().mockResolvedValue(mockProjects),
+          }),
+        }),
+      });
 
       const result = await getAllProjects();
 
@@ -52,7 +59,11 @@ describe('project Handler Functions', () => {
 
     it('should return an error result if db call fails', async () => {
       (db.select as any).mockReturnValue({
-        from: vi.fn().mockRejectedValue(new Error('DB Error')),
+        from: vi.fn().mockReturnValue({
+          leftJoin: vi.fn().mockReturnValue({
+            leftJoin: vi.fn().mockRejectedValue(new Error('DB Error')),
+          }),
+        }),
       });
 
       const result = await getAllProjects();
@@ -65,11 +76,15 @@ describe('project Handler Functions', () => {
   });
 
   describe('getProjectsByOrganization', () => {
-    it('should return projects by organization in a result object', async () => {
-      const mockProjects = [mockProject];
+    it('should return projects by organization with language names in a result object', async () => {
+      const mockProjects = [mockProjectWithLanguageNames];
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(mockProjects),
+          leftJoin: vi.fn().mockReturnValue({
+            leftJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue(mockProjects),
+            }),
+          }),
         }),
       });
 
@@ -81,7 +96,11 @@ describe('project Handler Functions', () => {
     it('should return an error result if db call fails', async () => {
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockRejectedValue(new Error('DB Error')),
+          leftJoin: vi.fn().mockReturnValue({
+            leftJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockRejectedValue(new Error('DB Error')),
+            }),
+          }),
         }),
       });
 
@@ -95,22 +114,34 @@ describe('project Handler Functions', () => {
   });
 
   describe('getProjectById', () => {
-    it('should return project by ID in a result object', async () => {
+    it('should return project by ID with language names in a result object', async () => {
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([mockProject]) }),
+          leftJoin: vi.fn().mockReturnValue({
+            leftJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue([mockProjectWithLanguageNames]),
+              }),
+            }),
+          }),
         }),
       });
 
       const result = await getProjectById(mockProject.id);
 
-      expect(result).toEqual({ ok: true, data: mockProject });
+      expect(result).toEqual({ ok: true, data: mockProjectWithLanguageNames });
     });
 
     it('should return an error result when project not found', async () => {
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }),
+          leftJoin: vi.fn().mockReturnValue({
+            leftJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue([]),
+              }),
+            }),
+          }),
         }),
       });
 
@@ -125,9 +156,13 @@ describe('project Handler Functions', () => {
     it('should return an error result if db call fails', async () => {
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi
-            .fn()
-            .mockReturnValue({ limit: vi.fn().mockRejectedValue(new Error('DB Error')) }),
+          leftJoin: vi.fn().mockReturnValue({
+            leftJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockReturnValue({
+                limit: vi.fn().mockRejectedValue(new Error('DB Error')),
+              }),
+            }),
+          }),
         }),
       });
 
@@ -141,11 +176,15 @@ describe('project Handler Functions', () => {
   });
 
   describe('getProjectsAssignedToUser', () => {
-    it('should return projects assigned to user in a result object', async () => {
-      const mockProjects = [mockProject];
+    it('should return projects assigned to user with language names in a result object', async () => {
+      const mockProjects = [mockProjectWithLanguageNames];
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(mockProjects),
+          leftJoin: vi.fn().mockReturnValue({
+            leftJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue(mockProjects),
+            }),
+          }),
         }),
       });
 
@@ -157,7 +196,11 @@ describe('project Handler Functions', () => {
     it('should return an error result if db call fails', async () => {
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockRejectedValue(new Error('DB Error')),
+          leftJoin: vi.fn().mockReturnValue({
+            leftJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockRejectedValue(new Error('DB Error')),
+            }),
+          }),
         }),
       });
 

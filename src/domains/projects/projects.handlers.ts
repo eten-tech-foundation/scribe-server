@@ -1,20 +1,51 @@
 import type { z } from '@hono/zod-openapi';
 
 import { eq } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import type { insertProjectsSchema, patchProjectsSchema, selectProjectsSchema } from '@/db/schema';
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
-import { projects } from '@/db/schema';
+import { languages, projects } from '@/db/schema';
 
 export type Project = z.infer<typeof selectProjectsSchema>;
 export type CreateProjectInput = z.infer<typeof insertProjectsSchema>;
 export type UpdateProjectInput = z.infer<typeof patchProjectsSchema>;
 
-export async function getAllProjects(): Promise<Result<Project[]>> {
+export type ProjectWithLanguageNames = Omit<Project, 'sourceLanguage' | 'targetLanguage'> & {
+  sourceLanguageName?: string | null;
+  targetLanguageName?: string | null;
+};
+
+const sourceLanguages = alias(languages, 'sourceLanguages');
+const targetLanguages = alias(languages, 'targetLanguages');
+
+const projectWithLangNames = {
+  id: projects.id,
+  name: projects.name,
+  description: projects.description,
+  organization: projects.organization,
+  isActive: projects.isActive,
+  createdBy: projects.createdBy,
+  assignedTo: projects.assignedTo,
+  createdAt: projects.createdAt,
+  updatedAt: projects.updatedAt,
+  metadata: projects.metadata,
+  sourceLanguageName: sourceLanguages.langName,
+  targetLanguageName: targetLanguages.langName,
+} as const;
+
+const baseJoinQuery = () =>
+  db
+    .select(projectWithLangNames)
+    .from(projects)
+    .leftJoin(sourceLanguages, eq(projects.sourceLanguage, sourceLanguages.id))
+    .leftJoin(targetLanguages, eq(projects.targetLanguage, targetLanguages.id));
+
+export async function getAllProjects(): Promise<Result<ProjectWithLanguageNames[]>> {
   try {
-    const projectList = await db.select().from(projects);
+    const projectList = await baseJoinQuery();
     return { ok: true, data: projectList };
   } catch {
     return { ok: false, error: { message: 'Failed to fetch projects' } };
@@ -23,22 +54,18 @@ export async function getAllProjects(): Promise<Result<Project[]>> {
 
 export async function getProjectsByOrganization(
   organizationId: number
-): Promise<Result<Project[]>> {
+): Promise<Result<ProjectWithLanguageNames[]>> {
   try {
-    const projectList = await db
-      .select()
-      .from(projects)
-      .where(eq(projects.organization, organizationId));
-
+    const projectList = await baseJoinQuery().where(eq(projects.organization, organizationId));
     return { ok: true, data: projectList };
   } catch {
     return { ok: false, error: { message: 'Failed to fetch organization projects' } };
   }
 }
 
-export async function getProjectById(id: number): Promise<Result<Project>> {
+export async function getProjectById(id: number): Promise<Result<ProjectWithLanguageNames>> {
   try {
-    const [project] = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+    const [project] = await baseJoinQuery().where(eq(projects.id, id)).limit(1);
 
     if (!project) {
       return { ok: false, error: { message: 'Project not found' } };
@@ -50,9 +77,11 @@ export async function getProjectById(id: number): Promise<Result<Project>> {
   }
 }
 
-export async function getProjectsAssignedToUser(userId: number): Promise<Result<Project[]>> {
+export async function getProjectsAssignedToUser(
+  userId: number
+): Promise<Result<ProjectWithLanguageNames[]>> {
   try {
-    const projectList = await db.select().from(projects).where(eq(projects.assignedTo, userId));
+    const projectList = await baseJoinQuery().where(eq(projects.assignedTo, userId));
     return { ok: true, data: projectList };
   } catch {
     return { ok: false, error: { message: "Failed to fetch user's assigned projects" } };
