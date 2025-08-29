@@ -18,8 +18,8 @@ import * as projectHandler from './projects.handlers';
 const projectWithLanguageNamesSchema = selectProjectsSchema
   .omit({ sourceLanguage: true, targetLanguage: true })
   .extend({
-    sourceLanguageName: z.string().nullable().optional(),
-    targetLanguageName: z.string().nullable().optional(),
+    sourceLanguageName: z.string(),
+    targetLanguageName: z.string(),
   });
 
 const listProjectsRoute = createRoute({

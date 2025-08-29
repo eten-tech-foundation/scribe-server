@@ -14,8 +14,8 @@ export type CreateProjectInput = z.infer<typeof insertProjectsSchema>;
 export type UpdateProjectInput = z.infer<typeof patchProjectsSchema>;
 
 export type ProjectWithLanguageNames = Omit<Project, 'sourceLanguage' | 'targetLanguage'> & {
-  sourceLanguageName?: string | null;
-  targetLanguageName?: string | null;
+  sourceLanguageName: string;
+  targetLanguageName: string;
 };
 
 const sourceLanguages = alias(languages, 'sourceLanguages');
@@ -40,8 +40,8 @@ const baseJoinQuery = () =>
   db
     .select(projectWithLangNames)
     .from(projects)
-    .leftJoin(sourceLanguages, eq(projects.sourceLanguage, sourceLanguages.id))
-    .leftJoin(targetLanguages, eq(projects.targetLanguage, targetLanguages.id));
+    .innerJoin(sourceLanguages, eq(projects.sourceLanguage, sourceLanguages.id))
+    .innerJoin(targetLanguages, eq(projects.targetLanguage, targetLanguages.id));
 
 export async function getAllProjects(): Promise<Result<ProjectWithLanguageNames[]>> {
   try {
