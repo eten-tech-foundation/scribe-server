@@ -85,37 +85,56 @@ const NEW_TESTAMENT_CODES = [
 ];
 
 export async function getAllBooks(): Promise<Result<Book[]>> {
-  const bookList = await db.select().from(books);
-
-  return bookList
-    ? { ok: true, data: bookList }
-    : { ok: false, error: { message: 'No Books found - or internal error' } };
+  try {
+    const bookList = await db.select().from(books);
+    return { ok: true, data: bookList };
+  } catch {
+    return { ok: false, error: { message: 'Failed to fetch books' } };
+  }
 }
 
 export async function getBookById(id: number): Promise<Result<Book>> {
-  const [book] = await db.select().from(books).where(eq(books.id, id)).limit(1);
+  try {
+    const [book] = await db.select().from(books).where(eq(books.id, id)).limit(1);
 
-  return book ? { ok: true, data: book } : { ok: false, error: { message: 'Book not found' } };
+    if (!book) {
+      return { ok: false, error: { message: 'Book not found' } };
+    }
+
+    return { ok: true, data: book };
+  } catch {
+    return { ok: false, error: { message: 'Failed to fetch book' } };
+  }
 }
 
 export async function getBookByCode(code: string): Promise<Result<Book>> {
-  const [book] = await db.select().from(books).where(eq(books.code, code)).limit(1);
+  try {
+    const [book] = await db.select().from(books).where(eq(books.code, code)).limit(1);
 
-  return book ? { ok: true, data: book } : { ok: false, error: { message: 'Book not found' } };
+    if (!book) {
+      return { ok: false, error: { message: 'Book not found' } };
+    }
+
+    return { ok: true, data: book };
+  } catch {
+    return { ok: false, error: { message: 'Failed to fetch book' } };
+  }
 }
 
 export async function getOldTestamentBooks(): Promise<Result<Book[]>> {
-  const bookList = await db.select().from(books).where(inArray(books.code, OLD_TESTAMENT_CODES));
-
-  return bookList
-    ? { ok: true, data: bookList }
-    : { ok: false, error: { message: 'No Old Testament books found - or internal error' } };
+  try {
+    const bookList = await db.select().from(books).where(inArray(books.code, OLD_TESTAMENT_CODES));
+    return { ok: true, data: bookList };
+  } catch {
+    return { ok: false, error: { message: 'Failed to fetch Old Testament books' } };
+  }
 }
 
 export async function getNewTestamentBooks(): Promise<Result<Book[]>> {
-  const bookList = await db.select().from(books).where(inArray(books.code, NEW_TESTAMENT_CODES));
-
-  return bookList
-    ? { ok: true, data: bookList }
-    : { ok: false, error: { message: 'No New Testament books found - or internal error' } };
+  try {
+    const bookList = await db.select().from(books).where(inArray(books.code, NEW_TESTAMENT_CODES));
+    return { ok: true, data: bookList };
+  } catch {
+    return { ok: false, error: { message: 'Failed to fetch New Testament books' } };
+  }
 }

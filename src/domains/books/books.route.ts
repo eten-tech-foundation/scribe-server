@@ -116,6 +116,10 @@ const getBookRoute = createRoute({
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'Book not found'
     ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
   },
   summary: 'Get a book by ID',
   description: 'Returns a single book by their ID',
@@ -130,7 +134,11 @@ server.openapi(getBookRoute, async (c) => {
     return c.json(result.data, HttpStatusCodes.OK);
   }
 
-  return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  if (result.error.message.includes('not found')) {
+    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
 const getBookByCodeRoute = createRoute({
@@ -160,6 +168,10 @@ const getBookByCodeRoute = createRoute({
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'Book not found'
     ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
   },
   summary: 'Get a book by code',
   description: 'Returns a single book by their code',
@@ -174,5 +186,9 @@ server.openapi(getBookByCodeRoute, async (c) => {
     return c.json(result.data, HttpStatusCodes.OK);
   }
 
-  return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  if (result.error.message.includes('not found')) {
+    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
