@@ -29,7 +29,7 @@ export function createMockContext(overrides: Partial<Context> = {}): Context {
 }
 
 /**
- * Sample user data for testing
+ * Sample data for testing
  */
 export const sampleUsers = {
   user1: {
@@ -79,9 +79,6 @@ export const sampleUsers = {
   },
 };
 
-/**
- * Sample language data for testing
- */
 export const sampleLanguages = {
   english: {
     id: 1,
@@ -91,18 +88,6 @@ export const sampleLanguages = {
     langCodeBcp47: 'en',
     langCodeIso6393: 'eng',
     altLangNames: 'English',
-    scriptDirection: 'ltr',
-    createdAt: new Date('2024-01-01T00:00:00Z'),
-    updatedAt: new Date('2024-01-01T00:00:00Z'),
-  },
-  french: {
-    id: 2,
-    description: 'French language',
-    langName: 'French',
-    langNameLocalized: 'Français',
-    langCodeBcp47: 'fr',
-    langCodeIso6393: 'fra',
-    altLangNames: 'French',
     scriptDirection: 'ltr',
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
@@ -119,35 +104,8 @@ export const sampleLanguages = {
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
   },
-  german: {
-    id: 4,
-    description: 'German language',
-    langName: 'German',
-    langNameLocalized: 'Deutsch',
-    langCodeBcp47: 'de',
-    langCodeIso6393: 'deu',
-    altLangNames: 'German',
-    scriptDirection: 'ltr',
-    createdAt: new Date('2024-01-01T00:00:00Z'),
-    updatedAt: new Date('2024-01-01T00:00:00Z'),
-  },
-  italian: {
-    id: 5,
-    description: 'Italian language',
-    langName: 'Italian',
-    langNameLocalized: 'Italiano',
-    langCodeBcp47: 'it',
-    langCodeIso6393: 'ita',
-    altLangNames: 'Italian',
-    scriptDirection: 'ltr',
-    createdAt: new Date('2024-01-01T00:00:00Z'),
-    updatedAt: new Date('2024-01-01T00:00:00Z'),
-  },
 };
 
-/**
- * Sample project data for testing
- */
 export const sampleProjects = {
   project1: {
     id: 1,
@@ -158,35 +116,10 @@ export const sampleProjects = {
     isActive: true,
     createdBy: 1,
     organization: 1,
+    assignedTo: null,
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
     metadata: { priority: 'high', category: 'marketing' },
-  },
-  project2: {
-    id: 2,
-    name: 'Second Project',
-    description: 'Another test project',
-    sourceLanguage: 1,
-    targetLanguage: 4,
-    isActive: true,
-    createdBy: 2,
-    organization: 1,
-    createdAt: new Date('2024-01-02T00:00:00Z'),
-    updatedAt: new Date('2024-01-02T00:00:00Z'),
-    metadata: { priority: 'medium', category: 'documentation' },
-  },
-  inactiveProject: {
-    id: 3,
-    name: 'Inactive Project',
-    description: 'A deactivated project',
-    sourceLanguage: 2,
-    targetLanguage: 5,
-    isActive: false,
-    createdBy: 1,
-    organization: 2,
-    createdAt: new Date('2024-01-03T00:00:00Z'),
-    updatedAt: new Date('2024-01-03T00:00:00Z'),
-    metadata: { priority: 'low', category: 'archive' },
   },
   newProject: {
     name: 'New Test Project',
@@ -196,6 +129,7 @@ export const sampleProjects = {
     isActive: true,
     createdBy: 1,
     organization: 1,
+    assignedTo: null,
     metadata: { priority: 'high', category: 'product' },
   },
   updateProject: {
@@ -203,36 +137,20 @@ export const sampleProjects = {
     description: 'Updated description',
     metadata: { priority: 'medium', category: 'updated' },
   },
-};
-
-/**
- * Sample error messages for testing
- */
-export const sampleErrors = {
-  // User errors
-  userNotFound: 'User not found',
-  userExists: 'A user with this email already exists.',
-  unableToCreateUser: 'Unable to create user',
-  cannotUpdateUser: 'Cannot update user',
-  cannotDeleteUser: 'Cannot delete user',
-  noUsersFound: 'No Users found - or internal error',
-  noUsersInOrganization: 'No Users found in organization - or internal error',
-
-  // Project errors
-  projectNotFound: 'Project not found',
-  unableToCreateProject: 'Unable to create project',
-  cannotUpdateProject: 'Cannot update project',
-  cannotDeleteProject: 'Cannot delete project',
-  noProjectsFound: 'No Projects found - or internal error',
-  noProjectsInOrganization: 'No Projects found in organization - or internal error',
-  noProjectsForUser: 'No Projects found for user - or internal error',
-
-  // Language errors
-  languageNotFound: 'Language not found',
-  unableToCreateLanguage: 'Unable to create language',
-  cannotUpdateLanguage: 'Cannot update language',
-  cannotDeleteLanguage: 'Cannot delete language',
-  noLanguagesFound: 'No Languages found - or internal error',
+  projectWithLanguageNames1: {
+    id: 1,
+    name: 'Test Project',
+    description: 'A test project for translations',
+    organization: 1,
+    isActive: true,
+    createdBy: 1,
+    assignedTo: null,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+    metadata: { priority: 'high', category: 'marketing' },
+    sourceLanguageName: 'English',
+    targetLanguageName: 'Spanish',
+  },
 };
 
 /**
@@ -284,7 +202,7 @@ export const mockDataGenerators = {
     ...overrides,
   }),
 
-  createUserArray: (count: number = 2) => [sampleUsers.user1, sampleUsers.user2].slice(0, count),
+  createUserArray: (count: number = 1) => [sampleUsers.user1].slice(0, count),
 
   // Project generators
   createProject: (overrides: Partial<any> = {}) => ({
@@ -292,17 +210,9 @@ export const mockDataGenerators = {
     ...overrides,
   }),
 
-  createProjectArray: (count: number = 2) =>
-    [sampleProjects.project1, sampleProjects.project2].slice(0, count),
+  createActiveProjects: () => [sampleProjects.project1],
 
-  createActiveProjects: () => [sampleProjects.project1, sampleProjects.project2],
-
-  createInactiveProjects: () => [sampleProjects.inactiveProject],
-
-  createProjectsByUser: (userId: number) => [
-    { ...sampleProjects.project1, createdBy: userId },
-    { ...sampleProjects.project2, createdBy: userId },
-  ],
+  createProjectsByUser: (userId: number) => [{ ...sampleProjects.project1, createdBy: userId }],
 
   // Language generators
   createLanguage: (overrides: Partial<any> = {}) => ({
@@ -310,13 +220,8 @@ export const mockDataGenerators = {
     ...overrides,
   }),
 
-  createLanguageArray: (count: number = 4) =>
-    [
-      sampleLanguages.english,
-      sampleLanguages.french,
-      sampleLanguages.spanish,
-      sampleLanguages.german,
-    ].slice(0, count),
+  createLanguageArray: (count: number = 2) =>
+    [sampleLanguages.english, sampleLanguages.spanish].slice(0, count),
 
   // Generic generators
   createEmptyResult: () => [],
@@ -428,33 +333,15 @@ export const testDataSets = {
   },
 
   projects: {
-    all: [sampleProjects.project1, sampleProjects.project2],
-    active: [sampleProjects.project1, sampleProjects.project2],
-    inactive: [sampleProjects.inactiveProject],
-    byUser: (userId: number) => [
-      { ...sampleProjects.project1, createdBy: userId },
-      { ...sampleProjects.project2, createdBy: userId },
-    ],
-    byOrganization: (orgId: number) => [
-      { ...sampleProjects.project1, organization: orgId },
-      { ...sampleProjects.project2, organization: orgId },
-    ],
+    all: [sampleProjects.project1],
+    active: [sampleProjects.project1],
+    byUser: (userId: number) => [{ ...sampleProjects.project1, createdBy: userId }],
+    byOrganization: (orgId: number) => [{ ...sampleProjects.project1, organization: orgId }],
   },
 
   languages: {
-    all: [
-      sampleLanguages.english,
-      sampleLanguages.french,
-      sampleLanguages.spanish,
-      sampleLanguages.german,
-    ],
-    european: [
-      sampleLanguages.english,
-      sampleLanguages.french,
-      sampleLanguages.spanish,
-      sampleLanguages.german,
-    ],
-    romance: [sampleLanguages.french, sampleLanguages.spanish, sampleLanguages.italian],
+    all: [sampleLanguages.english, sampleLanguages.spanish],
+    european: [sampleLanguages.english, sampleLanguages.spanish],
   },
 };
 
@@ -474,10 +361,7 @@ export const languageMappings = {
   // Map IDs to language objects
   idToLanguage: {
     1: sampleLanguages.english,
-    2: sampleLanguages.french,
     3: sampleLanguages.spanish,
-    4: sampleLanguages.german,
-    5: sampleLanguages.italian,
   },
 
   // Get language IDs from codes
