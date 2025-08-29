@@ -57,7 +57,7 @@ export const users = pgTable('users', {
 
 export const languages = pgTable('languages', {
   id: serial('id').primaryKey(),
-  langName: varchar('lang_name', { length: 100 }),
+  langName: varchar('lang_name', { length: 100 }).notNull(),
   langNameLocalized: varchar('lang_name_localized', { length: 100 }),
   langCodeIso6393: varchar('lang_code_iso_639_3', { length: 3 }),
   scriptDirection: scriptDirectionEnum('script_direction').default('ltr'),

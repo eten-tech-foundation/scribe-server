@@ -1,5 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { cors } from 'hono/cors';
+import { HTTPException } from 'hono/http-exception';
 
 import type { AppBindings } from '@/lib/types';
 
@@ -21,14 +22,20 @@ export function createServer() {
   });
 
   app.onError((err, c) => {
+    // Pass through Hono HTTPExceptions with their intended status codes as JSON
+    if (err instanceof HTTPException) {
+      return c.json({ message: err.message }, err.status);
+    }
+
     logger.error(`${err.message}`, err, {
       request: {
         method: c.req.method,
         path: c.req.path,
       },
     });
-    return c.json({ error: 'Internal Server Error' }, 500);
+    return c.json({ message: 'Internal Server Error' }, 500);
   });
+
   app.use('*', cors());
 
   app.use('*', processEmailFromUI);
