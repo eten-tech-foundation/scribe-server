@@ -41,12 +41,8 @@
           "name": "bible_books_bible_id_bibles_id_fk",
           "tableFrom": "bible_books",
           "tableTo": "bibles",
-          "columnsFrom": [
-            "bible_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["bible_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -54,12 +50,8 @@
           "name": "bible_books_book_id_books_id_fk",
           "tableFrom": "bible_books",
           "tableTo": "books",
-          "columnsFrom": [
-            "book_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["book_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -119,12 +111,8 @@
           "name": "bibles_language_id_languages_id_fk",
           "tableFrom": "bibles",
           "tableTo": "languages",
-          "columnsFrom": [
-            "language_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["language_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -134,16 +122,12 @@
         "bibles_name_unique": {
           "name": "bibles_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
+          "columns": ["name"]
         },
         "bibles_abbreviation_unique": {
           "name": "bibles_abbreviation_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "abbreviation"
-          ]
+          "columns": ["abbreviation"]
         }
       },
       "policies": {},
@@ -278,9 +262,7 @@
         "organizations_name_unique": {
           "name": "organizations_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
+          "columns": ["name"]
         }
       },
       "policies": {},
@@ -374,12 +356,8 @@
           "name": "projects_source_language_languages_id_fk",
           "tableFrom": "projects",
           "tableTo": "languages",
-          "columnsFrom": [
-            "source_language"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_language"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -387,12 +365,8 @@
           "name": "projects_target_language_languages_id_fk",
           "tableFrom": "projects",
           "tableTo": "languages",
-          "columnsFrom": [
-            "target_language"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["target_language"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -400,12 +374,8 @@
           "name": "projects_organization_organizations_id_fk",
           "tableFrom": "projects",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -413,12 +383,8 @@
           "name": "projects_created_by_users_id_fk",
           "tableFrom": "projects",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -426,12 +392,8 @@
           "name": "projects_assigned_to_users_id_fk",
           "tableFrom": "projects",
           "tableTo": "users",
-          "columnsFrom": [
-            "assigned_to"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assigned_to"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -480,9 +442,7 @@
         "roles_name_unique": {
           "name": "roles_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
+          "columns": ["name"]
         }
       },
       "policies": {},
@@ -570,12 +530,8 @@
           "name": "users_role_roles_id_fk",
           "tableFrom": "users",
           "tableTo": "roles",
-          "columnsFrom": [
-            "role"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["role"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -583,12 +539,8 @@
           "name": "users_organization_organizations_id_fk",
           "tableFrom": "users",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -596,12 +548,8 @@
           "name": "users_created_by_users_id_fk",
           "tableFrom": "users",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -611,16 +559,12 @@
         "users_username_unique": {
           "name": "users_username_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "username"
-          ]
+          "columns": ["username"]
         },
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -632,19 +576,12 @@
     "public.script_direction": {
       "name": "script_direction",
       "schema": "public",
-      "values": [
-        "ltr",
-        "rtl"
-      ]
+      "values": ["ltr", "rtl"]
     },
     "public.user_status": {
       "name": "user_status",
       "schema": "public",
-      "values": [
-        "invited",
-        "verified",
-        "inactive"
-      ]
+      "values": ["invited", "verified", "inactive"]
     }
   },
   "schemas": {},
