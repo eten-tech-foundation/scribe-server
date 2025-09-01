@@ -20,6 +20,7 @@ const projectWithLanguageNamesSchema = selectProjectsSchema
   .extend({
     sourceLanguageName: z.string(),
     targetLanguageName: z.string(),
+    sourceName: z.string().optional(),
   });
 
 const listProjectsRoute = createRoute({

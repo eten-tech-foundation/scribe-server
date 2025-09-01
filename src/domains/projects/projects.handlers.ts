@@ -7,7 +7,7 @@ import type { insertProjectsSchema, patchProjectsSchema, selectProjectsSchema } 
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
-import { languages, projects } from '@/db/schema';
+import { bibles, languages, project_unit_bible_books, project_units, projects } from '@/db/schema';
 
 export type Project = z.infer<typeof selectProjectsSchema>;
 export type CreateProjectInput = z.infer<typeof insertProjectsSchema>;
@@ -16,10 +16,12 @@ export type UpdateProjectInput = z.infer<typeof patchProjectsSchema>;
 export type ProjectWithLanguageNames = Omit<Project, 'sourceLanguage' | 'targetLanguage'> & {
   sourceLanguageName: string;
   targetLanguageName: string;
+  sourceName: string;
 };
 
 const sourceLanguages = alias(languages, 'sourceLanguages');
 const targetLanguages = alias(languages, 'targetLanguages');
+const sourceBibles = alias(bibles, 'sourceBibles');
 
 const projectWithLangNames = {
   id: projects.id,
@@ -34,14 +36,21 @@ const projectWithLangNames = {
   metadata: projects.metadata,
   sourceLanguageName: sourceLanguages.langName,
   targetLanguageName: targetLanguages.langName,
+  sourceName: sourceBibles.name,
 } as const;
 
 const baseJoinQuery = () =>
   db
-    .select(projectWithLangNames)
+    .selectDistinct(projectWithLangNames)
     .from(projects)
     .innerJoin(sourceLanguages, eq(projects.sourceLanguage, sourceLanguages.id))
-    .innerJoin(targetLanguages, eq(projects.targetLanguage, targetLanguages.id));
+    .innerJoin(targetLanguages, eq(projects.targetLanguage, targetLanguages.id))
+    .innerJoin(project_units, eq(project_units.projectId, projects.id))
+    .innerJoin(
+      project_unit_bible_books,
+      eq(project_unit_bible_books.projectUnitId, project_units.id)
+    )
+    .innerJoin(sourceBibles, eq(sourceBibles.id, project_unit_bible_books.bibleId));
 
 export async function getAllProjects(): Promise<Result<ProjectWithLanguageNames[]>> {
   try {

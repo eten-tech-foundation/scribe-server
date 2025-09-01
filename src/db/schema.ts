@@ -103,6 +103,53 @@ export const bibles = pgTable('bibles', {
     .$onUpdate(() => new Date()),
 });
 
+export const books = pgTable('books', {
+  id: serial('id').primaryKey(),
+  code: varchar('code', { length: 50 }).notNull(),
+  eng_display_name: varchar('eng_display_name', { length: 255 }).notNull(),
+});
+
+export const bible_books = pgTable('bible_books', {
+  bibleId: integer('bible_id')
+    .notNull()
+    .references(() => bibles.id),
+  bookId: integer('book_id')
+    .notNull()
+    .references(() => books.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const project_units = pgTable('project_units', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id')
+    .notNull()
+    .references(() => projects.id),
+  status: varchar('status', { length: 50 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const project_unit_bible_books = pgTable('project_unit_bible_books', {
+  projectUnitId: integer('project_unit_id')
+    .notNull()
+    .references(() => project_units.id),
+  bibleId: integer('bible_id')
+    .notNull()
+    .references(() => bibles.id),
+  bookId: integer('book_id')
+    .notNull()
+    .references(() => books.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({
   zodInstance: z,
 });
@@ -110,6 +157,42 @@ const { createInsertSchema, createSelectSchema } = createSchemaFactory({
 export const selectUsersSchema = createSelectSchema(users);
 export const selectRolesSchema = createSelectSchema(roles);
 export const selectOrganizationsSchema = createSelectSchema(organizations);
+export const selectLanguagesSchema = createSelectSchema(languages);
+export const selectProjectsSchema = createSelectSchema(projects);
+export const selectBiblesSchema = createSelectSchema(bibles);
+export const selectBooksSchema = createSelectSchema(books);
+export const selectBibleBooksSchema = createSelectSchema(bible_books);
+
+export const selectProjectUnitsSchema = createSelectSchema(project_units);
+export const insertProjectUnitsSchema = createInsertSchema(project_units, {
+  projectId: (schema) => schema.int(),
+  status: (schema) => schema.min(1).max(50),
+})
+  .required({
+    projectId: true,
+    status: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+  });
+
+export const selectProjectUnitBibleBooksSchema = createSelectSchema(project_unit_bible_books);
+export const insertProjectUnitBibleBooksSchema = createInsertSchema(project_unit_bible_books, {
+  projectUnitId: (schema) => schema.int(),
+  bibleId: (schema) => schema.int(),
+  bookId: (schema) => schema.int(),
+})
+  .required({
+    projectUnitId: true,
+    bibleId: true,
+    bookId: true,
+  })
+  .omit({
+    createdAt: true,
+    updatedAt: true,
+  });
 
 export const insertUsersSchema = createInsertSchema(users, {
   username: (schema) => schema.min(1).max(100),
@@ -143,14 +226,6 @@ export const insertOrganizationsSchema = createInsertSchema(organizations, {
 })
   .required({ name: true })
   .omit({ id: true, createdAt: true, updatedAt: true });
-
-export const patchUsersSchema = insertUsersSchema.partial();
-export const patchRolesSchema = insertRolesSchema.partial();
-export const patchOrganizationsSchema = insertOrganizationsSchema.partial();
-
-export const selectLanguagesSchema = createSelectSchema(languages);
-export const selectProjectsSchema = createSelectSchema(projects);
-export const selectBiblesSchema = createSelectSchema(bibles);
 
 export const insertLanguagesSchema = createInsertSchema(languages, {
   langName: (schema) => schema.max(100).optional(),
@@ -198,6 +273,22 @@ export const insertBiblesSchema = createInsertSchema(bibles, {
     updatedAt: true,
   });
 
+export const insertBibleBooksSchema = createInsertSchema(bible_books)
+  .required({
+    bibleId: true,
+    bookId: true,
+  })
+  .omit({
+    createdAt: true,
+    updatedAt: true,
+  });
+
+export const patchUsersSchema = insertUsersSchema.partial();
+export const patchRolesSchema = insertRolesSchema.partial();
+export const patchOrganizationsSchema = insertOrganizationsSchema.partial();
 export const patchLanguagesSchema = insertLanguagesSchema.partial();
 export const patchProjectsSchema = insertProjectsSchema.partial();
 export const patchBiblesSchema = insertBiblesSchema.partial();
+export const patchBibleBooksSchema = insertBibleBooksSchema.partial();
+export const patchProjectUnitsSchema = insertProjectUnitsSchema.partial();
+export const patchProjectUnitBibleBooksSchema = insertProjectUnitBibleBooksSchema.partial();

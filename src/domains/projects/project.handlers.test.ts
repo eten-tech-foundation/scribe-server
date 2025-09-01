@@ -15,7 +15,7 @@ import {
 
 vi.mock('@/db', () => ({
   db: {
-    select: vi.fn(),
+    selectDistinct: vi.fn(),
     insert: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
@@ -44,10 +44,16 @@ describe('project Handler Functions', () => {
   describe('getAllProjects', () => {
     it('should return all projects with language names in a result object', async () => {
       const mockProjects = [mockProjectWithLanguageNames];
-      (db.select as any).mockReturnValue({
+      (db.selectDistinct as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           innerJoin: vi.fn().mockReturnValue({
-            innerJoin: vi.fn().mockResolvedValue(mockProjects),
+            innerJoin: vi.fn().mockReturnValue({
+              innerJoin: vi.fn().mockReturnValue({
+                innerJoin: vi.fn().mockReturnValue({
+                  innerJoin: vi.fn().mockResolvedValue(mockProjects),
+                }),
+              }),
+            }),
           }),
         }),
       });
@@ -58,10 +64,16 @@ describe('project Handler Functions', () => {
     });
 
     it('should return an error result if db call fails', async () => {
-      (db.select as any).mockReturnValue({
+      (db.selectDistinct as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           innerJoin: vi.fn().mockReturnValue({
-            innerJoin: vi.fn().mockRejectedValue(new Error('DB Error')),
+            innerJoin: vi.fn().mockReturnValue({
+              innerJoin: vi.fn().mockReturnValue({
+                innerJoin: vi.fn().mockReturnValue({
+                  innerJoin: vi.fn().mockRejectedValue(new Error('DB Error')),
+                }),
+              }),
+            }),
           }),
         }),
       });
@@ -78,11 +90,17 @@ describe('project Handler Functions', () => {
   describe('getProjectsByOrganization', () => {
     it('should return projects by organization with language names in a result object', async () => {
       const mockProjects = [mockProjectWithLanguageNames];
-      (db.select as any).mockReturnValue({
+      (db.selectDistinct as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           innerJoin: vi.fn().mockReturnValue({
             innerJoin: vi.fn().mockReturnValue({
-              where: vi.fn().mockResolvedValue(mockProjects),
+              innerJoin: vi.fn().mockReturnValue({
+                innerJoin: vi.fn().mockReturnValue({
+                  innerJoin: vi.fn().mockReturnValue({
+                    where: vi.fn().mockResolvedValue(mockProjects),
+                  }),
+                }),
+              }),
             }),
           }),
         }),
@@ -94,11 +112,17 @@ describe('project Handler Functions', () => {
     });
 
     it('should return an error result if db call fails', async () => {
-      (db.select as any).mockReturnValue({
+      (db.selectDistinct as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           innerJoin: vi.fn().mockReturnValue({
             innerJoin: vi.fn().mockReturnValue({
-              where: vi.fn().mockRejectedValue(new Error('DB Error')),
+              innerJoin: vi.fn().mockReturnValue({
+                innerJoin: vi.fn().mockReturnValue({
+                  innerJoin: vi.fn().mockReturnValue({
+                    where: vi.fn().mockRejectedValue(new Error('DB Error')),
+                  }),
+                }),
+              }),
             }),
           }),
         }),
@@ -115,12 +139,18 @@ describe('project Handler Functions', () => {
 
   describe('getProjectById', () => {
     it('should return project by ID with language names in a result object', async () => {
-      (db.select as any).mockReturnValue({
+      (db.selectDistinct as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           innerJoin: vi.fn().mockReturnValue({
             innerJoin: vi.fn().mockReturnValue({
-              where: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue([mockProjectWithLanguageNames]),
+              innerJoin: vi.fn().mockReturnValue({
+                innerJoin: vi.fn().mockReturnValue({
+                  innerJoin: vi.fn().mockReturnValue({
+                    where: vi.fn().mockReturnValue({
+                      limit: vi.fn().mockResolvedValue([mockProjectWithLanguageNames]),
+                    }),
+                  }),
+                }),
               }),
             }),
           }),
@@ -133,12 +163,18 @@ describe('project Handler Functions', () => {
     });
 
     it('should return an error result when project not found', async () => {
-      (db.select as any).mockReturnValue({
+      (db.selectDistinct as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           innerJoin: vi.fn().mockReturnValue({
             innerJoin: vi.fn().mockReturnValue({
-              where: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue([]),
+              innerJoin: vi.fn().mockReturnValue({
+                innerJoin: vi.fn().mockReturnValue({
+                  innerJoin: vi.fn().mockReturnValue({
+                    where: vi.fn().mockReturnValue({
+                      limit: vi.fn().mockResolvedValue([]),
+                    }),
+                  }),
+                }),
               }),
             }),
           }),
@@ -154,12 +190,18 @@ describe('project Handler Functions', () => {
     });
 
     it('should return an error result if db call fails', async () => {
-      (db.select as any).mockReturnValue({
+      (db.selectDistinct as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           innerJoin: vi.fn().mockReturnValue({
             innerJoin: vi.fn().mockReturnValue({
-              where: vi.fn().mockReturnValue({
-                limit: vi.fn().mockRejectedValue(new Error('DB Error')),
+              innerJoin: vi.fn().mockReturnValue({
+                innerJoin: vi.fn().mockReturnValue({
+                  innerJoin: vi.fn().mockReturnValue({
+                    where: vi.fn().mockReturnValue({
+                      limit: vi.fn().mockRejectedValue(new Error('DB Error')),
+                    }),
+                  }),
+                }),
               }),
             }),
           }),
@@ -178,11 +220,17 @@ describe('project Handler Functions', () => {
   describe('getProjectsAssignedToUser', () => {
     it('should return projects assigned to user with language names in a result object', async () => {
       const mockProjects = [mockProjectWithLanguageNames];
-      (db.select as any).mockReturnValue({
+      (db.selectDistinct as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           innerJoin: vi.fn().mockReturnValue({
             innerJoin: vi.fn().mockReturnValue({
-              where: vi.fn().mockResolvedValue(mockProjects),
+              innerJoin: vi.fn().mockReturnValue({
+                innerJoin: vi.fn().mockReturnValue({
+                  innerJoin: vi.fn().mockReturnValue({
+                    where: vi.fn().mockResolvedValue(mockProjects),
+                  }),
+                }),
+              }),
             }),
           }),
         }),
@@ -194,11 +242,17 @@ describe('project Handler Functions', () => {
     });
 
     it('should return an error result if db call fails', async () => {
-      (db.select as any).mockReturnValue({
+      (db.selectDistinct as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
           innerJoin: vi.fn().mockReturnValue({
             innerJoin: vi.fn().mockReturnValue({
-              where: vi.fn().mockRejectedValue(new Error('DB Error')),
+              innerJoin: vi.fn().mockReturnValue({
+                innerJoin: vi.fn().mockReturnValue({
+                  innerJoin: vi.fn().mockReturnValue({
+                    where: vi.fn().mockRejectedValue(new Error('DB Error')),
+                  }),
+                }),
+              }),
             }),
           }),
         }),
