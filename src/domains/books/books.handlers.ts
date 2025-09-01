@@ -1,6 +1,6 @@
 import type { z } from '@hono/zod-openapi';
 
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 
 import type { selectBooksSchema } from '@/db/schema';
 import type { Result } from '@/lib/types';
@@ -109,7 +109,11 @@ export async function getBookById(id: number): Promise<Result<Book>> {
 
 export async function getBookByCode(code: string): Promise<Result<Book>> {
   try {
-    const [book] = await db.select().from(books).where(eq(books.code, code)).limit(1);
+    const [book] = await db
+      .select()
+      .from(books)
+      .where(sql`UPPER(${books.code}) = UPPER(${code})`)
+      .limit(1);
 
     if (!book) {
       return { ok: false, error: { message: 'Book not found' } };

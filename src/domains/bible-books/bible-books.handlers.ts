@@ -141,7 +141,10 @@ export async function updateBibleBook(
   }
 }
 
-export async function deleteBibleBook(bibleId: number, bookId: number): Promise<Result<boolean>> {
+export async function deleteBibleBook(
+  bibleId: number,
+  bookId: number
+): Promise<Result<{ bibleId: number; bookId: number }>> {
   try {
     const result = await db
       .delete(bible_books)
@@ -152,7 +155,7 @@ export async function deleteBibleBook(bibleId: number, bookId: number): Promise<
       return { ok: false, error: { message: 'Bible book not found' } };
     }
 
-    return { ok: true, data: true };
+    return { ok: true, data: result[0] };
   } catch {
     return { ok: false, error: { message: 'Failed to delete bible book' } };
   }
