@@ -9,13 +9,17 @@ import {
   pgEnum,
   pgTable,
   serial,
-  text,
   timestamp,
   varchar,
 } from 'drizzle-orm/pg-core';
 import { createSchemaFactory } from 'drizzle-zod';
 export const userStatusEnum = pgEnum('user_status', ['invited', 'verified', 'inactive']);
 export const scriptDirectionEnum = pgEnum('script_direction', ['ltr', 'rtl']);
+export const projectStatusEnum = pgEnum('project_status', [
+  'not_started',
+  'in_progress',
+  'completed',
+]);
 
 export const roles = pgTable('roles', {
   id: serial('id').primaryKey(),
@@ -70,7 +74,6 @@ export const languages = pgTable('languages', {
 export const projects = pgTable('projects', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
-  description: text('description'),
   sourceLanguage: integer('source_language')
     .notNull()
     .references(() => languages.id),
@@ -82,7 +85,6 @@ export const projects = pgTable('projects', {
     .references(() => organizations.id),
   isActive: boolean('is_active').default(true),
   createdBy: integer('created_by').references(() => users.id),
-  assignedTo: integer('assigned_to').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
@@ -127,7 +129,7 @@ export const project_units = pgTable('project_units', {
   projectId: integer('project_id')
     .notNull()
     .references(() => projects.id),
-  status: varchar('status', { length: 50 }).notNull(),
+  status: projectStatusEnum('status').notNull().default('not_started'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
@@ -166,7 +168,7 @@ export const selectBibleBooksSchema = createSelectSchema(bible_books);
 export const selectProjectUnitsSchema = createSelectSchema(project_units);
 export const insertProjectUnitsSchema = createInsertSchema(project_units, {
   projectId: (schema) => schema.int(),
-  status: (schema) => schema.min(1).max(50),
+  status: z.enum(['not_started', 'in_progress', 'completed']).default('not_started'),
 })
   .required({
     projectId: true,

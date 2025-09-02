@@ -10,8 +10,18 @@ import { db } from '@/db';
 import { bibles, languages, project_unit_bible_books, project_units, projects } from '@/db/schema';
 
 export type Project = z.infer<typeof selectProjectsSchema>;
-export type CreateProjectInput = z.infer<typeof insertProjectsSchema>;
-export type UpdateProjectInput = z.infer<typeof patchProjectsSchema>;
+
+export type CreateProjectInput = z.infer<typeof insertProjectsSchema> & {
+  bible_id: number;
+  book_id: number[];
+  status?: 'not_started' | 'in_progress' | 'completed';
+};
+
+export type UpdateProjectInput = z.infer<typeof patchProjectsSchema> & {
+  bible_id?: number;
+  book_id?: number[];
+  status?: 'not_started' | 'in_progress' | 'completed';
+};
 
 export type ProjectWithLanguageNames = Omit<Project, 'sourceLanguage' | 'targetLanguage'> & {
   sourceLanguageName: string;
@@ -26,11 +36,9 @@ const sourceBibles = alias(bibles, 'sourceBibles');
 const projectWithLangNames = {
   id: projects.id,
   name: projects.name,
-  description: projects.description,
   organization: projects.organization,
   isActive: projects.isActive,
   createdBy: projects.createdBy,
-  assignedTo: projects.assignedTo,
   createdAt: projects.createdAt,
   updatedAt: projects.updatedAt,
   metadata: projects.metadata,
@@ -86,21 +94,33 @@ export async function getProjectById(id: number): Promise<Result<ProjectWithLang
   }
 }
 
-export async function getProjectsAssignedToUser(
-  userId: number
-): Promise<Result<ProjectWithLanguageNames[]>> {
-  try {
-    const projectList = await baseJoinQuery().where(eq(projects.assignedTo, userId));
-    return { ok: true, data: projectList };
-  } catch {
-    return { ok: false, error: { message: "Failed to fetch user's assigned projects" } };
-  }
-}
-
 export async function createProject(input: CreateProjectInput): Promise<Result<Project>> {
   try {
-    const [project] = await db.insert(projects).values(input).returning();
-    return { ok: true, data: project };
+    return await db.transaction(async (tx) => {
+      const { bible_id, book_id, status = 'not_started', ...projectData } = input;
+
+      const [project] = await tx.insert(projects).values(projectData).returning();
+
+      const [projectUnit] = await tx
+        .insert(project_units)
+        .values({
+          projectId: project.id,
+          status,
+        })
+        .returning();
+
+      const bibleBookEntries = book_id.map((bookId) => ({
+        projectUnitId: projectUnit.id,
+        bibleId: bible_id,
+        bookId,
+      }));
+
+      if (bibleBookEntries.length > 0) {
+        await tx.insert(project_unit_bible_books).values(bibleBookEntries);
+      }
+
+      return { ok: true, data: project };
+    });
   } catch {
     return { ok: false, error: { message: 'Failed to create project' } };
   }
@@ -111,13 +131,45 @@ export async function updateProject(
   input: UpdateProjectInput
 ): Promise<Result<Project>> {
   try {
-    const [updated] = await db.update(projects).set(input).where(eq(projects.id, id)).returning();
+    return await db.transaction(async (tx) => {
+      const { bible_id, book_id, status, ...projectData } = input;
 
-    if (!updated) {
-      return { ok: false, error: { message: 'Project not found' } };
-    }
+      const [updated] = await tx
+        .update(projects)
+        .set(projectData)
+        .where(eq(projects.id, id))
+        .returning();
 
-    return { ok: true, data: updated };
+      if (!updated) {
+        return { ok: false, error: { message: 'Project not found' } };
+      }
+
+      if (bible_id !== undefined || book_id !== undefined || status !== undefined) {
+        await tx.delete(project_units).where(eq(project_units.projectId, id));
+
+        const [projectUnit] = await tx
+          .insert(project_units)
+          .values({
+            projectId: id,
+            status: status || 'not_started',
+          })
+          .returning();
+
+        if (bible_id !== undefined && book_id !== undefined) {
+          const bibleBookEntries = book_id.map((bookId) => ({
+            projectUnitId: projectUnit.id,
+            bibleId: bible_id,
+            bookId,
+          }));
+
+          if (bibleBookEntries.length > 0) {
+            await tx.insert(project_unit_bible_books).values(bibleBookEntries);
+          }
+        }
+      }
+
+      return { ok: true, data: updated };
+    });
   } catch {
     return { ok: false, error: { message: 'Failed to update project' } };
   }

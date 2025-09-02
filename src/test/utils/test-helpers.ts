@@ -116,53 +116,110 @@ export const sampleBibles = {
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
   },
+  rvr: {
+    id: 2,
+    name: 'Reina-Valera 1960',
+    abbreviation: 'RVR60',
+    language: 3,
+    description: 'Spanish translation',
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
 };
 
 export const sampleProjects = {
   project1: {
     id: 1,
     name: 'Test Project',
-    description: 'A test project for translations',
     sourceLanguage: 1,
     targetLanguage: 3,
     isActive: true,
     createdBy: 1,
     organization: 1,
-    assignedTo: null,
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
     metadata: { priority: 'high', category: 'marketing' },
   },
   newProject: {
     name: 'New Test Project',
-    description: 'A newly created project',
-    sourceLanguage: 4,
-    targetLanguage: 2,
+    sourceLanguage: 1,
+    targetLanguage: 3,
     isActive: true,
     createdBy: 1,
     organization: 1,
-    assignedTo: null,
     metadata: { priority: 'high', category: 'product' },
+    status: 'not_started' as const,
+    bible_id: 1,
+    book_id: [1, 2],
   },
   updateProject: {
     name: 'Updated Project Name',
-    description: 'Updated description',
     metadata: { priority: 'medium', category: 'updated' },
+  },
+  updateProjectWithUnits: {
+    name: 'Updated Project Name',
+    metadata: { priority: 'medium', category: 'updated' },
+    bible_id: 2,
+    book_id: [3, 4, 5],
+    status: 'in_progress' as const,
   },
   projectWithLanguageNames1: {
     id: 1,
     name: 'Test Project',
-    description: 'A test project for translations',
     organization: 1,
     isActive: true,
     createdBy: 1,
-    assignedTo: null,
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
     metadata: { priority: 'high', category: 'marketing' },
     sourceLanguageName: 'English',
     targetLanguageName: 'Spanish',
     sourceName: 'King James Version',
+  },
+};
+
+export const sampleProjectUnits = {
+  unit1: {
+    id: 1,
+    projectId: 1,
+    status: 'not_started' as const,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+  unit2: {
+    id: 2,
+    projectId: 1,
+    status: 'in_progress' as const,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+  newUnit: {
+    projectId: 1,
+    status: 'not_started' as const,
+  },
+};
+
+export const sampleProjectUnitBibleBooks = {
+  book1: {
+    id: 1,
+    projectUnitId: 1,
+    bibleId: 1,
+    bookId: 1,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+  book2: {
+    id: 2,
+    projectUnitId: 1,
+    bibleId: 1,
+    bookId: 2,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+  newBook: {
+    projectUnitId: 1,
+    bibleId: 1,
+    bookId: 3,
   },
 };
 
