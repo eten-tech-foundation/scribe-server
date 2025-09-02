@@ -106,13 +106,13 @@ export async function getBookById(id: number): Promise<Result<Book>> {
     return { ok: false, error: { message: 'Failed to fetch book' } };
   }
 }
-
 export async function getBookByCode(code: string): Promise<Result<Book>> {
   try {
+    const normalizedCode = code.trim().toLowerCase();
     const [book] = await db
       .select()
       .from(books)
-      .where(sql`UPPER(${books.code}) = UPPER(${code})`)
+      .where(sql`${books.code} = ${normalizedCode}`)
       .limit(1);
 
     if (!book) {
