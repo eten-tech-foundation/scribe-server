@@ -33,6 +33,15 @@ export async function getBibleById(id: number): Promise<Result<Bible>> {
   }
 }
 
+export async function getBiblesByLanguageId(languageId: number): Promise<Result<Bible[]>> {
+  try {
+    const bibleList = await db.select().from(bibles).where(eq(bibles.languageId, languageId));
+    return { ok: true, data: bibleList };
+  } catch {
+    return { ok: false, error: { message: 'Failed to fetch bibles for language' } };
+  }
+}
+
 export async function createBible(bibleData: CreateBible): Promise<Result<Bible>> {
   try {
     const [newBible] = await db.insert(bibles).values(bibleData).returning();
@@ -58,15 +67,15 @@ export async function updateBible(id: number, bibleData: UpdateBible): Promise<R
   }
 }
 
-export async function deleteBible(id: number): Promise<Result<{ message: string }>> {
+export async function deleteBible(id: number): Promise<Result<{ id: number }>> {
   try {
-    const [deletedBible] = await db.delete(bibles).where(eq(bibles.id, id)).returning();
+    const result = await db.delete(bibles).where(eq(bibles.id, id)).returning({ id: bibles.id });
 
-    if (!deletedBible) {
+    if (result.length === 0) {
       return { ok: false, error: { message: 'Bible not found' } };
     }
 
-    return { ok: true, data: { message: 'Bible deleted successfully' } };
+    return { ok: true, data: { id: result[0].id } };
   } catch {
     return { ok: false, error: { message: 'Failed to delete bible' } };
   }
