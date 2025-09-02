@@ -7,6 +7,8 @@ import '@/domains/users/users.route';
 import '@/domains/projects/projects.route';
 import '@/domains/languages/languages.route';
 import '@/domains/bibles/bibles.route';
+import '@/domains/books/books.route';
+import '@/domains/bible-books/bible-books.route';
 
 configureOpenAPI(server);
 
