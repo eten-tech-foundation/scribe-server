@@ -164,37 +164,8 @@ export const selectProjectsSchema = createSelectSchema(projects);
 export const selectBiblesSchema = createSelectSchema(bibles);
 export const selectBooksSchema = createSelectSchema(books);
 export const selectBibleBooksSchema = createSelectSchema(bible_books);
-
 export const selectProjectUnitsSchema = createSelectSchema(project_units);
-export const insertProjectUnitsSchema = createInsertSchema(project_units, {
-  projectId: (schema) => schema.int(),
-  status: z.enum(['not_started', 'in_progress', 'completed']).default('not_started'),
-})
-  .required({
-    projectId: true,
-    status: true,
-  })
-  .omit({
-    id: true,
-    createdAt: true,
-    updatedAt: true,
-  });
-
 export const selectProjectUnitBibleBooksSchema = createSelectSchema(project_unit_bible_books);
-export const insertProjectUnitBibleBooksSchema = createInsertSchema(project_unit_bible_books, {
-  projectUnitId: (schema) => schema.int(),
-  bibleId: (schema) => schema.int(),
-  bookId: (schema) => schema.int(),
-})
-  .required({
-    projectUnitId: true,
-    bibleId: true,
-    bookId: true,
-  })
-  .omit({
-    createdAt: true,
-    updatedAt: true,
-  });
 
 export const insertUsersSchema = createInsertSchema(users, {
   username: (schema) => schema.min(1).max(100),
@@ -255,6 +226,35 @@ export const insertProjectsSchema = createInsertSchema(projects, {
   })
   .omit({
     id: true,
+    createdAt: true,
+    updatedAt: true,
+  });
+
+export const insertProjectUnitsSchema = createInsertSchema(project_units, {
+  projectId: (schema) => schema.int(),
+  status: z.enum(['not_started', 'in_progress', 'completed']).default('not_started'),
+})
+  .required({
+    projectId: true,
+    status: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+  });
+
+export const insertProjectUnitBibleBooksSchema = createInsertSchema(project_unit_bible_books, {
+  projectUnitId: (schema) => schema.int(),
+  bibleId: (schema) => schema.int(),
+  bookId: (schema) => schema.int(),
+})
+  .required({
+    projectUnitId: true,
+    bibleId: true,
+    bookId: true,
+  })
+  .omit({
     createdAt: true,
     updatedAt: true,
   });
