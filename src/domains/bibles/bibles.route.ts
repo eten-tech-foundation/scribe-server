@@ -84,6 +84,44 @@ server.openapi(getBibleByIdRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
+const getBiblesByLanguageIdRoute = createRoute({
+  tags: ['Bibles'],
+  method: 'get',
+  path: '/bibles/language/{languageId}',
+  request: {
+    params: z.object({
+      languageId: z.coerce.number().int().positive(),
+    }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      selectBiblesSchema.array().openapi('Bibles'),
+      'List of bibles for the specified language'
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
+  },
+  summary: 'Get bibles by language ID',
+  description: 'Returns a list of bibles for a specific language',
+});
+
+server.openapi(getBiblesByLanguageIdRoute, async (c) => {
+  const { languageId } = c.req.valid('param');
+  const result = await bibleHandler.getBiblesByLanguageId(languageId);
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+});
+
 const createBibleRoute = createRoute({
   tags: ['Bibles'],
   method: 'post',
@@ -184,7 +222,7 @@ const deleteBibleRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      createMessageObjectSchema('Bible deleted successfully'),
+      z.object({ id: z.number() }).openapi('DeletedBible'),
       'Bible deletion confirmation'
     ),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
