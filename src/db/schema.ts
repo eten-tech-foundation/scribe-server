@@ -9,13 +9,17 @@ import {
   pgEnum,
   pgTable,
   serial,
-  text,
   timestamp,
   varchar,
 } from 'drizzle-orm/pg-core';
 import { createSchemaFactory } from 'drizzle-zod';
 export const userStatusEnum = pgEnum('user_status', ['invited', 'verified', 'inactive']);
 export const scriptDirectionEnum = pgEnum('script_direction', ['ltr', 'rtl']);
+export const projectStatusEnum = pgEnum('project_status', [
+  'not_started',
+  'in_progress',
+  'completed',
+]);
 
 export const roles = pgTable('roles', {
   id: serial('id').primaryKey(),
@@ -70,7 +74,6 @@ export const languages = pgTable('languages', {
 export const projects = pgTable('projects', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
-  description: text('description'),
   sourceLanguage: integer('source_language')
     .notNull()
     .references(() => languages.id),
@@ -82,7 +85,6 @@ export const projects = pgTable('projects', {
     .references(() => organizations.id),
   isActive: boolean('is_active').default(true),
   createdBy: integer('created_by').references(() => users.id),
-  assignedTo: integer('assigned_to').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
@@ -122,6 +124,34 @@ export const bible_books = pgTable('bible_books', {
     .$onUpdate(() => new Date()),
 });
 
+export const project_units = pgTable('project_units', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id')
+    .notNull()
+    .references(() => projects.id),
+  status: projectStatusEnum('status').notNull().default('not_started'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const project_unit_bible_books = pgTable('project_unit_bible_books', {
+  projectUnitId: integer('project_unit_id')
+    .notNull()
+    .references(() => project_units.id),
+  bibleId: integer('bible_id')
+    .notNull()
+    .references(() => bibles.id),
+  bookId: integer('book_id')
+    .notNull()
+    .references(() => books.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({
   zodInstance: z,
 });
@@ -134,6 +164,8 @@ export const selectProjectsSchema = createSelectSchema(projects);
 export const selectBiblesSchema = createSelectSchema(bibles);
 export const selectBooksSchema = createSelectSchema(books);
 export const selectBibleBooksSchema = createSelectSchema(bible_books);
+export const selectProjectUnitsSchema = createSelectSchema(project_units);
+export const selectProjectUnitBibleBooksSchema = createSelectSchema(project_unit_bible_books);
 
 export const insertUsersSchema = createInsertSchema(users, {
   username: (schema) => schema.min(1).max(100),
@@ -198,6 +230,35 @@ export const insertProjectsSchema = createInsertSchema(projects, {
     updatedAt: true,
   });
 
+export const insertProjectUnitsSchema = createInsertSchema(project_units, {
+  projectId: (schema) => schema.int(),
+  status: z.enum(['not_started', 'in_progress', 'completed']).default('not_started'),
+})
+  .required({
+    projectId: true,
+    status: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+  });
+
+export const insertProjectUnitBibleBooksSchema = createInsertSchema(project_unit_bible_books, {
+  projectUnitId: (schema) => schema.int(),
+  bibleId: (schema) => schema.int(),
+  bookId: (schema) => schema.int(),
+})
+  .required({
+    projectUnitId: true,
+    bibleId: true,
+    bookId: true,
+  })
+  .omit({
+    createdAt: true,
+    updatedAt: true,
+  });
+
 export const insertBiblesSchema = createInsertSchema(bibles, {
   languageId: (schema) => schema.int(),
   name: (schema) => schema.min(1).max(255),
@@ -231,3 +292,5 @@ export const patchLanguagesSchema = insertLanguagesSchema.partial();
 export const patchProjectsSchema = insertProjectsSchema.partial();
 export const patchBiblesSchema = insertBiblesSchema.partial();
 export const patchBibleBooksSchema = insertBibleBooksSchema.partial();
+export const patchProjectUnitsSchema = insertProjectUnitsSchema.partial();
+export const patchProjectUnitBibleBooksSchema = insertProjectUnitBibleBooksSchema.partial();

@@ -6,11 +6,7 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { insertProjectsSchema, patchProjectsSchema, selectProjectsSchema } from '@/db/schema';
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
-import {
-  requireManagerAccess,
-  requireProjectAccess,
-  requireUserAccess,
-} from '@/middlewares/role-auth';
+import { requireManagerAccess, requireProjectAccess } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as projectHandler from './projects.handlers';
@@ -20,7 +16,20 @@ const projectWithLanguageNamesSchema = selectProjectsSchema
   .extend({
     sourceLanguageName: z.string(),
     targetLanguageName: z.string(),
+    sourceName: z.string().optional(),
   });
+
+const createProjectWithUnitsSchema = insertProjectsSchema.extend({
+  bible_id: z.number().int(),
+  book_id: z.array(z.number().int()),
+  status: z.enum(['not_started', 'in_progress', 'completed']).default('not_started'),
+});
+
+const updateProjectWithUnitsSchema = patchProjectsSchema.extend({
+  bible_id: z.number().int().optional(),
+  book_id: z.array(z.number().int()).optional(),
+  status: z.enum(['not_started', 'in_progress', 'completed']).default('not_started').optional(),
+});
 
 const listProjectsRoute = createRoute({
   tags: ['Projects'],
@@ -67,7 +76,7 @@ const createProjectRoute = createRoute({
   method: 'post',
   path: '/projects',
   request: {
-    body: jsonContent(insertProjectsSchema, 'The project to create'),
+    body: jsonContent(createProjectWithUnitsSchema, 'The project to create with units and books'),
   },
   responses: {
     [HttpStatusCodes.CREATED]: jsonContent(selectProjectsSchema, 'The created project'),
@@ -109,6 +118,9 @@ server.openapi(createProjectRoute, async (c) => {
   const currentUser = c.get('user');
 
   projectData.createdBy = currentUser!.id;
+  if (!projectData.organization) {
+    projectData.organization = currentUser!.organization;
+  }
 
   const result = await projectHandler.createProject(projectData);
 
@@ -177,58 +189,6 @@ server.openapi(getProjectRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
-const getAssignedProjectsRoute = createRoute({
-  tags: ['Projects'],
-  method: 'get',
-  path: '/projects/assigned/{userId}',
-  request: {
-    params: z.object({
-      userId: z.coerce.number().openapi({
-        param: {
-          name: 'userId',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 1,
-      }),
-    }),
-  },
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      projectWithLanguageNamesSchema.array().openapi('AssignedProjects'),
-      'The list of projects assigned to the user'
-    ),
-    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      createMessageObjectSchema('Unauthorized'),
-      'Authentication required'
-    ),
-    [HttpStatusCodes.FORBIDDEN]: jsonContent(
-      createMessageObjectSchema('Forbidden'),
-      'Access denied'
-    ),
-    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
-      'Internal server error'
-    ),
-  },
-  summary: 'Get projects assigned to user',
-  description: 'Returns all projects assigned to a specific user',
-});
-
-server.use('/projects/assigned/:userId', requireUserAccess);
-server.openapi(getAssignedProjectsRoute, async (c) => {
-  const { userId } = c.req.valid('param');
-
-  const result = await projectHandler.getProjectsAssignedToUser(userId);
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
-});
-
 const updateProjectRoute = createRoute({
   tags: ['Projects'],
   method: 'patch',
@@ -245,7 +205,10 @@ const updateProjectRoute = createRoute({
         example: 1,
       }),
     }),
-    body: jsonContent(patchProjectsSchema, 'The project updates'),
+    body: jsonContent(
+      updateProjectWithUnitsSchema,
+      'The project updates with optional units and books'
+    ),
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(selectProjectsSchema, 'The updated project'),
