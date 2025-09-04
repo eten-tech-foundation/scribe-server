@@ -223,6 +223,44 @@ export const sampleProjectUnitBibleBooks = {
   },
 };
 
+export const sampleChapterAssignments = [
+  {
+    id: 1,
+    projectUnitId: 1,
+    bibleId: 1,
+    bookId: 1,
+    chapterNumber: 1,
+    assignedUserId: 1,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+  {
+    id: 2,
+    projectUnitId: 1,
+    bibleId: 1,
+    bookId: 1,
+    chapterNumber: 2,
+    assignedUserId: null,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+];
+
+export const sampleChapterInfo = [
+  {
+    bibleId: 1,
+    bookId: 1,
+    chapterNumber: 1,
+    verseCount: 31,
+  },
+  {
+    bibleId: 1,
+    bookId: 1,
+    chapterNumber: 2,
+    verseCount: 25,
+  },
+];
+
 /**
  * Utility to reset all mocks before each test
  */
