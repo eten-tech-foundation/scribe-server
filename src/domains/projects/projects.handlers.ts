@@ -8,6 +8,7 @@ import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import { bibles, languages, project_unit_bible_books, project_units, projects } from '@/db/schema';
+import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapter-assignments.handlers';
 
 export type Project = z.infer<typeof selectProjectsSchema>;
 
@@ -119,6 +120,17 @@ export async function createProject(input: CreateProjectInput): Promise<Result<P
         await tx.insert(project_unit_bible_books).values(bibleBookEntries);
       }
 
+      const assignmentsResult = await chapterAssignmentsService.createChapterAssignments(
+        projectUnit.id,
+        bible_id,
+        book_id,
+        tx
+      );
+
+      if (!assignmentsResult.ok) {
+        throw new Error(assignmentsResult.error.message);
+      }
+
       return { ok: true, data: project };
     });
   } catch {
@@ -145,6 +157,7 @@ export async function updateProject(
       }
 
       if (bible_id !== undefined || book_id !== undefined || status !== undefined) {
+        await chapterAssignmentsService.deleteChapterAssignmentsByProject(id);
         await tx.delete(project_units).where(eq(project_units.projectId, id));
 
         const [projectUnit] = await tx
@@ -165,6 +178,17 @@ export async function updateProject(
           if (bibleBookEntries.length > 0) {
             await tx.insert(project_unit_bible_books).values(bibleBookEntries);
           }
+
+          const assignmentsResult = await chapterAssignmentsService.createChapterAssignments(
+            projectUnit.id,
+            bible_id,
+            book_id,
+            tx
+          );
+
+          if (!assignmentsResult.ok) {
+            throw new Error(assignmentsResult.error.message);
+          }
         }
       }
 
@@ -177,17 +201,60 @@ export async function updateProject(
 
 export async function deleteProject(id: number): Promise<Result<{ id: number }>> {
   try {
-    const result = await db
-      .delete(projects)
-      .where(eq(projects.id, id))
-      .returning({ id: projects.id });
+    return await db.transaction(async (tx) => {
+      await chapterAssignmentsService.deleteChapterAssignmentsByProject(id);
 
-    if (result.length === 0) {
-      return { ok: false, error: { message: 'Project not found' } };
-    }
+      const result = await tx
+        .delete(projects)
+        .where(eq(projects.id, id))
+        .returning({ id: projects.id });
 
-    return { ok: true, data: { id: result[0].id } };
+      if (result.length === 0) {
+        return { ok: false, error: { message: 'Project not found' } };
+      }
+
+      return { ok: true, data: { id: result[0].id } };
+    });
   } catch {
     return { ok: false, error: { message: 'Failed to delete project' } };
+  }
+}
+
+export async function getProjectWithChapterAssignments(id: number): Promise<
+  Result<{
+    project: ProjectWithLanguageNames;
+    chapterAssignments: chapterAssignmentsService.ChapterAssignment[];
+    chapterInfo: chapterAssignmentsService.ChapterInfo[];
+  }>
+> {
+  try {
+    const projectResult = await getProjectById(id);
+    if (!projectResult.ok) {
+      return projectResult;
+    }
+
+    const [assignmentsResult, chaptersResult] = await Promise.all([
+      chapterAssignmentsService.getChapterAssignmentsByProject(id),
+      chapterAssignmentsService.getProjectChapters(id),
+    ]);
+
+    if (!assignmentsResult.ok) {
+      return assignmentsResult;
+    }
+
+    if (!chaptersResult.ok) {
+      return chaptersResult;
+    }
+
+    return {
+      ok: true,
+      data: {
+        project: projectResult.data,
+        chapterAssignments: assignmentsResult.data,
+        chapterInfo: chaptersResult.data,
+      },
+    };
+  } catch {
+    return { ok: false, error: { message: 'Failed to fetch project with assignments' } };
   }
 }

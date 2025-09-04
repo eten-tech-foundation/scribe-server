@@ -19,6 +19,24 @@ const projectWithLanguageNamesSchema = selectProjectsSchema
     sourceName: z.string().optional(),
   });
 
+const chapterAssignmentSchema = z.object({
+  id: z.number().optional(),
+  projectUnitId: z.number(),
+  bibleId: z.number(),
+  bookId: z.number(),
+  chapterNumber: z.number(),
+  assignedUserId: z.number().nullable(),
+  createdAt: z.string().datetime().nullable().optional(),
+  updatedAt: z.string().datetime().nullable().optional(),
+});
+
+const chapterInfoSchema = z.object({
+  bibleId: z.number(),
+  bookId: z.number(),
+  chapterNumber: z.number(),
+  verseCount: z.number(),
+});
+
 const createProjectWithUnitsSchema = insertProjectsSchema.extend({
   bible_id: z.number().int(),
   book_id: z.array(z.number().int()),
@@ -28,7 +46,7 @@ const createProjectWithUnitsSchema = insertProjectsSchema.extend({
 const updateProjectWithUnitsSchema = patchProjectsSchema.extend({
   bible_id: z.number().int().optional(),
   book_id: z.array(z.number().int()).optional(),
-  status: z.enum(['not_started', 'in_progress', 'completed']).default('not_started').optional(),
+  status: z.enum(['not_started', 'in_progress', 'completed']).optional(),
 });
 
 const listProjectsRoute = createRoute({
@@ -184,6 +202,132 @@ server.openapi(getProjectRoute, async (c) => {
 
   if (result.error.message === 'Project not found') {
     return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+});
+
+const getProjectWithAssignmentsRoute = createRoute({
+  tags: ['Projects'],
+  method: 'get',
+  path: '/projects/{id}/assignments',
+  request: {
+    params: z.object({
+      id: z.coerce.number().openapi({
+        param: {
+          name: 'id',
+          in: 'path',
+          required: true,
+          allowReserved: false,
+        },
+        example: 1,
+      }),
+    }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.object({
+        project: projectWithLanguageNamesSchema,
+        chapterAssignments: z.array(chapterAssignmentSchema),
+        chapterInfo: z.array(chapterInfoSchema),
+      }),
+      'Project with chapter assignments and info'
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
+      'Project not found'
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'Access denied'
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
+  },
+  summary: 'Get project with chapter assignments',
+  description: 'Returns a project with its chapter assignments and chapter information',
+});
+
+server.openapi(getProjectWithAssignmentsRoute, async (c) => {
+  const { id } = c.req.valid('param');
+
+  const result = await projectHandler.getProjectWithChapterAssignments(id);
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
+  }
+
+  if (result.error.message === 'Project not found') {
+    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+});
+
+const clearChapterAssignmentsRoute = createRoute({
+  tags: ['Projects'],
+  method: 'delete',
+  path: '/projects/{id}/assignments',
+  request: {
+    params: z.object({
+      id: z.coerce.number().openapi({
+        param: {
+          name: 'id',
+          in: 'path',
+          required: true,
+          allowReserved: false,
+        },
+        example: 1,
+      }),
+    }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.object({
+        deletedCount: z.number(),
+      }),
+      'Number of assignments deleted'
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
+      'Project not found'
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'Manager access required'
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
+  },
+  summary: 'Clear all chapter assignments',
+  description: 'Removes all user assignments from project chapters (chapters remain unassigned)',
+});
+
+server.use('/projects/:id/assignments', requireManagerAccess);
+
+server.openapi(clearChapterAssignmentsRoute, async (c) => {
+  const { id } = c.req.valid('param');
+
+  const chapterAssignmentsService = await import(
+    '@/domains/chapter-assignments/chapter-assignments.handlers'
+  );
+
+  const result = await chapterAssignmentsService.deleteChapterAssignmentsByProject(id);
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
   }
 
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);

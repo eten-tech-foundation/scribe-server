@@ -152,6 +152,59 @@ export const project_unit_bible_books = pgTable('project_unit_bible_books', {
     .$onUpdate(() => new Date()),
 });
 
+export const bible_texts = pgTable('bible_texts', {
+  id: serial('id').primaryKey(),
+  bibleId: integer('bible_id')
+    .notNull()
+    .references(() => bibles.id),
+  bookId: integer('book_id')
+    .notNull()
+    .references(() => books.id),
+  chapterNumber: integer('chapter_number').notNull(),
+  verseNumber: integer('verse_number').notNull(),
+  text: varchar('text').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const translated_verses = pgTable('translated_verses', {
+  id: serial('id').primaryKey(),
+  projectUnitId: integer('project_unit_id')
+    .notNull()
+    .references(() => project_units.id),
+  status: varchar('status', { length: 50 }).notNull(),
+  content: varchar('content').notNull(),
+  bibleTextId: integer('bible_text_id')
+    .notNull()
+    .references(() => bible_texts.id),
+  assignedUserId: integer('assigned_user_id').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const chapter_assignments = pgTable('chapter_assignments', {
+  id: serial('id').primaryKey(),
+  projectUnitId: integer('project_unit_id')
+    .notNull()
+    .references(() => project_units.id),
+  bibleId: integer('bible_id')
+    .notNull()
+    .references(() => bibles.id),
+  bookId: integer('book_id')
+    .notNull()
+    .references(() => books.id),
+  chapterNumber: integer('chapter_number').notNull(),
+  assignedUserId: integer('assigned_user_id').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({
   zodInstance: z,
 });
@@ -166,6 +219,9 @@ export const selectBooksSchema = createSelectSchema(books);
 export const selectBibleBooksSchema = createSelectSchema(bible_books);
 export const selectProjectUnitsSchema = createSelectSchema(project_units);
 export const selectProjectUnitBibleBooksSchema = createSelectSchema(project_unit_bible_books);
+export const selectBibleTextsSchema = createSelectSchema(bible_texts);
+export const selectTranslatedVersesSchema = createSelectSchema(translated_verses);
+export const selectChapterAssignmentsSchema = createSelectSchema(chapter_assignments);
 
 export const insertUsersSchema = createInsertSchema(users, {
   username: (schema) => schema.min(1).max(100),
@@ -285,6 +341,65 @@ export const insertBibleBooksSchema = createInsertSchema(bible_books)
     updatedAt: true,
   });
 
+export const insertBibleTextsSchema = createInsertSchema(bible_texts, {
+  bibleId: (schema) => schema.int(),
+  bookId: (schema) => schema.int(),
+  chapterNumber: (schema) => schema.int().min(1),
+  verseNumber: (schema) => schema.int().min(1),
+  text: (schema) => schema.min(1),
+})
+  .required({
+    bibleId: true,
+    bookId: true,
+    chapterNumber: true,
+    verseNumber: true,
+    text: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+  });
+
+export const insertTranslatedVersesSchema = createInsertSchema(translated_verses, {
+  projectUnitId: (schema) => schema.int(),
+  status: (schema) => schema.min(1).max(50),
+  content: (schema) => schema.min(1),
+  bibleTextId: (schema) => schema.int(),
+  assignedUserId: (schema) => schema.int().optional(),
+})
+  .required({
+    projectUnitId: true,
+    status: true,
+    content: true,
+    bibleTextId: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+  });
+
+export const insertChapterAssignmentsSchema = createInsertSchema(chapter_assignments, {
+  projectUnitId: (schema) => schema.int(),
+  bibleId: (schema) => schema.int(),
+  bookId: (schema) => schema.int(),
+  chapterNumber: (schema) => schema.int().min(1),
+  assignedUserId: (schema) => schema.int(),
+})
+  .required({
+    projectUnitId: true,
+    bibleId: true,
+    bookId: true,
+    chapterNumber: true,
+    assignedUserId: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+  });
+
 export const patchUsersSchema = insertUsersSchema.partial();
 export const patchRolesSchema = insertRolesSchema.partial();
 export const patchOrganizationsSchema = insertOrganizationsSchema.partial();
@@ -294,3 +409,6 @@ export const patchBiblesSchema = insertBiblesSchema.partial();
 export const patchBibleBooksSchema = insertBibleBooksSchema.partial();
 export const patchProjectUnitsSchema = insertProjectUnitsSchema.partial();
 export const patchProjectUnitBibleBooksSchema = insertProjectUnitBibleBooksSchema.partial();
+export const patchBibleTextsSchema = insertBibleTextsSchema.partial();
+export const patchTranslatedVersesSchema = insertTranslatedVersesSchema.partial();
+export const patchChapterAssignmentsSchema = insertChapterAssignmentsSchema.partial();
