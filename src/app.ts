@@ -9,7 +9,8 @@ import '@/domains/languages/languages.route';
 import '@/domains/bibles/bibles.route';
 import '@/domains/books/books.route';
 import '@/domains/bible-books/bible-books.route';
-
+import '@/domains/project-unit-bible-books/project-unit-bible-books.route';
+import '@/domains/chapter-assignments/chapter-assignments.route';
 configureOpenAPI(server);
 
 export default server;
