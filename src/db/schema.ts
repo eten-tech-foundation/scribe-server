@@ -199,6 +199,8 @@ export const chapter_assignments = pgTable('chapter_assignments', {
     .references(() => books.id),
   chapterNumber: integer('chapter_number').notNull(),
   assignedUserId: integer('assigned_user_id').references(() => users.id),
+  isSubmitted: boolean('is_submitted').default(false),
+  submittedTime: timestamp('submitted_time'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
     .defaultNow()

@@ -27,6 +27,26 @@ const chapterAssignmentSchema = z.object({
   updatedAt: z.string().datetime().nullable().optional(),
 });
 
+const chapterAssignmentProgressSchema = z.object({
+  book: z.string(),
+  chapter_number: z.number(),
+  assigned_user: z.string(),
+  project_unit_id: z.number(),
+  assignment_id: z.number(),
+  progress: z.string(),
+});
+
+const chapterAssignmentByEmailSchema = z.object({
+  project_name: z.string(),
+  project_unit_id: z.number(),
+  book_id: z.number(),
+  book: z.string(),
+  chapter_number: z.number(),
+  progress: z.string(),
+  is_submitted: z.boolean(),
+  submitted_time: z.string().nullable(),
+});
+
 const assignUsersToChaptersSchema = z.object({
   userAssignments: z
     .array(
@@ -124,6 +144,88 @@ const getChapterAssignmentsRoute = createRoute({
   description: 'Returns all chapter assignments for a specific project',
 });
 
+const getChapterAssignmentProgressRoute = createRoute({
+  tags: ['Chapter Assignments'],
+  method: 'get',
+  path: '/projects/{projectId}/chapter-assignments/progress',
+  request: {
+    params: z.object({
+      projectId: z.coerce.number().openapi({
+        param: {
+          name: 'projectId',
+          in: 'path',
+          required: true,
+          allowReserved: false,
+        },
+        example: 1,
+      }),
+    }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      chapterAssignmentProgressSchema.array().openapi('ChapterAssignmentProgress'),
+      'Chapter assignment progress for the project'
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'Access denied'
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
+  },
+  summary: 'Get chapter assignment progress',
+  description: 'Returns chapter assignment progress with completion statistics for a project',
+});
+
+const getChapterAssignmentsByEmailRoute = createRoute({
+  tags: ['Chapter Assignments'],
+  method: 'get',
+  path: '/chapter-assignments/user/{email}',
+  request: {
+    params: z.object({
+      email: z
+        .string()
+        .email()
+        .openapi({
+          param: {
+            name: 'email',
+            in: 'path',
+            required: true,
+            allowReserved: false,
+          },
+          example: 'user@example.com',
+        }),
+    }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      chapterAssignmentByEmailSchema.array().openapi('ChapterAssignmentsByEmail'),
+      'Chapter assignments for the user by email'
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'Access denied'
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
+  },
+  summary: 'Get chapter assignments by user email',
+  description:
+    'Returns all chapter assignments for a user identified by email with progress and submission status',
+});
+
 const assignUsersToChaptersRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'patch',
@@ -217,6 +319,8 @@ const deleteChapterAssignmentsRoute = createRoute({
 
 server.use('/projects/:id/chapters', requireProjectAccess);
 server.use('/projects/:id/chapter-assignments', requireProjectAccess);
+server.use('/projects/:projectId/chapter-assignments/progress', requireProjectAccess);
+server.use('/chapter-assignments/user/:email', requireProjectAccess);
 
 server.openapi(getProjectChaptersRoute, async (c) => {
   const { id } = c.req.valid('param');
@@ -234,6 +338,30 @@ server.openapi(getChapterAssignmentsRoute, async (c) => {
   const { id } = c.req.valid('param');
 
   const result = await chapterAssignmentsHandler.getChapterAssignmentsByProject(id);
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+});
+
+server.openapi(getChapterAssignmentProgressRoute, async (c) => {
+  const { projectId } = c.req.valid('param');
+
+  const result = await chapterAssignmentsHandler.getChapterAssignmentProgressByProject(projectId);
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+});
+
+server.openapi(getChapterAssignmentsByEmailRoute, async (c) => {
+  const { email } = c.req.valid('param');
+
+  const result = await chapterAssignmentsHandler.getChapterAssignmentsByEmail(email);
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
