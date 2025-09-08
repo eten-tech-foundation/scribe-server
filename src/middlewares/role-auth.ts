@@ -61,7 +61,8 @@ async function ensureSameOrganization(managerOrg: number, targetUserId?: string)
 }
 
 async function ensureProjectAccess(user: any, projectId: string) {
-  const projectResult = await getProjectById(Number.parseInt(projectId, 10));
+  const projectIdNum = Number.parseInt(projectId, 10);
+  const projectResult = await getProjectById(projectIdNum);
 
   if (!projectResult.ok) {
     throw new HTTPException(HttpStatusCodes.NOT_FOUND, {
@@ -81,9 +82,12 @@ async function ensureProjectAccess(user: any, projectId: string) {
       }
     }
   } else if (user.role === ROLES.TRANSLATOR) {
-    if (project.createdBy !== user.id) {
+    const ownsProject = project.createdBy === user.id;
+    const isAssignedToProject = user.assignedTo && user.assignedTo.includes(projectIdNum);
+
+    if (!ownsProject && !isAssignedToProject) {
       throw new HTTPException(HttpStatusCodes.FORBIDDEN, {
-        message: 'You can only access your own projects',
+        message: 'You can only access projects you own or are assigned to',
       });
     }
   }
@@ -136,7 +140,7 @@ export const requireUserAccess: MiddlewareHandler<AppBindings> = async (c, next)
 
 export const requireProjectAccess: MiddlewareHandler<AppBindings> = async (c, next) => {
   const user = await getAuthenticatedUser(c);
-  const projectId = c.req.param('id');
+  const projectId = c.req.param('id') || c.req.param('projectId');
 
   if (projectId) {
     await ensureProjectAccess(user, projectId);

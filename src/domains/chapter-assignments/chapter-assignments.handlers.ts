@@ -87,7 +87,6 @@ export async function getChapterAssignmentProgressByProject(
   projectId: number
 ): Promise<Result<ChapterAssignmentProgress[]>> {
   try {
-    // First, get all chapter assignments for the project
     const assignments = await db
       .select({
         assignmentId: chapter_assignments.id,
@@ -107,11 +106,9 @@ export async function getChapterAssignmentProgressByProject(
       .where(eq(project_units.projectId, projectId))
       .orderBy(books.eng_display_name, chapter_assignments.chapterNumber);
 
-    // Get progress for each assignment
     const progressData: ChapterAssignmentProgress[] = [];
 
     for (const assignment of assignments) {
-      // Get total verse count
       const totalVerses = await db
         .select({
           count: count(),
@@ -167,7 +164,6 @@ export async function getChapterAssignmentsByEmail(
   email: string
 ): Promise<Result<ChapterAssignmentByEmail[]>> {
   try {
-    // First, get the user ID
     const user = await db
       .select({ id: users.id })
       .from(users)
@@ -180,7 +176,6 @@ export async function getChapterAssignmentsByEmail(
 
     const userId = user[0].id;
 
-    // Get assignments for the user
     const assignments = await db
       .select({
         assignmentId: chapter_assignments.id,
@@ -200,11 +195,9 @@ export async function getChapterAssignmentsByEmail(
       .where(eq(chapter_assignments.assignedUserId, userId))
       .orderBy(projects.name, books.eng_display_name, chapter_assignments.chapterNumber);
 
-    // Get progress for each assignment
     const assignmentsWithProgress: ChapterAssignmentByEmail[] = [];
 
     for (const assignment of assignments) {
-      // Get total verse count
       const totalVerses = await db
         .select({
           count: count(),
@@ -218,7 +211,6 @@ export async function getChapterAssignmentsByEmail(
           )
         );
 
-      // Get completed verse count for this user
       const completedVerses = await db
         .select({
           count: count(),

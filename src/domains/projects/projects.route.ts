@@ -46,7 +46,7 @@ const createProjectWithUnitsSchema = insertProjectsSchema.extend({
 const updateProjectWithUnitsSchema = patchProjectsSchema.extend({
   bible_id: z.number().int().optional(),
   book_id: z.array(z.number().int()).optional(),
-  status: z.enum(['not_started', 'in_progress', 'completed']).optional(),
+  status: z.enum(['not_started', 'in_progress', 'completed']).default('not_started').optional(),
 });
 
 const listProjectsRoute = createRoute({
