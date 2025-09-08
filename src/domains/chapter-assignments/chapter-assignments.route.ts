@@ -4,7 +4,7 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { requireProjectAccess } from '@/middlewares/role-auth';
+import { requireManagerAccess, requireProjectAccess } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as chapterAssignmentsHandler from './chapter-assignments.handlers';
@@ -48,14 +48,10 @@ const chapterAssignmentByEmailSchema = z.object({
 });
 
 const assignUsersToChaptersSchema = z.object({
-  userAssignments: z
-    .array(
-      z.object({
-        chapterAssignmentId: z.number().int(),
-        userId: z.number().int(),
-      })
-    )
-    .min(1, 'At least one assignment is required'),
+  chapterAssignmentId: z
+    .array(z.number().int())
+    .min(1, 'At least one chapter assignment ID is required'),
+  userId: z.number().int(),
 });
 
 const getProjectChaptersRoute = createRoute({
@@ -229,19 +225,8 @@ const getChapterAssignmentsByEmailRoute = createRoute({
 const assignUsersToChaptersRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'patch',
-  path: '/projects/{id}/chapter-assignments/assign',
+  path: '/projects/chapter-assignments/assign',
   request: {
-    params: z.object({
-      id: z.coerce.number().openapi({
-        param: {
-          name: 'id',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 6,
-      }),
-    }),
     body: jsonContent(assignUsersToChaptersSchema, 'User assignment data for specific chapters'),
   },
   responses: {
@@ -321,6 +306,7 @@ server.use('/projects/:id/chapters', requireProjectAccess);
 server.use('/projects/:id/chapter-assignments', requireProjectAccess);
 server.use('/projects/:projectId/chapter-assignments/progress', requireProjectAccess);
 server.use('/chapter-assignments/user/:email', requireProjectAccess);
+server.use('/projects/chapter-assignments/assign', requireManagerAccess);
 
 server.openapi(getProjectChaptersRoute, async (c) => {
   const { id } = c.req.valid('param');
@@ -371,10 +357,9 @@ server.openapi(getChapterAssignmentsByEmailRoute, async (c) => {
 });
 
 server.openapi(assignUsersToChaptersRoute, async (c) => {
-  const { id } = c.req.valid('param');
-  const { userAssignments } = c.req.valid('json');
+  const assignmentData = c.req.valid('json');
 
-  const result = await chapterAssignmentsHandler.assignUsersToChapters(id, userAssignments);
+  const result = await chapterAssignmentsHandler.assignUsersToChapters(assignmentData);
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);

@@ -145,7 +145,7 @@ export async function getChapterAssignmentProgressByProject(
       const assignedUser =
         assignment.firstName && assignment.lastName
           ? `${assignment.firstName} ${assignment.lastName}`
-          : 'Unassigned';
+          : '';
 
       progressData.push({
         book: assignment.bookName,
@@ -299,22 +299,21 @@ export async function createChapterAssignments(
   }
 }
 
-export async function assignUsersToChapters(
-  projectId: number,
-  userAssignments: Array<{
-    chapterAssignmentId: number;
-    userId: number;
-  }>
-): Promise<Result<ChapterAssignment[]>> {
+export async function assignUsersToChapters(assignmentData: {
+  chapterAssignmentId: number[];
+  userId: number;
+}): Promise<Result<ChapterAssignment[]>> {
   try {
+    const { chapterAssignmentId, userId } = assignmentData;
+
     const updatedAssignments = await db.transaction(async (tx) => {
       const updates = [];
 
-      for (const assignment of userAssignments) {
+      for (const assignmentId of chapterAssignmentId) {
         const [updated] = await tx
           .update(chapter_assignments)
-          .set({ assignedUserId: assignment.userId })
-          .where(eq(chapter_assignments.id, assignment.chapterAssignmentId))
+          .set({ assignedUserId: userId })
+          .where(eq(chapter_assignments.id, assignmentId))
           .returning();
 
         if (updated) {
