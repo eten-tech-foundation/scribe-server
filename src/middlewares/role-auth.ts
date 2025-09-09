@@ -122,7 +122,16 @@ export const requireUserAccess: MiddlewareHandler<AppBindings> = async (c, next)
   const targetUserEmail = c.req.param('email');
 
   if (user.role === ROLES.MANAGER) {
-    await ensureSameOrganization(user.organization, targetUserId);
+    if (targetUserId) {
+      await ensureSameOrganization(user.organization, targetUserId);
+    } else if (targetUserEmail) {
+      const targetUserResult = await getUserByEmail(targetUserEmail);
+      if (!targetUserResult.ok || user.organization !== targetUserResult.data.organization) {
+        throw new HTTPException(HttpStatusCodes.NOT_FOUND, {
+          message: 'User not found',
+        });
+      }
+    }
   } else if (user.role === ROLES.TRANSLATOR) {
     if (
       (targetUserId && user.id !== Number.parseInt(targetUserId)) ||
