@@ -6,9 +6,9 @@ import { db } from '@/db';
 import { books, project_unit_bible_books, project_units } from '@/db/schema';
 
 export interface ProjectBook {
-  book_id: number;
+  bookId: number;
   code: string;
-  eng_display_name: string;
+  engDisplayName: string;
 }
 
 export async function getBooksByProjectId(projectId: number): Promise<Result<ProjectBook[]>> {
@@ -28,7 +28,12 @@ export async function getBooksByProjectId(projectId: number): Promise<Result<Pro
       .where(eq(project_units.projectId, projectId))
       .orderBy(books.id);
 
-    return { ok: true, data: projectBooks };
+    const mappedBooks: ProjectBook[] = projectBooks.map((book) => ({
+      bookId: book.book_id,
+      code: book.code,
+      engDisplayName: book.eng_display_name,
+    }));
+    return { ok: true, data: mappedBooks };
   } catch {
     return { ok: false, error: { message: 'Failed to fetch project books' } };
   }

@@ -173,7 +173,7 @@ describe('project Handler Functions', () => {
       const chapterAssignmentsModule = await import(
         '@/domains/chapter-assignments/chapter-assignments.handlers'
       );
-      const { bible_id, book_id, status, ...projectWithoutExtras } = mockProjectInput;
+      const { bibleId, bookId, status, ...projectWithoutExtras } = mockProjectInput;
       const createdProject = { ...projectWithoutExtras, id: 2 };
 
       // Mock successful creation

@@ -10,9 +10,9 @@ import { server } from '@/server/server';
 import * as projectUnitsBibleBooksHandler from './project-unit-bible-books.handlers';
 
 const projectBookSchema = z.object({
-  book_id: z.number().int(),
+  bookId: z.number().int(),
   code: z.string(),
-  eng_display_name: z.string(),
+  engDisplayName: z.string(),
 });
 
 const getProjectBooksRoute = createRoute({

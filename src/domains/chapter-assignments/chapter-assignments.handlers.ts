@@ -30,27 +30,27 @@ export interface ChapterAssignment {
 
 export interface ChapterAssignmentProgress {
   book: string;
-  chapter_number: number;
-  assigned_user: string;
-  project_unit_id: number;
-  assignment_id: number;
-  total_verses: number;
-  completed_verses: number;
+  chapterNumber: number;
+  assignedUser: string;
+  projectUnitId: number;
+  assignmentId: number;
+  totalVerses: number;
+  completedVerses: number;
 }
 
 export interface ChapterAssignmentByUser {
-  project_name: string;
-  project_unit_id: number;
-  bible_id: number;
-  bible_name: string;
-  target_language: string;
-  book_id: number;
+  projectName: string;
+  projectUnitId: number;
+  bibleId: number;
+  bibleName: string;
+  targetLanguage: string;
+  bookId: number;
   book: string;
-  chapter_number: number;
-  total_verses: number;
-  completed_verses: number;
-  is_submitted: boolean;
-  submitted_time: string | null;
+  chapterNumber: number;
+  totalVerses: number;
+  completedVerses: number;
+  isSubmitted: boolean;
+  submittedTime: string | null;
 }
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -102,12 +102,12 @@ export async function getChapterAssignmentProgressByProject(
       const assignedUser = row.firstName && row.lastName ? `${row.firstName} ${row.lastName}` : '';
       return {
         book: row.bookName,
-        chapter_number: row.chapterNumber,
-        assigned_user: assignedUser,
-        project_unit_id: row.projectUnitId,
-        assignment_id: row.assignmentId,
-        total_verses: Number(row.totalVerses),
-        completed_verses: Number(row.completedVerses),
+        chapterNumber: row.chapterNumber,
+        assignedUser,
+        projectUnitId: row.projectUnitId,
+        assignmentId: row.assignmentId,
+        totalVerses: Number(row.totalVerses),
+        completedVerses: Number(row.completedVerses),
       };
     });
 
@@ -175,18 +175,18 @@ export async function getChapterAssignmentsByUserId(
       .orderBy(projects.name, books.eng_display_name, chapter_assignments.chapterNumber);
 
     const assignmentsWithProgress: ChapterAssignmentByUser[] = rows.map((row) => ({
-      project_name: row.projectName,
-      project_unit_id: row.projectUnitId,
-      bible_id: row.bibleId,
-      bible_name: row.bibleName,
-      target_language: row.targetLanguage,
-      book_id: row.bookId,
+      projectName: row.projectName,
+      projectUnitId: row.projectUnitId,
+      bibleId: row.bibleId,
+      bibleName: row.bibleName,
+      targetLanguage: row.targetLanguage,
+      bookId: row.bookId,
       book: row.bookName,
-      chapter_number: row.chapterNumber,
-      total_verses: Number(row.totalVerses),
-      completed_verses: Number(row.completedVerses),
-      is_submitted: row.isSubmitted || false,
-      submitted_time: row.submittedTime?.toISOString() || null,
+      chapterNumber: row.chapterNumber,
+      totalVerses: Number(row.totalVerses),
+      completedVerses: Number(row.completedVerses),
+      isSubmitted: row.isSubmitted || false,
+      submittedTime: row.submittedTime?.toISOString() || null,
     }));
 
     return { ok: true, data: assignmentsWithProgress };

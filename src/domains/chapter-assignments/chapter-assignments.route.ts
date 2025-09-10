@@ -28,27 +28,27 @@ const chapterAssignmentSchema = z.object({
 
 const chapterAssignmentProgressSchema = z.object({
   book: z.string(),
-  chapter_number: z.number(),
-  assigned_user: z.string(),
-  project_unit_id: z.number(),
-  assignment_id: z.number(),
-  total_verses: z.number().int(),
-  completed_verses: z.number().int(),
+  chapterNumber: z.number(),
+  assignedUser: z.string(),
+  projectUnitId: z.number(),
+  assignmentId: z.number(),
+  totalVerses: z.number().int(),
+  completedVerses: z.number().int(),
 });
 
 const chapterAssignmentByUserSchema = z.object({
-  project_name: z.string(),
-  project_unit_id: z.number(),
-  bible_id: z.number(),
-  bible_name: z.string(),
-  target_language: z.string(),
-  book_id: z.number(),
+  projectName: z.string(),
+  projectUnitId: z.number(),
+  bibleId: z.number(),
+  bibleName: z.string(),
+  targetLanguage: z.string(),
+  bookId: z.number(),
   book: z.string(),
-  chapter_number: z.number(),
-  total_verses: z.number().int(),
-  completed_verses: z.number().int(),
-  is_submitted: z.boolean(),
-  submitted_time: z.string().nullable(),
+  chapterNumber: z.number(),
+  totalVerses: z.number().int(),
+  completedVerses: z.number().int(),
+  isSubmitted: z.boolean(),
+  submittedTime: z.string().nullable(),
 });
 
 const assignUsersToChaptersSchema = z.object({
@@ -115,7 +115,6 @@ server.openapi(getChapterAssignmentsRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
-// DELETE /projects/{id}/chapter-assignments
 const deleteChapterAssignmentsRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'delete',
