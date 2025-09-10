@@ -1,12 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { db } from '@/db';
-import {
-  resetAllMocks,
-  sampleChapterAssignments,
-  sampleChapterInfo,
-  sampleProjects,
-} from '@/test/utils/test-helpers';
+import { resetAllMocks, sampleChapterAssignments, sampleProjects } from '@/test/utils/test-helpers';
 
 import {
   createProject,
@@ -14,7 +9,6 @@ import {
   getAllProjects,
   getProjectById,
   getProjectsByOrganization,
-  getProjectWithChapterAssignments,
   updateProject,
 } from './projects.handlers';
 
@@ -23,6 +17,7 @@ const mockTx = {
   insert: vi.fn(),
   update: vi.fn(),
   delete: vi.fn(),
+  select: vi.fn(),
 };
 
 vi.mock('@/db', () => ({
@@ -173,78 +168,6 @@ describe('project Handler Functions', () => {
     });
   });
 
-  describe('getProjectWithChapterAssignments', () => {
-    it('should return project with chapter assignments and info', async () => {
-      const chapterAssignmentsModule = await import(
-        '@/domains/chapter-assignments/chapter-assignments.handlers'
-      );
-
-      // Mock getProjectById success
-      const mockQuery = {
-        from: vi.fn().mockReturnValue({
-          innerJoin: vi.fn().mockReturnValue({
-            innerJoin: vi.fn().mockReturnValue({
-              innerJoin: vi.fn().mockReturnValue({
-                innerJoin: vi.fn().mockReturnValue({
-                  innerJoin: vi.fn().mockReturnValue({
-                    where: vi.fn().mockReturnValue({
-                      limit: vi.fn().mockResolvedValue([mockProjectWithLanguageNames]),
-                    }),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        }),
-      };
-      (db.selectDistinct as any).mockReturnValue(mockQuery);
-
-      // Mock service calls
-      vi.mocked(chapterAssignmentsModule.getChapterAssignmentsByProject).mockResolvedValue({
-        ok: true,
-        data: [...sampleChapterAssignments],
-      });
-      vi.mocked(chapterAssignmentsModule.getProjectChapters).mockResolvedValue({
-        ok: true,
-        data: sampleChapterInfo,
-      });
-
-      const result = await getProjectWithChapterAssignments(1);
-
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.data.project).toEqual(mockProjectWithLanguageNames);
-        expect(result.data.chapterAssignments).toEqual(sampleChapterAssignments);
-        expect(result.data.chapterInfo).toEqual(sampleChapterInfo);
-      }
-    });
-
-    it('should return error if project not found', async () => {
-      const mockQuery = {
-        from: vi.fn().mockReturnValue({
-          innerJoin: vi.fn().mockReturnValue({
-            innerJoin: vi.fn().mockReturnValue({
-              innerJoin: vi.fn().mockReturnValue({
-                innerJoin: vi.fn().mockReturnValue({
-                  innerJoin: vi.fn().mockReturnValue({
-                    where: vi.fn().mockReturnValue({
-                      limit: vi.fn().mockResolvedValue([]),
-                    }),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        }),
-      };
-      (db.selectDistinct as any).mockReturnValue(mockQuery);
-
-      const result = await getProjectWithChapterAssignments(999);
-
-      expect(result.ok).toBe(false);
-    });
-  });
-
   describe('createProject', () => {
     it('should create and return a new project', async () => {
       const chapterAssignmentsModule = await import(
@@ -321,20 +244,17 @@ describe('project Handler Functions', () => {
 
   describe('deleteProject', () => {
     it('should delete the project and return success', async () => {
-      const chapterAssignmentsModule = await import(
-        '@/domains/chapter-assignments/chapter-assignments.handlers'
-      );
-
-      vi.mocked(chapterAssignmentsModule.deleteChapterAssignmentsByProject).mockResolvedValue({
-        ok: true,
-        data: { deletedCount: 5 },
+      mockTx.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([{ id: 1 }]),
+        }),
       });
 
-      mockTx.delete.mockImplementationOnce(() => ({
+      mockTx.delete.mockReturnValue({
         where: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([{ id: 1 }]),
         }),
-      }));
+      });
 
       const result = await deleteProject(1);
 
@@ -342,22 +262,27 @@ describe('project Handler Functions', () => {
     });
 
     it('should return error when project not found', async () => {
-      const chapterAssignmentsModule = await import(
-        '@/domains/chapter-assignments/chapter-assignments.handlers'
-      );
-
-      vi.mocked(chapterAssignmentsModule.deleteChapterAssignmentsByProject).mockResolvedValue({
-        ok: true,
-        data: { deletedCount: 0 },
+      mockTx.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([]),
+        }),
       });
 
-      mockTx.delete.mockImplementationOnce(() => ({
+      mockTx.delete.mockReturnValue({
         where: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([]),
         }),
-      }));
+      });
 
       const result = await deleteProject(999);
+
+      expect(result.ok).toBe(false);
+    });
+
+    it('should return error if deletion fails', async () => {
+      (db.transaction as any).mockRejectedValue(new Error('DB Error'));
+
+      const result = await deleteProject(1);
 
       expect(result.ok).toBe(false);
     });

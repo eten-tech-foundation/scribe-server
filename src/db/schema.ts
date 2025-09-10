@@ -174,7 +174,6 @@ export const translated_verses = pgTable('translated_verses', {
   projectUnitId: integer('project_unit_id')
     .notNull()
     .references(() => project_units.id),
-  status: varchar('status', { length: 50 }).notNull(),
   content: varchar('content').notNull(),
   bibleTextId: integer('bible_text_id')
     .notNull()
@@ -365,14 +364,12 @@ export const insertBibleTextsSchema = createInsertSchema(bible_texts, {
 
 export const insertTranslatedVersesSchema = createInsertSchema(translated_verses, {
   projectUnitId: (schema) => schema.int(),
-  status: (schema) => schema.min(1).max(50),
   content: (schema) => schema.min(1),
   bibleTextId: (schema) => schema.int(),
   assignedUserId: (schema) => schema.int().optional(),
 })
   .required({
     projectUnitId: true,
-    status: true,
     content: true,
     bibleTextId: true,
   })

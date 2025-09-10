@@ -13,13 +13,6 @@ import { server } from '@/server/server';
 
 import * as chapterAssignmentsHandler from './chapter-assignments.handlers';
 
-const chapterInfoSchema = z.object({
-  bibleId: z.number().int(),
-  bookId: z.number().int(),
-  chapterNumber: z.number().int(),
-  verseCount: z.number().int(),
-});
-
 const chapterAssignmentSchema = z.object({
   id: z.number().int().optional(),
   projectUnitId: z.number().int(),
@@ -27,8 +20,10 @@ const chapterAssignmentSchema = z.object({
   bookId: z.number().int(),
   chapterNumber: z.number().int(),
   assignedUserId: z.number().int().nullable(),
-  createdAt: z.string().datetime().nullable().optional(),
-  updatedAt: z.string().datetime().nullable().optional(),
+  isSubmitted: z.boolean().optional(),
+  submittedTime: z.date().nullable().optional(),
+  createdAt: z.date().nullable().optional(),
+  updatedAt: z.date().nullable().optional(),
 });
 
 const chapterAssignmentProgressSchema = z.object({
@@ -37,16 +32,21 @@ const chapterAssignmentProgressSchema = z.object({
   assigned_user: z.string(),
   project_unit_id: z.number(),
   assignment_id: z.number(),
-  progress: z.string(),
+  total_verses: z.number().int(),
+  completed_verses: z.number().int(),
 });
 
-const chapterAssignmentByEmailSchema = z.object({
+const chapterAssignmentByUserSchema = z.object({
   project_name: z.string(),
   project_unit_id: z.number(),
+  bible_id: z.number(),
+  bible_name: z.string(),
+  target_language: z.string(),
   book_id: z.number(),
   book: z.string(),
   chapter_number: z.number(),
-  progress: z.string(),
+  total_verses: z.number().int(),
+  completed_verses: z.number().int(),
   is_submitted: z.boolean(),
   submitted_time: z.string().nullable(),
 });
@@ -56,63 +56,6 @@ const assignUsersToChaptersSchema = z.object({
     .array(z.number().int())
     .min(1, 'At least one chapter assignment ID is required'),
   userId: z.number().int(),
-});
-
-const getProjectChaptersRoute = createRoute({
-  tags: ['Chapter Assignments'],
-  method: 'get',
-  path: '/projects/{id}/chapters',
-  request: {
-    params: z.object({
-      id: z.coerce.number().openapi({
-        param: {
-          name: 'id',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 6,
-      }),
-    }),
-  },
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      chapterInfoSchema.array().openapi('ProjectChapters'),
-      'The list of chapters with verse counts for the project'
-    ),
-    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      createMessageObjectSchema('Unauthorized'),
-      'Authentication required'
-    ),
-    [HttpStatusCodes.FORBIDDEN]: jsonContent(
-      createMessageObjectSchema('Forbidden'),
-      'Project access required'
-    ),
-    [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-      'Project not found'
-    ),
-    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
-      'Internal server error'
-    ),
-  },
-  summary: 'Get all chapters for a project',
-  description: 'Returns a list of all chapters with verse counts for a specific project',
-});
-
-server.use('/projects/:id/chapters', requireProjectAccess);
-
-server.openapi(getProjectChaptersRoute, async (c) => {
-  const { id } = c.req.valid('param');
-
-  const result = await chapterAssignmentsHandler.getProjectChapters(id);
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
 const getChapterAssignmentsRoute = createRoute({
@@ -338,30 +281,27 @@ server.openapi(assignUsersToChaptersRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
-const getChapterAssignmentsByEmailRoute = createRoute({
+const getChapterAssignmentsByUserIdRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'get',
-  path: '/chapter-assignments/user/{email}',
+  path: '/chapter-assignments/user/{userId}',
   request: {
     params: z.object({
-      email: z
-        .string()
-        .email()
-        .openapi({
-          param: {
-            name: 'email',
-            in: 'path',
-            required: true,
-            allowReserved: false,
-          },
-          example: 'user@example.com',
-        }),
+      userId: z.coerce.number().openapi({
+        param: {
+          name: 'userId',
+          in: 'path',
+          required: true,
+          allowReserved: false,
+        },
+        example: 1,
+      }),
     }),
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      chapterAssignmentByEmailSchema.array().openapi('ChapterAssignmentsByEmail'),
-      'Chapter assignments for the user by email'
+      chapterAssignmentByUserSchema.array().openapi('ChapterAssignmentsByUser'),
+      'Chapter assignments for the user with bible and language details'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       createMessageObjectSchema('Unauthorized'),
@@ -376,17 +316,16 @@ const getChapterAssignmentsByEmailRoute = createRoute({
       'Internal server error'
     ),
   },
-  summary: 'Get chapter assignments by user email',
-  description:
-    'Returns all chapter assignments for a user identified by email with progress and submission status',
+  summary: 'Get chapter assignments by user ID',
+  description: 'Returns all chapter assignments for a user',
 });
 
-server.use('/chapter-assignments/user/:email', requireUserAccess);
+server.use('/chapter-assignments/user/:userId', requireUserAccess);
 
-server.openapi(getChapterAssignmentsByEmailRoute, async (c) => {
-  const { email } = c.req.valid('param');
+server.openapi(getChapterAssignmentsByUserIdRoute, async (c) => {
+  const { userId } = c.req.valid('param');
 
-  const result = await chapterAssignmentsHandler.getChapterAssignmentsByEmail(email);
+  const result = await chapterAssignmentsHandler.getChapterAssignmentsByUserId(userId);
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);

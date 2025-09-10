@@ -1,13 +1,21 @@
 import type { z } from '@hono/zod-openapi';
 
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import type { insertProjectsSchema, patchProjectsSchema, selectProjectsSchema } from '@/db/schema';
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
-import { bibles, languages, project_unit_bible_books, project_units, projects } from '@/db/schema';
+import {
+  bibles,
+  chapter_assignments,
+  languages,
+  project_unit_bible_books,
+  project_units,
+  projects,
+  translated_verses,
+} from '@/db/schema';
 import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapter-assignments.handlers';
 
 export type Project = z.infer<typeof selectProjectsSchema>;
@@ -202,7 +210,28 @@ export async function updateProject(
 export async function deleteProject(id: number): Promise<Result<{ id: number }>> {
   try {
     return await db.transaction(async (tx) => {
-      await chapterAssignmentsService.deleteChapterAssignmentsByProject(id);
+      const projectUnitsToDelete = await tx
+        .select({ id: project_units.id })
+        .from(project_units)
+        .where(eq(project_units.projectId, id));
+
+      if (projectUnitsToDelete.length > 0) {
+        const projectUnitIds = projectUnitsToDelete.map((unit) => unit.id);
+
+        await tx
+          .delete(translated_verses)
+          .where(inArray(translated_verses.projectUnitId, projectUnitIds));
+
+        await tx
+          .delete(chapter_assignments)
+          .where(inArray(chapter_assignments.projectUnitId, projectUnitIds));
+
+        await tx
+          .delete(project_unit_bible_books)
+          .where(inArray(project_unit_bible_books.projectUnitId, projectUnitIds));
+      }
+
+      await tx.delete(project_units).where(eq(project_units.projectId, id));
 
       const result = await tx
         .delete(projects)
@@ -217,44 +246,5 @@ export async function deleteProject(id: number): Promise<Result<{ id: number }>>
     });
   } catch {
     return { ok: false, error: { message: 'Failed to delete project' } };
-  }
-}
-
-export async function getProjectWithChapterAssignments(id: number): Promise<
-  Result<{
-    project: ProjectWithLanguageNames;
-    chapterAssignments: chapterAssignmentsService.ChapterAssignment[];
-    chapterInfo: chapterAssignmentsService.ChapterInfo[];
-  }>
-> {
-  try {
-    const projectResult = await getProjectById(id);
-    if (!projectResult.ok) {
-      return projectResult;
-    }
-
-    const [assignmentsResult, chaptersResult] = await Promise.all([
-      chapterAssignmentsService.getChapterAssignmentsByProject(id),
-      chapterAssignmentsService.getProjectChapters(id),
-    ]);
-
-    if (!assignmentsResult.ok) {
-      return assignmentsResult;
-    }
-
-    if (!chaptersResult.ok) {
-      return chaptersResult;
-    }
-
-    return {
-      ok: true,
-      data: {
-        project: projectResult.data,
-        chapterAssignments: assignmentsResult.data,
-        chapterInfo: chaptersResult.data,
-      },
-    };
-  } catch {
-    return { ok: false, error: { message: 'Failed to fetch project with assignments' } };
   }
 }

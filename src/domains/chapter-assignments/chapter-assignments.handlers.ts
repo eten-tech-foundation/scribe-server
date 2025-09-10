@@ -1,13 +1,14 @@
-import { and, count, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import {
   bible_texts,
+  bibles,
   books,
   chapter_assignments,
-  project_unit_bible_books,
+  languages,
   project_units,
   projects,
   translated_verses,
@@ -21,15 +22,10 @@ export interface ChapterAssignment {
   bookId: number;
   chapterNumber: number;
   assignedUserId: number | null;
+  isSubmitted?: boolean;
+  submittedTime?: Date | null;
   createdAt?: Date | null;
   updatedAt?: Date | null;
-}
-
-export interface ChapterInfo {
-  bibleId: number;
-  bookId: number;
-  chapterNumber: number;
-  verseCount: number;
 }
 
 export interface ChapterAssignmentProgress {
@@ -38,121 +34,82 @@ export interface ChapterAssignmentProgress {
   assigned_user: string;
   project_unit_id: number;
   assignment_id: number;
-  progress: string;
+  total_verses: number;
+  completed_verses: number;
 }
 
-export interface ChapterAssignmentByEmail {
+export interface ChapterAssignmentByUser {
   project_name: string;
   project_unit_id: number;
+  bible_id: number;
+  bible_name: string;
+  target_language: string;
   book_id: number;
   book: string;
   chapter_number: number;
-  progress: string;
+  total_verses: number;
+  completed_verses: number;
   is_submitted: boolean;
   submitted_time: string | null;
 }
 
-export async function getProjectChapters(projectId: number): Promise<Result<ChapterInfo[]>> {
-  try {
-    const chapters = await db
-      .select({
-        bibleId: bible_texts.bibleId,
-        bookId: bible_texts.bookId,
-        chapterNumber: bible_texts.chapterNumber,
-        verseCount: sql<number>`COUNT(${bible_texts.verseNumber})`.as('verseCount'),
-      })
-      .from(bible_texts)
-      .innerJoin(
-        project_unit_bible_books,
-        and(
-          eq(bible_texts.bibleId, project_unit_bible_books.bibleId),
-          eq(bible_texts.bookId, project_unit_bible_books.bookId)
-        )
-      )
-      .innerJoin(project_units, eq(project_unit_bible_books.projectUnitId, project_units.id))
-      .where(eq(project_units.projectId, projectId))
-      .groupBy(bible_texts.bibleId, bible_texts.bookId, bible_texts.chapterNumber)
-      .orderBy(bible_texts.bookId, bible_texts.chapterNumber);
-
-    return { ok: true, data: chapters };
-  } catch {
-    return {
-      ok: false,
-      error: { message: 'Failed to fetch project chapters' },
-    };
-  }
-}
+type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export async function getChapterAssignmentProgressByProject(
   projectId: number
 ): Promise<Result<ChapterAssignmentProgress[]>> {
   try {
-    const assignments = await db
+    const rows = await db
       .select({
         assignmentId: chapter_assignments.id,
         projectUnitId: chapter_assignments.projectUnitId,
         bibleId: chapter_assignments.bibleId,
         bookId: chapter_assignments.bookId,
         chapterNumber: chapter_assignments.chapterNumber,
-        assignedUserId: chapter_assignments.assignedUserId,
         bookName: books.eng_display_name,
         firstName: users.firstName,
         lastName: users.lastName,
+        totalVerses: sql<number>`COUNT(${bible_texts.id})`,
+        completedVerses: sql<number>`COUNT(${translated_verses.id})`,
       })
       .from(chapter_assignments)
       .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
       .innerJoin(books, eq(chapter_assignments.bookId, books.id))
       .leftJoin(users, eq(chapter_assignments.assignedUserId, users.id))
+      .innerJoin(
+        bible_texts,
+        and(
+          eq(bible_texts.bibleId, chapter_assignments.bibleId),
+          eq(bible_texts.bookId, chapter_assignments.bookId),
+          eq(bible_texts.chapterNumber, chapter_assignments.chapterNumber)
+        )
+      )
+      .leftJoin(translated_verses, eq(translated_verses.bibleTextId, bible_texts.id))
       .where(eq(project_units.projectId, projectId))
+      .groupBy(
+        chapter_assignments.id,
+        chapter_assignments.projectUnitId,
+        chapter_assignments.bibleId,
+        chapter_assignments.bookId,
+        chapter_assignments.chapterNumber,
+        books.eng_display_name,
+        users.firstName,
+        users.lastName
+      )
       .orderBy(books.eng_display_name, chapter_assignments.chapterNumber);
 
-    const progressData: ChapterAssignmentProgress[] = [];
-
-    for (const assignment of assignments) {
-      const totalVerses = await db
-        .select({
-          count: count(),
-        })
-        .from(bible_texts)
-        .where(
-          and(
-            eq(bible_texts.bibleId, assignment.bibleId),
-            eq(bible_texts.bookId, assignment.bookId),
-            eq(bible_texts.chapterNumber, assignment.chapterNumber)
-          )
-        );
-
-      // Get completed verse count
-      const completedVerses = await db
-        .select({
-          count: count(),
-        })
-        .from(bible_texts)
-        .innerJoin(translated_verses, eq(bible_texts.id, translated_verses.bibleTextId))
-        .where(
-          and(
-            eq(bible_texts.bibleId, assignment.bibleId),
-            eq(bible_texts.bookId, assignment.bookId),
-            eq(bible_texts.chapterNumber, assignment.chapterNumber)
-          )
-        );
-
-      const totalCount = totalVerses[0]?.count || 0;
-      const completedCount = completedVerses[0]?.count || 0;
-      const assignedUser =
-        assignment.firstName && assignment.lastName
-          ? `${assignment.firstName} ${assignment.lastName}`
-          : '';
-
-      progressData.push({
-        book: assignment.bookName,
-        chapter_number: assignment.chapterNumber,
+    const progressData: ChapterAssignmentProgress[] = rows.map((row) => {
+      const assignedUser = row.firstName && row.lastName ? `${row.firstName} ${row.lastName}` : '';
+      return {
+        book: row.bookName,
+        chapter_number: row.chapterNumber,
         assigned_user: assignedUser,
-        project_unit_id: assignment.projectUnitId,
-        assignment_id: assignment.assignmentId,
-        progress: `${completedCount} of ${totalCount}`,
-      });
-    }
+        project_unit_id: row.projectUnitId,
+        assignment_id: row.assignmentId,
+        total_verses: Number(row.totalVerses),
+        completed_verses: Number(row.completedVerses),
+      };
+    });
 
     return { ok: true, data: progressData };
   } catch {
@@ -160,90 +117,81 @@ export async function getChapterAssignmentProgressByProject(
   }
 }
 
-export async function getChapterAssignmentsByEmail(
-  email: string
-): Promise<Result<ChapterAssignmentByEmail[]>> {
+export async function getChapterAssignmentsByUserId(
+  userId: number
+): Promise<Result<ChapterAssignmentByUser[]>> {
   try {
-    const user = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-
-    if (!user.length) {
-      return { ok: true, data: [] };
-    }
-
-    const userId = user[0].id;
-
-    const assignments = await db
+    const rows = await db
       .select({
         assignmentId: chapter_assignments.id,
         projectName: projects.name,
         projectUnitId: chapter_assignments.projectUnitId,
+        bibleId: chapter_assignments.bibleId,
+        bibleName: bibles.name,
+        targetLanguage: languages.langName,
         bookId: chapter_assignments.bookId,
         bookName: books.eng_display_name,
         chapterNumber: chapter_assignments.chapterNumber,
-        bibleId: chapter_assignments.bibleId,
         isSubmitted: chapter_assignments.isSubmitted,
         submittedTime: chapter_assignments.submittedTime,
+        totalVerses: sql<number>`COUNT(${bible_texts.id})`,
+        completedVerses: sql<number>`COUNT(${translated_verses.id})`,
       })
       .from(chapter_assignments)
       .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
       .innerJoin(projects, eq(project_units.projectId, projects.id))
+      .innerJoin(bibles, eq(chapter_assignments.bibleId, bibles.id))
+      .innerJoin(languages, eq(projects.targetLanguage, languages.id))
       .innerJoin(books, eq(chapter_assignments.bookId, books.id))
+      .innerJoin(
+        bible_texts,
+        and(
+          eq(bible_texts.bibleId, chapter_assignments.bibleId),
+          eq(bible_texts.bookId, chapter_assignments.bookId),
+          eq(bible_texts.chapterNumber, chapter_assignments.chapterNumber)
+        )
+      )
+      .leftJoin(
+        translated_verses,
+        and(
+          eq(translated_verses.bibleTextId, bible_texts.id),
+          eq(translated_verses.assignedUserId, userId)
+        )
+      )
       .where(eq(chapter_assignments.assignedUserId, userId))
+      .groupBy(
+        chapter_assignments.id,
+        chapter_assignments.projectUnitId,
+        chapter_assignments.bibleId,
+        chapter_assignments.bookId,
+        chapter_assignments.chapterNumber,
+        chapter_assignments.isSubmitted,
+        chapter_assignments.submittedTime,
+        projects.name,
+        bibles.name,
+        languages.langName,
+        books.eng_display_name
+      )
       .orderBy(projects.name, books.eng_display_name, chapter_assignments.chapterNumber);
 
-    const assignmentsWithProgress: ChapterAssignmentByEmail[] = [];
-
-    for (const assignment of assignments) {
-      const totalVerses = await db
-        .select({
-          count: count(),
-        })
-        .from(bible_texts)
-        .where(
-          and(
-            eq(bible_texts.bibleId, assignment.bibleId),
-            eq(bible_texts.bookId, assignment.bookId),
-            eq(bible_texts.chapterNumber, assignment.chapterNumber)
-          )
-        );
-
-      const completedVerses = await db
-        .select({
-          count: count(),
-        })
-        .from(bible_texts)
-        .innerJoin(translated_verses, eq(bible_texts.id, translated_verses.bibleTextId))
-        .where(
-          and(
-            eq(bible_texts.bibleId, assignment.bibleId),
-            eq(bible_texts.bookId, assignment.bookId),
-            eq(bible_texts.chapterNumber, assignment.chapterNumber),
-            eq(translated_verses.assignedUserId, userId)
-          )
-        );
-
-      const totalCount = totalVerses[0]?.count || 0;
-      const completedCount = completedVerses[0]?.count || 0;
-
-      assignmentsWithProgress.push({
-        project_name: assignment.projectName,
-        project_unit_id: assignment.projectUnitId,
-        book_id: assignment.bookId,
-        book: assignment.bookName,
-        chapter_number: assignment.chapterNumber,
-        progress: `${completedCount} of ${totalCount}`,
-        is_submitted: assignment.isSubmitted || false,
-        submitted_time: assignment.submittedTime?.toISOString() || null,
-      });
-    }
+    const assignmentsWithProgress: ChapterAssignmentByUser[] = rows.map((row) => ({
+      project_name: row.projectName,
+      project_unit_id: row.projectUnitId,
+      bible_id: row.bibleId,
+      bible_name: row.bibleName,
+      target_language: row.targetLanguage,
+      book_id: row.bookId,
+      book: row.bookName,
+      chapter_number: row.chapterNumber,
+      total_verses: Number(row.totalVerses),
+      completed_verses: Number(row.completedVerses),
+      is_submitted: row.isSubmitted || false,
+      submitted_time: row.submittedTime?.toISOString() || null,
+    }));
 
     return { ok: true, data: assignmentsWithProgress };
   } catch {
-    return { ok: false, error: { message: 'Failed to fetch chapter assignments by email' } };
+    return { ok: false, error: { message: 'Failed to fetch chapter assignments by user ID' } };
   }
 }
 
@@ -251,7 +199,7 @@ export async function createChapterAssignments(
   projectUnitId: number,
   bibleId: number,
   bookIds: number[],
-  tx: any
+  tx: DbTransaction
 ): Promise<Result<ChapterAssignment[]>> {
   try {
     const chapters = await tx
@@ -282,7 +230,12 @@ export async function createChapterAssignments(
       .values(assignments)
       .returning();
 
-    return { ok: true, data: insertedAssignments };
+    const fixedAssignments = insertedAssignments.map((a) => ({
+      ...a,
+      isSubmitted: a.isSubmitted === null ? undefined : a.isSubmitted,
+    }));
+
+    return { ok: true, data: fixedAssignments };
   } catch {
     return {
       ok: false,
@@ -299,24 +252,20 @@ export async function assignUsersToChapters(assignmentData: {
     const { chapterAssignmentId, userId } = assignmentData;
 
     const updatedAssignments = await db.transaction(async (tx) => {
-      const updates = [];
+      const updated = await tx
+        .update(chapter_assignments)
+        .set({ assignedUserId: userId })
+        .where(inArray(chapter_assignments.id, chapterAssignmentId))
+        .returning();
 
-      for (const assignmentId of chapterAssignmentId) {
-        const [updated] = await tx
-          .update(chapter_assignments)
-          .set({ assignedUserId: userId })
-          .where(eq(chapter_assignments.id, assignmentId))
-          .returning();
-
-        if (updated) {
-          updates.push(updated);
-        }
-      }
-
-      return updates;
+      return updated;
     });
 
-    return { ok: true, data: updatedAssignments };
+    const fixedAssignments = updatedAssignments.map((a) => ({
+      ...a,
+      isSubmitted: a.isSubmitted === null ? undefined : a.isSubmitted,
+    }));
+    return { ok: true, data: fixedAssignments };
   } catch {
     return {
       ok: false,
@@ -337,6 +286,8 @@ export async function getChapterAssignmentsByProject(
         bookId: chapter_assignments.bookId,
         chapterNumber: chapter_assignments.chapterNumber,
         assignedUserId: chapter_assignments.assignedUserId,
+        isSubmitted: chapter_assignments.isSubmitted,
+        submittedTime: chapter_assignments.submittedTime,
         createdAt: chapter_assignments.createdAt,
         updatedAt: chapter_assignments.updatedAt,
       })
@@ -345,7 +296,11 @@ export async function getChapterAssignmentsByProject(
       .where(eq(project_units.projectId, projectId))
       .orderBy(chapter_assignments.bookId, chapter_assignments.chapterNumber);
 
-    return { ok: true, data: assignments };
+    const fixedAssignments = assignments.map((a) => ({
+      ...a,
+      isSubmitted: a.isSubmitted === null ? undefined : a.isSubmitted,
+    }));
+    return { ok: true, data: fixedAssignments };
   } catch {
     return {
       ok: false,
