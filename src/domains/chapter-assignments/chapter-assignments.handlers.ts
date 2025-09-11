@@ -1,5 +1,9 @@
+import type { ExtractTablesWithRelations } from 'drizzle-orm';
+import type { PgQueryResultHKT, PgTransaction } from 'drizzle-orm/pg-core';
+
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
+import type * as schema from '@/db/schema';
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
@@ -36,6 +40,10 @@ export interface ChapterAssignmentProgress {
   assignmentId: number;
   totalVerses: number;
   completedVerses: number;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+  isSubmitted?: boolean;
+  submittedTime?: Date | null;
 }
 
 export interface ChapterAssignmentByUser {
@@ -53,7 +61,11 @@ export interface ChapterAssignmentByUser {
   submittedTime: string | null;
 }
 
-type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type DbTransaction = PgTransaction<
+  PgQueryResultHKT,
+  typeof schema,
+  ExtractTablesWithRelations<typeof schema>
+>;
 
 export async function getChapterAssignmentProgressByProject(
   projectId: number
@@ -69,6 +81,10 @@ export async function getChapterAssignmentProgressByProject(
         bookName: books.eng_display_name,
         firstName: users.firstName,
         lastName: users.lastName,
+        isSubmitted: chapter_assignments.isSubmitted,
+        submittedTime: chapter_assignments.submittedTime,
+        createdAt: chapter_assignments.createdAt,
+        updatedAt: chapter_assignments.updatedAt,
         totalVerses: sql<number>`COUNT(${bible_texts.id})`,
         completedVerses: sql<number>`COUNT(${translated_verses.id})`,
       })
@@ -84,7 +100,13 @@ export async function getChapterAssignmentProgressByProject(
           eq(bible_texts.chapterNumber, chapter_assignments.chapterNumber)
         )
       )
-      .leftJoin(translated_verses, eq(translated_verses.bibleTextId, bible_texts.id))
+      .leftJoin(
+        translated_verses,
+        and(
+          eq(translated_verses.bibleTextId, bible_texts.id),
+          eq(translated_verses.projectUnitId, chapter_assignments.projectUnitId)
+        )
+      )
       .where(eq(project_units.projectId, projectId))
       .groupBy(
         chapter_assignments.id,
@@ -92,6 +114,10 @@ export async function getChapterAssignmentProgressByProject(
         chapter_assignments.bibleId,
         chapter_assignments.bookId,
         chapter_assignments.chapterNumber,
+        chapter_assignments.isSubmitted,
+        chapter_assignments.submittedTime,
+        chapter_assignments.createdAt,
+        chapter_assignments.updatedAt,
         books.eng_display_name,
         users.firstName,
         users.lastName
@@ -108,6 +134,10 @@ export async function getChapterAssignmentProgressByProject(
         assignmentId: row.assignmentId,
         totalVerses: Number(row.totalVerses),
         completedVerses: Number(row.completedVerses),
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        isSubmitted: row.isSubmitted || false,
+        submittedTime: row.submittedTime,
       };
     });
 
@@ -155,7 +185,8 @@ export async function getChapterAssignmentsByUserId(
         translated_verses,
         and(
           eq(translated_verses.bibleTextId, bible_texts.id),
-          eq(translated_verses.assignedUserId, userId)
+          eq(translated_verses.assignedUserId, userId),
+          eq(translated_verses.projectUnitId, chapter_assignments.projectUnitId)
         )
       )
       .where(eq(chapter_assignments.assignedUserId, userId))
@@ -225,10 +256,14 @@ export async function createChapterAssignments(
       assignedUserId: null,
     }));
 
-    const insertedAssignments = await tx
-      .insert(chapter_assignments)
-      .values(assignments)
-      .returning();
+    const chunkSize = 1000;
+    const insertedAssignments = [];
+
+    for (let i = 0; i < assignments.length; i += chunkSize) {
+      const chunk = assignments.slice(i, i + chunkSize);
+      const result = await tx.insert(chapter_assignments).values(chunk).returning();
+      insertedAssignments.push(...result);
+    }
 
     const fixedAssignments = insertedAssignments.map((a) => ({
       ...a,
@@ -274,46 +309,11 @@ export async function assignUsersToChapters(assignmentData: {
   }
 }
 
-export async function getChapterAssignmentsByProject(
-  projectId: number
-): Promise<Result<ChapterAssignment[]>> {
-  try {
-    const assignments = await db
-      .select({
-        id: chapter_assignments.id,
-        projectUnitId: chapter_assignments.projectUnitId,
-        bibleId: chapter_assignments.bibleId,
-        bookId: chapter_assignments.bookId,
-        chapterNumber: chapter_assignments.chapterNumber,
-        assignedUserId: chapter_assignments.assignedUserId,
-        isSubmitted: chapter_assignments.isSubmitted,
-        submittedTime: chapter_assignments.submittedTime,
-        createdAt: chapter_assignments.createdAt,
-        updatedAt: chapter_assignments.updatedAt,
-      })
-      .from(chapter_assignments)
-      .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
-      .where(eq(project_units.projectId, projectId))
-      .orderBy(chapter_assignments.bookId, chapter_assignments.chapterNumber);
-
-    const fixedAssignments = assignments.map((a) => ({
-      ...a,
-      isSubmitted: a.isSubmitted === null ? undefined : a.isSubmitted,
-    }));
-    return { ok: true, data: fixedAssignments };
-  } catch {
-    return {
-      ok: false,
-      error: { message: 'Failed to fetch chapter assignments' },
-    };
-  }
-}
-
 export async function deleteChapterAssignmentsByProject(
   projectId: number
 ): Promise<Result<{ deletedCount: number }>> {
   try {
-    const result = await db.transaction(async (tx) => {
+    return await db.transaction(async (tx) => {
       const [projectUnit] = await tx
         .select({ id: project_units.id })
         .from(project_units)
@@ -321,7 +321,7 @@ export async function deleteChapterAssignmentsByProject(
         .limit(1);
 
       if (!projectUnit) {
-        return { deletedCount: 0 };
+        return { ok: true, data: { deletedCount: 0 } };
       }
 
       const deletedAssignments = await tx
@@ -329,10 +329,8 @@ export async function deleteChapterAssignmentsByProject(
         .where(eq(chapter_assignments.projectUnitId, projectUnit.id))
         .returning({ id: chapter_assignments.id });
 
-      return { deletedCount: deletedAssignments.length };
+      return { ok: true, data: { deletedCount: deletedAssignments.length } };
     });
-
-    return { ok: true, data: result };
   } catch {
     return {
       ok: false,

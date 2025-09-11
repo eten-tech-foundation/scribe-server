@@ -57,7 +57,9 @@ export function createServer() {
     await next();
 
     if (c.req.method === 'GET' && !c.res.headers.get('Cache-Control')) {
-      c.res.headers.set('Cache-Control', 'max-age=60');
+      c.res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+      c.res.headers.set('Pragma', 'no-cache');
+      c.res.headers.set('Expires', '0');
     }
   });
 

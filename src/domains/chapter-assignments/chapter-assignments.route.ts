@@ -34,6 +34,10 @@ const chapterAssignmentProgressSchema = z.object({
   assignmentId: z.number(),
   totalVerses: z.number().int(),
   completedVerses: z.number().int(),
+  isSubmitted: z.boolean().optional(),
+  submittedTime: z.date().nullable().optional(),
+  createdAt: z.date().nullable().optional(),
+  updatedAt: z.date().nullable().optional(),
 });
 
 const chapterAssignmentByUserSchema = z.object({
@@ -56,63 +60,6 @@ const assignUsersToChaptersSchema = z.object({
     .array(z.number().int())
     .min(1, 'At least one chapter assignment ID is required'),
   userId: z.number().int(),
-});
-
-const getChapterAssignmentsRoute = createRoute({
-  tags: ['Chapter Assignments'],
-  method: 'get',
-  path: '/projects/{id}/chapter-assignments',
-  request: {
-    params: z.object({
-      id: z.coerce.number().openapi({
-        param: {
-          name: 'id',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 6,
-      }),
-    }),
-  },
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      chapterAssignmentSchema.array().openapi('ChapterAssignments'),
-      'The list of chapter assignments for the project'
-    ),
-    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      createMessageObjectSchema('Unauthorized'),
-      'Authentication required'
-    ),
-    [HttpStatusCodes.FORBIDDEN]: jsonContent(
-      createMessageObjectSchema('Forbidden'),
-      'Project access required'
-    ),
-    [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-      'Project not found'
-    ),
-    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
-      'Internal server error'
-    ),
-  },
-  summary: 'Get chapter assignments for a project',
-  description: 'Returns all chapter assignments for a specific project',
-});
-
-server.use('/projects/:id/chapter-assignments', requireProjectAccess);
-
-server.openapi(getChapterAssignmentsRoute, async (c) => {
-  const { id } = c.req.valid('param');
-
-  const result = await chapterAssignmentsHandler.getChapterAssignmentsByProject(id);
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
 const deleteChapterAssignmentsRoute = createRoute({
