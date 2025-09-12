@@ -185,7 +185,6 @@ export async function getChapterAssignmentsByUserId(
         translated_verses,
         and(
           eq(translated_verses.bibleTextId, bible_texts.id),
-          eq(translated_verses.assignedUserId, userId),
           eq(translated_verses.projectUnitId, chapter_assignments.projectUnitId)
         )
       )
