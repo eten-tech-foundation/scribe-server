@@ -1,25 +1,34 @@
 import type { z } from '@hono/zod-openapi';
 
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import type { insertProjectsSchema, patchProjectsSchema, selectProjectsSchema } from '@/db/schema';
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
-import { bibles, languages, project_unit_bible_books, project_units, projects } from '@/db/schema';
+import {
+  bibles,
+  chapter_assignments,
+  languages,
+  project_unit_bible_books,
+  project_units,
+  projects,
+  translated_verses,
+} from '@/db/schema';
+import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapter-assignments.handlers';
 
 export type Project = z.infer<typeof selectProjectsSchema>;
 
 export type CreateProjectInput = z.infer<typeof insertProjectsSchema> & {
-  bible_id: number;
-  book_id: number[];
+  bibleId: number;
+  bookId: number[];
   status?: 'not_started' | 'in_progress' | 'completed';
 };
 
 export type UpdateProjectInput = z.infer<typeof patchProjectsSchema> & {
-  bible_id?: number;
-  book_id?: number[];
+  bibleId?: number;
+  bookId?: number[];
   status?: 'not_started' | 'in_progress' | 'completed';
 };
 
@@ -97,7 +106,7 @@ export async function getProjectById(id: number): Promise<Result<ProjectWithLang
 export async function createProject(input: CreateProjectInput): Promise<Result<Project>> {
   try {
     return await db.transaction(async (tx) => {
-      const { bible_id, book_id, status = 'not_started', ...projectData } = input;
+      const { bibleId, bookId, status = 'not_started', ...projectData } = input;
 
       const [project] = await tx.insert(projects).values(projectData).returning();
 
@@ -109,14 +118,25 @@ export async function createProject(input: CreateProjectInput): Promise<Result<P
         })
         .returning();
 
-      const bibleBookEntries = book_id.map((bookId) => ({
+      const bibleBookEntries = bookId.map((bookId) => ({
         projectUnitId: projectUnit.id,
-        bibleId: bible_id,
+        bibleId,
         bookId,
       }));
 
       if (bibleBookEntries.length > 0) {
         await tx.insert(project_unit_bible_books).values(bibleBookEntries);
+      }
+
+      const assignmentsResult = await chapterAssignmentsService.createChapterAssignments(
+        projectUnit.id,
+        bibleId,
+        bookId,
+        tx
+      );
+
+      if (!assignmentsResult.ok) {
+        throw new Error(assignmentsResult.error.message);
       }
 
       return { ok: true, data: project };
@@ -132,7 +152,7 @@ export async function updateProject(
 ): Promise<Result<Project>> {
   try {
     return await db.transaction(async (tx) => {
-      const { bible_id, book_id, status, ...projectData } = input;
+      const { bibleId, bookId, status, ...projectData } = input;
 
       const [updated] = await tx
         .update(projects)
@@ -144,7 +164,8 @@ export async function updateProject(
         return { ok: false, error: { message: 'Project not found' } };
       }
 
-      if (bible_id !== undefined || book_id !== undefined || status !== undefined) {
+      if (bibleId !== undefined || bookId !== undefined || status !== undefined) {
+        await chapterAssignmentsService.deleteChapterAssignmentsByProject(id);
         await tx.delete(project_units).where(eq(project_units.projectId, id));
 
         const [projectUnit] = await tx
@@ -155,15 +176,26 @@ export async function updateProject(
           })
           .returning();
 
-        if (bible_id !== undefined && book_id !== undefined) {
-          const bibleBookEntries = book_id.map((bookId) => ({
+        if (bibleId !== undefined && bookId !== undefined) {
+          const bibleBookEntries = bookId.map((bookId) => ({
             projectUnitId: projectUnit.id,
-            bibleId: bible_id,
+            bibleId,
             bookId,
           }));
 
           if (bibleBookEntries.length > 0) {
             await tx.insert(project_unit_bible_books).values(bibleBookEntries);
+          }
+
+          const assignmentsResult = await chapterAssignmentsService.createChapterAssignments(
+            projectUnit.id,
+            bibleId,
+            bookId,
+            tx
+          );
+
+          if (!assignmentsResult.ok) {
+            throw new Error(assignmentsResult.error.message);
           }
         }
       }
@@ -177,16 +209,41 @@ export async function updateProject(
 
 export async function deleteProject(id: number): Promise<Result<{ id: number }>> {
   try {
-    const result = await db
-      .delete(projects)
-      .where(eq(projects.id, id))
-      .returning({ id: projects.id });
+    return await db.transaction(async (tx) => {
+      const projectUnitsToDelete = await tx
+        .select({ id: project_units.id })
+        .from(project_units)
+        .where(eq(project_units.projectId, id));
 
-    if (result.length === 0) {
-      return { ok: false, error: { message: 'Project not found' } };
-    }
+      if (projectUnitsToDelete.length > 0) {
+        const projectUnitIds = projectUnitsToDelete.map((unit) => unit.id);
 
-    return { ok: true, data: { id: result[0].id } };
+        await tx
+          .delete(translated_verses)
+          .where(inArray(translated_verses.projectUnitId, projectUnitIds));
+
+        await tx
+          .delete(chapter_assignments)
+          .where(inArray(chapter_assignments.projectUnitId, projectUnitIds));
+
+        await tx
+          .delete(project_unit_bible_books)
+          .where(inArray(project_unit_bible_books.projectUnitId, projectUnitIds));
+      }
+
+      await tx.delete(project_units).where(eq(project_units.projectId, id));
+
+      const result = await tx
+        .delete(projects)
+        .where(eq(projects.id, id))
+        .returning({ id: projects.id });
+
+      if (result.length === 0) {
+        return { ok: false, error: { message: 'Project not found' } };
+      }
+
+      return { ok: true, data: { id: result[0].id } };
+    });
   } catch {
     return { ok: false, error: { message: 'Failed to delete project' } };
   }

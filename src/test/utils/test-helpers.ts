@@ -149,8 +149,8 @@ export const sampleProjects = {
     organization: 1,
     metadata: { priority: 'high', category: 'product' },
     status: 'not_started' as const,
-    bible_id: 1,
-    book_id: [1, 2],
+    bibleId: 1,
+    bookId: [1, 2],
   },
   updateProject: {
     name: 'Updated Project Name',
@@ -159,8 +159,8 @@ export const sampleProjects = {
   updateProjectWithUnits: {
     name: 'Updated Project Name',
     metadata: { priority: 'medium', category: 'updated' },
-    bible_id: 2,
-    book_id: [3, 4, 5],
+    bibleId: 2,
+    bookId: [3, 4, 5],
     status: 'in_progress' as const,
   },
   projectWithLanguageNames1: {
@@ -222,6 +222,44 @@ export const sampleProjectUnitBibleBooks = {
     bookId: 3,
   },
 };
+
+export const sampleChapterAssignments = [
+  {
+    id: 1,
+    projectUnitId: 1,
+    bibleId: 1,
+    bookId: 1,
+    chapterNumber: 1,
+    assignedUserId: 1,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+  {
+    id: 2,
+    projectUnitId: 1,
+    bibleId: 1,
+    bookId: 1,
+    chapterNumber: 2,
+    assignedUserId: null,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  },
+];
+
+export const sampleChapterInfo = [
+  {
+    bibleId: 1,
+    bookId: 1,
+    chapterNumber: 1,
+    verseCount: 31,
+  },
+  {
+    bibleId: 1,
+    bookId: 1,
+    chapterNumber: 2,
+    verseCount: 25,
+  },
+];
 
 /**
  * Utility to reset all mocks before each test
