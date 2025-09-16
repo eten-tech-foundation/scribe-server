@@ -17,6 +17,7 @@ import {
   translated_verses,
 } from '@/db/schema';
 import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapter-assignments.handlers';
+import * as projectChapterAssignmentsService from '@/domains/projects/chapter-assignments/project-chapter-assignments.handlers';
 
 export type Project = z.infer<typeof selectProjectsSchema>;
 
@@ -128,12 +129,13 @@ export async function createProject(input: CreateProjectInput): Promise<Result<P
         await tx.insert(project_unit_bible_books).values(bibleBookEntries);
       }
 
-      const assignmentsResult = await chapterAssignmentsService.createChapterAssignments(
-        projectUnit.id,
-        bibleId,
-        bookId,
-        tx
-      );
+      const assignmentsResult =
+        await chapterAssignmentsService.createChapterAssignmentForProjectUnit(
+          projectUnit.id,
+          bibleId,
+          bookId,
+          tx
+        );
 
       if (!assignmentsResult.ok) {
         throw new Error(assignmentsResult.error.message);
@@ -165,7 +167,7 @@ export async function updateProject(
       }
 
       if (bibleId !== undefined || bookId !== undefined || status !== undefined) {
-        await chapterAssignmentsService.deleteChapterAssignmentsByProject(id);
+        await projectChapterAssignmentsService.deleteChapterAssignmentsByProject(id);
         await tx.delete(project_units).where(eq(project_units.projectId, id));
 
         const [projectUnit] = await tx
@@ -187,12 +189,13 @@ export async function updateProject(
             await tx.insert(project_unit_bible_books).values(bibleBookEntries);
           }
 
-          const assignmentsResult = await chapterAssignmentsService.createChapterAssignments(
-            projectUnit.id,
-            bibleId,
-            bookId,
-            tx
-          );
+          const assignmentsResult =
+            await chapterAssignmentsService.createChapterAssignmentForProjectUnit(
+              projectUnit.id,
+              bibleId,
+              bookId,
+              tx
+            );
 
           if (!assignmentsResult.ok) {
             throw new Error(assignmentsResult.error.message);

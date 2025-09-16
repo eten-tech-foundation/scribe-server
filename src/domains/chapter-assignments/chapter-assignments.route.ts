@@ -4,193 +4,50 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import {
-  requireManagerAccess,
-  requireProjectAccess,
-  requireUserAccess,
-} from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as chapterAssignmentsHandler from './chapter-assignments.handlers';
 
-const chapterAssignmentSchema = z.object({
+// todo: middlewares for all routes
+// TODO: ensure manager and project access
+const chapterAssignmentResponse = z.object({
   id: z.number().int().optional(),
   projectUnitId: z.number().int(),
   bibleId: z.number().int(),
   bookId: z.number().int(),
   chapterNumber: z.number().int(),
-  assignedUserId: z.number().int().nullable(),
-  isSubmitted: z.boolean().optional(),
+  assignedUserId: z.number().int().nullable().optional(),
   submittedTime: z.date().nullable().optional(),
   createdAt: z.date().nullable().optional(),
   updatedAt: z.date().nullable().optional(),
 });
 
-const chapterAssignmentProgressSchema = z.object({
-  book: z.string(),
-  chapterNumber: z.number(),
-  assignedUser: z.string(),
-  projectUnitId: z.number(),
-  assignmentId: z.number(),
-  totalVerses: z.number().int(),
-  completedVerses: z.number().int(),
-  isSubmitted: z.boolean().optional(),
-  submittedTime: z.date().nullable().optional(),
-  createdAt: z.date().nullable().optional(),
-  updatedAt: z.date().nullable().optional(),
+// ----------------------------------
+// --- START STANDARD CRUD ROUTES ---
+// ----------------------------------
+const createChapterAssignmentRequest = z.object({
+  projectUnitId: z.number().int(),
+  bibleId: z.number().int(),
+  bookId: z.number().int(),
+  chapterNumber: z.number().int(),
+  assignedUserId: z.number().int().optional(),
 });
 
-const chapterAssignmentByUserSchema = z.object({
-  projectName: z.string(),
-  projectUnitId: z.number(),
-  bibleId: z.number(),
-  bibleName: z.string(),
-  targetLanguage: z.string(),
-  bookId: z.number(),
-  book: z.string(),
-  chapterNumber: z.number(),
-  totalVerses: z.number().int(),
-  completedVerses: z.number().int(),
-  isSubmitted: z.boolean(),
-  submittedTime: z.string().nullable(),
-});
-
-const assignUsersToChaptersSchema = z.object({
-  chapterAssignmentId: z
-    .array(z.number().int())
-    .min(1, 'At least one chapter assignment ID is required'),
-  userId: z.number().int(),
-});
-
-const deleteChapterAssignmentsRoute = createRoute({
+const createChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
-  method: 'delete',
-  path: '/projects/{id}/chapter-assignments',
+  method: 'post',
+  path: '/chapter-assignments',
   request: {
-    params: z.object({
-      id: z.coerce.number().openapi({
-        param: {
-          name: 'id',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 6,
-      }),
-    }),
+    body: jsonContent(createChapterAssignmentRequest, 'Chapter assignment data'),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      z.object({ deletedCount: z.number().int() }).openapi('DeleteResult'),
-      'Successfully deleted chapter assignments'
-    ),
-    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      createMessageObjectSchema('Unauthorized'),
-      'Authentication required'
-    ),
-    [HttpStatusCodes.FORBIDDEN]: jsonContent(
-      createMessageObjectSchema('Forbidden'),
-      'Manager access required'
-    ),
-    [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-      'Project not found'
-    ),
-    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
-      'Internal server error'
-    ),
-  },
-  summary: 'Delete all chapter assignments for a project',
-  description: 'Deletes all chapter assignments associated with a specific project',
-});
-
-server.use('/projects/:id/chapter-assignments', requireManagerAccess);
-
-server.openapi(deleteChapterAssignmentsRoute, async (c) => {
-  const { id } = c.req.valid('param');
-
-  const result = await chapterAssignmentsHandler.deleteChapterAssignmentsByProject(id);
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
-});
-
-const getChapterAssignmentProgressRoute = createRoute({
-  tags: ['Chapter Assignments'],
-  method: 'get',
-  path: '/projects/{projectId}/chapter-assignments/progress',
-  request: {
-    params: z.object({
-      projectId: z.coerce.number().openapi({
-        param: {
-          name: 'projectId',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 1,
-      }),
-    }),
-  },
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      chapterAssignmentProgressSchema.array().openapi('ChapterAssignmentProgress'),
-      'Chapter assignment progress for the project'
-    ),
-    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      createMessageObjectSchema('Unauthorized'),
-      'Authentication required'
-    ),
-    [HttpStatusCodes.FORBIDDEN]: jsonContent(
-      createMessageObjectSchema('Forbidden'),
-      'Project access required'
-    ),
-    [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-      'Project not found'
-    ),
-    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
-      'Internal server error'
-    ),
-  },
-  summary: 'Get chapter assignment progress',
-  description: 'Returns chapter assignment progress with completion statistics for a project',
-});
-
-server.use('/projects/:projectId/chapter-assignments/progress', requireProjectAccess);
-
-server.openapi(getChapterAssignmentProgressRoute, async (c) => {
-  const { projectId } = c.req.valid('param');
-
-  const result = await chapterAssignmentsHandler.getChapterAssignmentProgressByProject(projectId);
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
-});
-
-const assignUsersToChaptersRoute = createRoute({
-  tags: ['Chapter Assignments'],
-  method: 'patch',
-  path: '/projects/chapter-assignments/assign',
-  request: {
-    body: jsonContent(assignUsersToChaptersSchema, 'User assignment data for specific chapters'),
-  },
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      chapterAssignmentSchema.array().openapi('ChapterAssignments'),
-      'Successfully assigned users to chapters'
+    [HttpStatusCodes.CREATED]: jsonContent(
+      chapterAssignmentResponse,
+      'The created chapter assignment'
     ),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
       createMessageObjectSchema('Bad Request'),
-      'Invalid request data'
+      'Validation error or constraint violation'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       createMessageObjectSchema('Unauthorized'),
@@ -198,84 +55,208 @@ const assignUsersToChaptersRoute = createRoute({
     ),
     [HttpStatusCodes.FORBIDDEN]: jsonContent(
       createMessageObjectSchema('Forbidden'),
-      'Manager access required'
-    ),
-    [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-      'Chapter assignments not found'
+      'You do not have permission to create chapter assignments for this project.'
     ),
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
       'Internal server error'
     ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      z.object({
+        success: z.boolean(),
+        error: z.object({
+          issues: z.array(
+            z.object({
+              code: z.string(),
+              path: z.array(z.string()),
+              message: z.string(),
+            })
+          ),
+          name: z.string(),
+          message: z.string(),
+        }),
+        message: z.string(),
+      }),
+      'Unprocessable entity'
+    ),
   },
-  summary: 'Assign users to specific chapters',
-  description: 'Assigns users to specific chapter assignments',
+  summary: 'Create a new chapter assignment',
+  description: 'Creates a new chapter assignment.',
 });
 
-server.use('/projects/chapter-assignments/assign', requireManagerAccess);
+server.openapi(createChapterAssignmentRoute, async (c) => {
+  const requestData = c.req.valid('json');
 
-server.openapi(assignUsersToChaptersRoute, async (c) => {
-  const assignmentData = c.req.valid('json');
+  const result = await chapterAssignmentsHandler.createChapterAssignment(requestData);
 
-  const result = await chapterAssignmentsHandler.assignUsersToChapters(assignmentData);
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.CREATED);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
+});
+
+// Here we only allow the update of the assignedUserId.
+// To change the other fields, we should create a new one instead.
+const updateChapterAssignmentRequestSchema = z.object({
+  assignedUserId: z.number().int(),
+});
+
+const updateChapterAssignmentRoute = createRoute({
+  tags: ['Chapter Assignments'],
+  method: 'patch',
+  path: '/chapter-assignments/{chapterAssignmentId}',
+  request: {
+    params: z.object({
+      chapterAssignmentId: z.coerce.number().int().positive(),
+    }),
+    body: jsonContent(
+      updateChapterAssignmentRequestSchema,
+      'User id to assign to the chapter assignment to.'
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(chapterAssignmentResponse, 'The updated chapter assignment'),
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+      createMessageObjectSchema('Bad Request'),
+      'Validation error or constraint violation'
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'You do not have permission to update this chapter assignment.'
+    ),
+  },
+  summary: 'Update a chapter assignment',
+  description: 'Updates a chapter assignment.',
+});
+
+server.openapi(updateChapterAssignmentRoute, async (c) => {
+  const { chapterAssignmentId } = c.req.valid('param');
+  const requestData = c.req.valid('json');
+
+  const result = await chapterAssignmentsHandler.updateChapterAssignment(
+    chapterAssignmentId,
+    requestData
+  );
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
   }
 
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
 });
 
-const getChapterAssignmentsByUserIdRoute = createRoute({
+const getChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'get',
-  path: '/chapter-assignments/user/{userId}',
+  path: '/chapter-assignments/{chapterAssignmentId}',
   request: {
     params: z.object({
-      userId: z.coerce.number().openapi({
-        param: {
-          name: 'userId',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 1,
-      }),
+      chapterAssignmentId: z.coerce.number().int().positive(),
     }),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      chapterAssignmentByUserSchema.array().openapi('ChapterAssignmentsByUser'),
-      'Chapter assignments for the user with bible and language details'
-    ),
+    [HttpStatusCodes.OK]: jsonContent(chapterAssignmentResponse, 'The chapter assignment'),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       createMessageObjectSchema('Unauthorized'),
       'Authentication required'
     ),
     [HttpStatusCodes.FORBIDDEN]: jsonContent(
       createMessageObjectSchema('Forbidden'),
-      'Access denied'
+      'You do not have permission to get this chapter assignment.'
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
+      'Chapter assignment not found'
     ),
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
       'Internal server error'
     ),
   },
-  summary: 'Get chapter assignments by user ID',
-  description: 'Returns all chapter assignments for a user',
+  summary: 'Get a chapter assignment',
+  description: 'Get a chapter assignment.',
 });
 
-server.use('/chapter-assignments/user/:userId', requireUserAccess);
+server.openapi(getChapterAssignmentRoute, async (c) => {
+  const { chapterAssignmentId } = c.req.valid('param');
 
-server.openapi(getChapterAssignmentsByUserIdRoute, async (c) => {
-  const { userId } = c.req.valid('param');
-
-  const result = await chapterAssignmentsHandler.getChapterAssignmentsByUserId(userId);
+  const result = await chapterAssignmentsHandler.getChapterAssignment(chapterAssignmentId);
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
   }
 
+  if (result.error.message === 'Chapter assignment not found') {
+    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
+
+const deleteChapterAssignmentRoute = createRoute({
+  tags: ['Chapter Assignments'],
+  method: 'delete',
+  path: '/chapter-assignments/{chapterAssignmentId}',
+  request: {
+    params: z.object({
+      chapterAssignmentId: z.coerce.number().int().positive(),
+    }),
+  },
+  responses: {
+    [HttpStatusCodes.NO_CONTENT]: {
+      description: 'Chapter assignment deleted',
+    },
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'You do not have permission to delete this chapter assignment.'
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
+      'Chapter assignment not found'
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
+  },
+  summary: 'Delete a chapter assignment',
+  description: 'Delete a chapter assignment.',
+});
+
+server.openapi(deleteChapterAssignmentRoute, async (c) => {
+  const { chapterAssignmentId } = c.req.valid('param');
+
+  const result = await chapterAssignmentsHandler.deleteChapterAssignment(chapterAssignmentId);
+
+  if (result.ok) {
+    return c.body(null, HttpStatusCodes.NO_CONTENT);
+  }
+
+  if (result.error.message === 'Chapter assignment not found') {
+    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+});
+// --------------------------------
+// --- END STANDARD CRUD ROUTES ---
+// --------------------------------
+
+// -----------------------------------
+// --- START NON-STANDARD ROUTES ---
+// -----------------------------------
+// todo /submit
+
+// todo /assign
+// -----------------------------------
+// --- END NON-STANDARD ROUTES ---
+// -----------------------------------

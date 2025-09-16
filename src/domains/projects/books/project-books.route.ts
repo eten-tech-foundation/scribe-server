@@ -7,7 +7,7 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 import { requireProjectAccess } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
-import * as projectUnitsBibleBooksHandler from './project-unit-bible-books.handlers';
+import * as projectUnitsBibleBooksHandler from './project-books.handlers';
 
 const projectBookSchema = z.object({
   bookId: z.number().int(),
@@ -16,26 +16,18 @@ const projectBookSchema = z.object({
 });
 
 const getProjectBooksRoute = createRoute({
-  tags: ['Project Units Bible Books'],
+  tags: ['Projects - Bible Books'],
   method: 'get',
-  path: '/projects/{id}/books',
+  path: '/projects/{projectId}/books',
   request: {
     params: z.object({
-      id: z.coerce.number().openapi({
-        param: {
-          name: 'id',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
-        example: 6,
-      }),
+      projectId: z.coerce.number().int().positive(),
     }),
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       projectBookSchema.array().openapi('ProjectBooks'),
-      'The list of books associated with the project'
+      'The list of bible books associated with the project'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       createMessageObjectSchema('Unauthorized'),
@@ -54,16 +46,16 @@ const getProjectBooksRoute = createRoute({
       'Internal server error'
     ),
   },
-  summary: 'Get all books for a project',
-  description: 'Returns a list of all books associated with a specific project',
+  summary: 'Get all bible books for a project',
+  description: 'Returns a list of all bible books associated with a specific project',
 });
 
-server.use('/projects/:id/books', requireProjectAccess);
+server.use('/projects/:projectId/books', requireProjectAccess);
 
 server.openapi(getProjectBooksRoute, async (c) => {
-  const { id } = c.req.valid('param');
+  const { projectId } = c.req.valid('param');
 
-  const result = await projectUnitsBibleBooksHandler.getBooksByProjectId(id);
+  const result = await projectUnitsBibleBooksHandler.getBooksByProjectId(projectId);
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);

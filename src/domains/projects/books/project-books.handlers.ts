@@ -4,6 +4,7 @@ import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import { books, project_unit_bible_books, project_units } from '@/db/schema';
+import { logger } from '@/lib/logger';
 
 export interface ProjectBook {
   bookId: number;
@@ -34,7 +35,14 @@ export async function getBooksByProjectId(projectId: number): Promise<Result<Pro
       engDisplayName: book.eng_display_name,
     }));
     return { ok: true, data: mappedBooks };
-  } catch {
+  } catch (err) {
+    logger.error({
+      cause: err,
+      message: 'Failed to fetch project books',
+      context: {
+        projectId,
+      },
+    });
     return { ok: false, error: { message: 'Failed to fetch project books' } };
   }
 }

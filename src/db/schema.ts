@@ -10,6 +10,7 @@ import {
   pgTable,
   serial,
   timestamp,
+  uniqueIndex,
   varchar,
 } from 'drizzle-orm/pg-core';
 import { createSchemaFactory } from 'drizzle-zod';
@@ -185,26 +186,38 @@ export const translated_verses = pgTable('translated_verses', {
     .$onUpdate(() => new Date()),
 });
 
-export const chapter_assignments = pgTable('chapter_assignments', {
-  id: serial('id').primaryKey(),
-  projectUnitId: integer('project_unit_id')
-    .notNull()
-    .references(() => project_units.id),
-  bibleId: integer('bible_id')
-    .notNull()
-    .references(() => bibles.id),
-  bookId: integer('book_id')
-    .notNull()
-    .references(() => books.id),
-  chapterNumber: integer('chapter_number').notNull(),
-  assignedUserId: integer('assigned_user_id').references(() => users.id),
-  isSubmitted: boolean('is_submitted').default(false),
-  submittedTime: timestamp('submitted_time'),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-});
+export const chapter_assignments = pgTable(
+  'chapter_assignments',
+  {
+    id: serial('id').primaryKey(),
+    projectUnitId: integer('project_unit_id')
+      .notNull()
+      .references(() => project_units.id),
+    bibleId: integer('bible_id')
+      .notNull()
+      .references(() => bibles.id),
+    bookId: integer('book_id')
+      .notNull()
+      .references(() => books.id),
+    chapterNumber: integer('chapter_number').notNull(),
+    assignedUserId: integer('assigned_user_id').references(() => users.id),
+    submittedTime: timestamp('submitted_time'),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => {
+    return {
+      uqChapterAssignmentPerChapter: uniqueIndex('uq_chapter_assignment_per_chapter').on(
+        table.projectUnitId,
+        table.bibleId,
+        table.bookId,
+        table.chapterNumber
+      ),
+    };
+  }
+);
 
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({
   zodInstance: z,

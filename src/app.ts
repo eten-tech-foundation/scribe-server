@@ -4,13 +4,15 @@ import '@/routes/index.route';
 import '@/routes/health.route';
 import '@/routes/protected.route';
 import '@/domains/users/users.route';
+import '@/domains/users/chapter-assignments/users-chapter-assignments.route';
 import '@/domains/projects/projects.route';
+import '@/domains/projects/chapter-assignments/project-chapter-assignments.route';
+import '@/domains/chapter-assignments/chapter-assignments.route';
 import '@/domains/languages/languages.route';
 import '@/domains/bibles/bibles.route';
 import '@/domains/books/books.route';
 import '@/domains/bible-books/bible-books.route';
-import '@/domains/project-unit-bible-books/project-unit-bible-books.route';
-import '@/domains/chapter-assignments/chapter-assignments.route';
+import '@/domains/projects/books/project-books.route';
 configureOpenAPI(server);
 
 export default server;

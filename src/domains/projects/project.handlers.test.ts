@@ -12,7 +12,7 @@ import {
   updateProject,
 } from './projects.handlers';
 
-// Mock db and transaction
+// Mock dependencies BEFORE importing modules that use them
 const mockTx = {
   insert: vi.fn(),
   update: vi.fn(),
@@ -30,12 +30,17 @@ vi.mock('@/db', () => ({
   },
 }));
 
+// Mock chapter assignments service used by create/update flows
 vi.mock('@/domains/chapter-assignments/chapter-assignments.handlers', () => ({
-  createChapterAssignments: vi.fn(),
-  deleteChapterAssignmentsByProject: vi.fn(),
-  getChapterAssignmentsByProject: vi.fn(),
-  getProjectChapters: vi.fn(),
+  createChapterAssignmentForProjectUnit: vi.fn(),
 }));
+
+// Mock project chapter assignments service used by update flow
+vi.mock('@/domains/projects/chapter-assignments/project-chapter-assignments.handlers', () => ({
+  deleteChapterAssignmentsByProject: vi.fn(),
+}));
+
+// Mock db transaction implementation per-test
 
 describe('project Handler Functions', () => {
   const mockProject = sampleProjects.project1;
@@ -174,7 +179,7 @@ describe('project Handler Functions', () => {
         '@/domains/chapter-assignments/chapter-assignments.handlers'
       );
       const { bibleId, bookId, status, ...projectWithoutExtras } = mockProjectInput;
-      const createdProject = { ...projectWithoutExtras, id: 2 };
+      const createdProject = { ...projectWithoutExtras, id: 2 } as any;
 
       // Mock successful creation
       mockTx.insert.mockImplementationOnce(() => ({
@@ -191,10 +196,10 @@ describe('project Handler Functions', () => {
         values: vi.fn().mockResolvedValue(undefined),
       }));
 
-      vi.mocked(chapterAssignmentsModule.createChapterAssignments).mockResolvedValue({
+      vi.mocked(chapterAssignmentsModule.createChapterAssignmentForProjectUnit).mockResolvedValue({
         ok: true,
-        data: sampleChapterAssignments,
-      });
+        data: sampleChapterAssignments as any,
+      } as any);
 
       const result = await createProject(mockProjectInput);
 
@@ -212,7 +217,7 @@ describe('project Handler Functions', () => {
 
   describe('updateProject', () => {
     it('should update and return the project', async () => {
-      const updatedProject = { ...mockProject, ...updateData };
+      const updatedProject = { ...mockProject, ...updateData } as any;
 
       mockTx.update.mockImplementationOnce(() => ({
         set: vi.fn().mockReturnValue({
