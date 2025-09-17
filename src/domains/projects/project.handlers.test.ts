@@ -314,7 +314,7 @@ describe('project Handler Functions', () => {
       const projectChapterAssignmentsModule = await import(
         '@/domains/projects/chapter-assignments/project-chapter-assignments.handlers'
       );
-      
+
       const updateDataWithUnits = sampleProjects.updateProjectWithUnits;
       const updatedProject = { ...mockProject, ...updateDataWithUnits } as any;
 
@@ -347,7 +347,9 @@ describe('project Handler Functions', () => {
       const result = await updateProject(1, updateDataWithUnits);
 
       expect(result).toEqual({ ok: true, data: updatedProject });
-      expect(projectChapterAssignmentsModule.deleteChapterAssignmentsByProject).toHaveBeenCalledWith(1);
+      expect(
+        projectChapterAssignmentsModule.deleteChapterAssignmentsByProject
+      ).toHaveBeenCalledWith(1);
     });
 
     it('should return error if update fails', async () => {

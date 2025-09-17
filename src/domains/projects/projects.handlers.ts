@@ -7,13 +7,7 @@ import type { insertProjectsSchema, patchProjectsSchema, selectProjectsSchema } 
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
-import {
-  bibles,
-  languages,
-  project_unit_bible_books,
-  project_units,
-  projects,
-} from '@/db/schema';
+import { bibles, languages, project_unit_bible_books, project_units, projects } from '@/db/schema';
 import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapter-assignments.handlers';
 import * as projectChapterAssignmentsService from '@/domains/projects/chapter-assignments/project-chapter-assignments.handlers';
 
