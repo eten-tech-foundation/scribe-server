@@ -129,7 +129,7 @@ export const project_units = pgTable('project_units', {
   id: serial('id').primaryKey(),
   projectId: integer('project_id')
     .notNull()
-    .references(() => projects.id),
+    .references(() => projects.id, { onDelete: 'cascade' }),
   status: projectStatusEnum('status').notNull().default('not_started'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
@@ -174,7 +174,7 @@ export const translated_verses = pgTable('translated_verses', {
   id: serial('id').primaryKey(),
   projectUnitId: integer('project_unit_id')
     .notNull()
-    .references(() => project_units.id),
+    .references(() => project_units.id, { onDelete: 'cascade' }),
   content: varchar('content').notNull(),
   bibleTextId: integer('bible_text_id')
     .notNull()
@@ -207,16 +207,14 @@ export const chapter_assignments = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => {
-    return {
-      uqChapterAssignmentPerChapter: uniqueIndex('uq_chapter_assignment_per_chapter').on(
-        table.projectUnitId,
-        table.bibleId,
-        table.bookId,
-        table.chapterNumber
-      ),
-    };
-  }
+  (table) => [
+    uniqueIndex('uq_chapter_assignment_per_chapter').on(
+      table.projectUnitId,
+      table.bibleId,
+      table.bookId,
+      table.chapterNumber
+    ),
+  ]
 );
 
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({

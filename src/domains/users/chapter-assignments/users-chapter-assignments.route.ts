@@ -90,7 +90,7 @@ const assignUsersToChaptersRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      z.array(z.number().int()).openapi('ChapterAssignments'),
+      z.array(z.number().int()).openapi('UserChapterAssignments'),
       'Successfully assigned user to chapters'
     ),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(

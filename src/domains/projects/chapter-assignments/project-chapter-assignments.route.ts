@@ -213,7 +213,7 @@ const assignAllProjectChapterAssignmentsToUserRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      chapterAssignmentResponse.array().openapi('ChapterAssignments'),
+      chapterAssignmentResponse.array().openapi('ProjectChapterAssignAll'),
       'Successfully assigned users to chapters'
     ),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(

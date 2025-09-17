@@ -1,6 +1,6 @@
 import type { z } from '@hono/zod-openapi';
 
-import { eq, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import type { insertProjectsSchema, patchProjectsSchema, selectProjectsSchema } from '@/db/schema';
@@ -9,12 +9,10 @@ import type { Result } from '@/lib/types';
 import { db } from '@/db';
 import {
   bibles,
-  chapter_assignments,
   languages,
   project_unit_bible_books,
   project_units,
   projects,
-  translated_verses,
 } from '@/db/schema';
 import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapter-assignments.handlers';
 import * as projectChapterAssignmentsService from '@/domains/projects/chapter-assignments/project-chapter-assignments.handlers';
@@ -212,41 +210,16 @@ export async function updateProject(
 
 export async function deleteProject(id: number): Promise<Result<{ id: number }>> {
   try {
-    return await db.transaction(async (tx) => {
-      const projectUnitsToDelete = await tx
-        .select({ id: project_units.id })
-        .from(project_units)
-        .where(eq(project_units.projectId, id));
+    const result = await db
+      .delete(projects)
+      .where(eq(projects.id, id))
+      .returning({ id: projects.id });
 
-      if (projectUnitsToDelete.length > 0) {
-        const projectUnitIds = projectUnitsToDelete.map((unit) => unit.id);
+    if (result.length === 0) {
+      return { ok: false, error: { message: 'Project not found' } };
+    }
 
-        await tx
-          .delete(translated_verses)
-          .where(inArray(translated_verses.projectUnitId, projectUnitIds));
-
-        await tx
-          .delete(chapter_assignments)
-          .where(inArray(chapter_assignments.projectUnitId, projectUnitIds));
-
-        await tx
-          .delete(project_unit_bible_books)
-          .where(inArray(project_unit_bible_books.projectUnitId, projectUnitIds));
-      }
-
-      await tx.delete(project_units).where(eq(project_units.projectId, id));
-
-      const result = await tx
-        .delete(projects)
-        .where(eq(projects.id, id))
-        .returning({ id: projects.id });
-
-      if (result.length === 0) {
-        return { ok: false, error: { message: 'Project not found' } };
-      }
-
-      return { ok: true, data: { id: result[0].id } };
-    });
+    return { ok: true, data: { id: result[0].id } };
   } catch {
     return { ok: false, error: { message: 'Failed to delete project' } };
   }
