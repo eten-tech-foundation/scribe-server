@@ -40,8 +40,6 @@ vi.mock('@/domains/projects/chapter-assignments/project-chapter-assignments.hand
   deleteChapterAssignmentsByProject: vi.fn(),
 }));
 
-// Mock db transaction implementation per-test
-
 describe('project Handler Functions', () => {
   const mockProject = sampleProjects.project1;
   const mockProjectWithLanguageNames = sampleProjects.projectWithLanguageNames1;
@@ -83,6 +81,9 @@ describe('project Handler Functions', () => {
       const result = await getAllProjects();
 
       expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Failed to fetch projects');
+      }
     });
   });
 
@@ -118,6 +119,9 @@ describe('project Handler Functions', () => {
       const result = await getProjectsByOrganization(1);
 
       expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Failed to fetch organization projects');
+      }
     });
   });
 
@@ -170,6 +174,22 @@ describe('project Handler Functions', () => {
       const result = await getProjectById(999);
 
       expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Project not found');
+      }
+    });
+
+    it('should return error if db call fails', async () => {
+      (db.selectDistinct as any).mockImplementation(() => {
+        throw new Error('DB Error');
+      });
+
+      const result = await getProjectById(1);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Failed to fetch project');
+      }
     });
   });
 
@@ -212,6 +232,44 @@ describe('project Handler Functions', () => {
       const result = await createProject(mockProjectInput);
 
       expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Failed to create project');
+      }
+    });
+
+    it('should return error if chapter assignment creation fails', async () => {
+      const chapterAssignmentsModule = await import(
+        '@/domains/chapter-assignments/chapter-assignments.handlers'
+      );
+      const { bibleId, bookId, status, ...projectWithoutExtras } = mockProjectInput;
+      const createdProject = { ...projectWithoutExtras, id: 2 } as any;
+
+      // Mock successful project creation but failed chapter assignment
+      mockTx.insert.mockImplementationOnce(() => ({
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([createdProject]),
+        }),
+      }));
+      mockTx.insert.mockImplementationOnce(() => ({
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: 99 }]),
+        }),
+      }));
+      mockTx.insert.mockImplementationOnce(() => ({
+        values: vi.fn().mockResolvedValue(undefined),
+      }));
+
+      vi.mocked(chapterAssignmentsModule.createChapterAssignmentForProjectUnit).mockResolvedValue({
+        ok: false,
+        error: { message: 'Chapter assignment failed' },
+      } as any);
+
+      const result = await createProject(mockProjectInput);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Failed to create project');
+      }
     });
   });
 
@@ -244,22 +302,74 @@ describe('project Handler Functions', () => {
       const result = await updateProject(999, updateData);
 
       expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Project not found');
+      }
+    });
+
+    it('should update project units when bibleId or bookId is provided', async () => {
+      const chapterAssignmentsModule = await import(
+        '@/domains/chapter-assignments/chapter-assignments.handlers'
+      );
+      const projectChapterAssignmentsModule = await import(
+        '@/domains/projects/chapter-assignments/project-chapter-assignments.handlers'
+      );
+      
+      const updateDataWithUnits = sampleProjects.updateProjectWithUnits;
+      const updatedProject = { ...mockProject, ...updateDataWithUnits } as any;
+
+      mockTx.update.mockImplementationOnce(() => ({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([updatedProject]),
+          }),
+        }),
+      }));
+
+      mockTx.delete.mockImplementationOnce(() => ({
+        where: vi.fn().mockResolvedValue(undefined),
+      }));
+
+      mockTx.insert.mockImplementationOnce(() => ({
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: 100 }]),
+        }),
+      }));
+
+      mockTx.insert.mockImplementationOnce(() => ({
+        values: vi.fn().mockResolvedValue(undefined),
+      }));
+      vi.mocked(chapterAssignmentsModule.createChapterAssignmentForProjectUnit).mockResolvedValue({
+        ok: true,
+        data: sampleChapterAssignments as any,
+      } as any);
+
+      const result = await updateProject(1, updateDataWithUnits);
+
+      expect(result).toEqual({ ok: true, data: updatedProject });
+      expect(projectChapterAssignmentsModule.deleteChapterAssignmentsByProject).toHaveBeenCalledWith(1);
+    });
+
+    it('should return error if update fails', async () => {
+      (db.transaction as any).mockRejectedValue(new Error('DB Error'));
+
+      const result = await updateProject(1, updateData);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Failed to update project');
+      }
     });
   });
 
   describe('deleteProject', () => {
     it('should delete the project and return success', async () => {
-      mockTx.select = vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([{ id: 1 }]),
-        }),
-      });
-
-      mockTx.delete.mockReturnValue({
+      const mockDeleteQuery = {
         where: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([{ id: 1 }]),
         }),
-      });
+      };
+      (db.delete as any).mockReturnValue(mockDeleteQuery);
 
       const result = await deleteProject(1);
 
@@ -267,29 +377,32 @@ describe('project Handler Functions', () => {
     });
 
     it('should return error when project not found', async () => {
-      mockTx.select = vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([]),
-        }),
-      });
-
-      mockTx.delete.mockReturnValue({
+      const mockDeleteQuery = {
         where: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([]),
         }),
-      });
+      };
+      (db.delete as any).mockReturnValue(mockDeleteQuery);
 
       const result = await deleteProject(999);
 
       expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Project not found');
+      }
     });
 
     it('should return error if deletion fails', async () => {
-      (db.transaction as any).mockRejectedValue(new Error('DB Error'));
+      (db.delete as any).mockImplementation(() => {
+        throw new Error('DB Error');
+      });
 
       const result = await deleteProject(1);
 
       expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Failed to delete project');
+      }
     });
   });
 });
