@@ -20,6 +20,7 @@ import {
   updateUser,
 } from './users.handlers';
 
+// Mock dependencies BEFORE importing modules that use them
 vi.mock('@/db', () => ({
   db: {
     select: vi.fn(),

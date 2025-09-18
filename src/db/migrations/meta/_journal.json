@@ -5,43 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1753943442459,
-      "tag": "0000_complex_lord_tyger",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1753967840635,
-      "tag": "0001_organic_phil_sheldon",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1756126218868,
-      "tag": "0002_nebulous_matthew_murdock",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1756126275137,
-      "tag": "0003_unusual_purple_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1756709371325,
-      "tag": "0004_equal_husk",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1756886025504,
-      "tag": "0005_simple_sunfire",
+      "when": 1758197783512,
+      "tag": "0000_lethal_malice",
       "breakpoints": true
     }
   ]

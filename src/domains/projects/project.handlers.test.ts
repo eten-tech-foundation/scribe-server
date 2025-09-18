@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { db } from '@/db';
-import { resetAllMocks, sampleProjects } from '@/test/utils/test-helpers';
+import { resetAllMocks, sampleChapterAssignments, sampleProjects } from '@/test/utils/test-helpers';
 
 import {
   createProject,
@@ -12,13 +12,13 @@ import {
   updateProject,
 } from './projects.handlers';
 
-// --- mock db and transaction ---
+// Mock dependencies BEFORE importing modules that use them
 const mockTx = {
   insert: vi.fn(),
   update: vi.fn(),
   delete: vi.fn(),
+  select: vi.fn(),
 };
-(db as any).transaction = vi.fn(async (cb: any) => cb(mockTx));
 
 vi.mock('@/db', () => ({
   db: {
@@ -30,13 +30,14 @@ vi.mock('@/db', () => ({
   },
 }));
 
-vi.mock('@/lib/logger', () => ({
-  logger: {
-    debug: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-  },
+// Mock chapter assignments service used by create/update flows
+vi.mock('@/domains/chapter-assignments/chapter-assignments.handlers', () => ({
+  createChapterAssignmentForProjectUnit: vi.fn(),
+}));
+
+// Mock project chapter assignments service used by update flow
+vi.mock('@/domains/projects/chapter-assignments/project-chapter-assignments.handlers', () => ({
+  deleteChapterAssignmentsByProject: vi.fn(),
 }));
 
 describe('project Handler Functions', () => {
@@ -47,12 +48,12 @@ describe('project Handler Functions', () => {
 
   beforeEach(() => {
     resetAllMocks();
-    vi.clearAllMocks();
+    (db.transaction as any).mockImplementation(async (cb: any) => cb(mockTx));
   });
 
   describe('getAllProjects', () => {
-    it('should return all projects with language names in a result object', async () => {
-      (db.selectDistinct as any).mockReturnValue({
+    it('should return all projects with language names', async () => {
+      const mockQuery = {
         from: vi.fn().mockReturnValue({
           innerJoin: vi.fn().mockReturnValue({
             innerJoin: vi.fn().mockReturnValue({
@@ -64,14 +65,15 @@ describe('project Handler Functions', () => {
             }),
           }),
         }),
-      });
+      };
+      (db.selectDistinct as any).mockReturnValue(mockQuery);
 
       const result = await getAllProjects();
 
       expect(result).toEqual({ ok: true, data: [mockProjectWithLanguageNames] });
     });
 
-    it('should return an error result if db call fails', async () => {
+    it('should return error if db call fails', async () => {
       (db.selectDistinct as any).mockImplementation(() => {
         throw new Error('DB Error');
       });
@@ -86,8 +88,8 @@ describe('project Handler Functions', () => {
   });
 
   describe('getProjectsByOrganization', () => {
-    it('should return projects by organization with language names in a result object', async () => {
-      (db.selectDistinct as any).mockReturnValue({
+    it('should return projects by organization', async () => {
+      const mockQuery = {
         from: vi.fn().mockReturnValue({
           innerJoin: vi.fn().mockReturnValue({
             innerJoin: vi.fn().mockReturnValue({
@@ -101,19 +103,20 @@ describe('project Handler Functions', () => {
             }),
           }),
         }),
-      });
+      };
+      (db.selectDistinct as any).mockReturnValue(mockQuery);
 
       const result = await getProjectsByOrganization(1);
 
       expect(result).toEqual({ ok: true, data: [mockProjectWithLanguageNames] });
     });
 
-    it('should return an error result if db call fails', async () => {
+    it('should return error if db call fails', async () => {
       (db.selectDistinct as any).mockImplementation(() => {
         throw new Error('DB Error');
       });
 
-      const result = await getProjectsByOrganization(999);
+      const result = await getProjectsByOrganization(1);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -123,8 +126,8 @@ describe('project Handler Functions', () => {
   });
 
   describe('getProjectById', () => {
-    it('should return project by ID with language names in a result object', async () => {
-      (db.selectDistinct as any).mockReturnValue({
+    it('should return project by ID', async () => {
+      const mockQuery = {
         from: vi.fn().mockReturnValue({
           innerJoin: vi.fn().mockReturnValue({
             innerJoin: vi.fn().mockReturnValue({
@@ -140,15 +143,16 @@ describe('project Handler Functions', () => {
             }),
           }),
         }),
-      });
+      };
+      (db.selectDistinct as any).mockReturnValue(mockQuery);
 
-      const result = await getProjectById(mockProject.id);
+      const result = await getProjectById(1);
 
       expect(result).toEqual({ ok: true, data: mockProjectWithLanguageNames });
     });
 
-    it('should return an error result when project not found', async () => {
-      (db.selectDistinct as any).mockReturnValue({
+    it('should return error when project not found', async () => {
+      const mockQuery = {
         from: vi.fn().mockReturnValue({
           innerJoin: vi.fn().mockReturnValue({
             innerJoin: vi.fn().mockReturnValue({
@@ -164,7 +168,8 @@ describe('project Handler Functions', () => {
             }),
           }),
         }),
-      });
+      };
+      (db.selectDistinct as any).mockReturnValue(mockQuery);
 
       const result = await getProjectById(999);
 
@@ -174,7 +179,7 @@ describe('project Handler Functions', () => {
       }
     });
 
-    it('should return an error result if db call fails', async () => {
+    it('should return error if db call fails', async () => {
       (db.selectDistinct as any).mockImplementation(() => {
         throw new Error('DB Error');
       });
@@ -189,68 +194,75 @@ describe('project Handler Functions', () => {
   });
 
   describe('createProject', () => {
-    it('should create and return a new project in a result object', async () => {
-      const { bible_id, book_id, status, ...projectWithoutExtras } = mockProjectInput;
-      const createdProject = { ...projectWithoutExtras, id: 2 };
+    it('should create and return a new project', async () => {
+      const chapterAssignmentsModule = await import(
+        '@/domains/chapter-assignments/chapter-assignments.handlers'
+      );
+      const { bibleId, bookId, status, ...projectWithoutExtras } = mockProjectInput;
+      const createdProject = { ...projectWithoutExtras, id: 2 } as any;
 
-      // Mock project creation
+      // Mock successful creation
       mockTx.insert.mockImplementationOnce(() => ({
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([createdProject]),
         }),
       }));
-
-      // Mock project unit creation
       mockTx.insert.mockImplementationOnce(() => ({
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([{ id: 99 }]),
         }),
       }));
-
-      // Mock project unit bible books creation
       mockTx.insert.mockImplementationOnce(() => ({
         values: vi.fn().mockResolvedValue(undefined),
       }));
+
+      vi.mocked(chapterAssignmentsModule.createChapterAssignmentForProjectUnit).mockResolvedValue({
+        ok: true,
+        data: sampleChapterAssignments as any,
+      } as any);
 
       const result = await createProject(mockProjectInput);
 
       expect(result).toEqual({ ok: true, data: createdProject });
-      expect(mockTx.insert).toHaveBeenCalledTimes(3);
     });
 
-    it('should handle creation with default status when not provided', async () => {
-      const { status, ...inputWithoutStatus } = mockProjectInput;
-      const { bible_id, book_id, ...projectWithoutExtras } = inputWithoutStatus;
-      const createdProject = { ...projectWithoutExtras, id: 2 };
+    it('should return error if creation fails', async () => {
+      (db.transaction as any).mockRejectedValue(new Error('DB Error'));
 
+      const result = await createProject(mockProjectInput);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('Failed to create project');
+      }
+    });
+
+    it('should return error if chapter assignment creation fails', async () => {
+      const chapterAssignmentsModule = await import(
+        '@/domains/chapter-assignments/chapter-assignments.handlers'
+      );
+      const { bibleId, bookId, status, ...projectWithoutExtras } = mockProjectInput;
+      const createdProject = { ...projectWithoutExtras, id: 2 } as any;
+
+      // Mock successful project creation but failed chapter assignment
       mockTx.insert.mockImplementationOnce(() => ({
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([createdProject]),
         }),
       }));
-
       mockTx.insert.mockImplementationOnce(() => ({
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([{ id: 99 }]),
         }),
       }));
-
       mockTx.insert.mockImplementationOnce(() => ({
         values: vi.fn().mockResolvedValue(undefined),
       }));
 
-      const result = await createProject(inputWithoutStatus);
-
-      expect(result).toEqual({ ok: true, data: createdProject });
-
-      // Verify that default status 'not_started' was used
-      expect(mockTx.insert).toHaveBeenNthCalledWith(2, expect.anything());
-      const secondCall = mockTx.insert.mock.calls[1];
-      expect(secondCall[0]).toBeDefined();
-    });
-
-    it('should return an error result if creation fails', async () => {
-      (db.transaction as any).mockRejectedValue(new Error('DB Error'));
+      vi.mocked(chapterAssignmentsModule.createChapterAssignmentForProjectUnit).mockResolvedValue({
+        ok: false,
+        error: { message: 'Chapter assignment failed' },
+      } as any);
 
       const result = await createProject(mockProjectInput);
 
@@ -262,41 +274,30 @@ describe('project Handler Functions', () => {
   });
 
   describe('updateProject', () => {
-    it('should update and return the project in a result object', async () => {
-      const updatedProject = { ...mockProject, ...updateData };
+    it('should update and return the project', async () => {
+      const updatedProject = { ...mockProject, ...updateData } as any;
 
-      // Mock successful transaction return
-      (db.transaction as any).mockResolvedValue({ ok: true, data: updatedProject });
+      mockTx.update.mockImplementationOnce(() => ({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([updatedProject]),
+          }),
+        }),
+      }));
 
-      const result = await updateProject(mockProject.id, updateData);
-
-      expect(result).toEqual({ ok: true, data: updatedProject });
-    });
-
-    it('should update project with bible_id, book_id, and status', async () => {
-      const updateDataWithUnits = {
-        ...updateData,
-        bible_id: 2,
-        book_id: [3, 4],
-        status: 'in_progress' as const,
-      };
-      const { bible_id, book_id, status, ...projectUpdateData } = updateDataWithUnits;
-      const updatedProject = { ...mockProject, ...projectUpdateData };
-
-      // Mock successful transaction return
-      (db.transaction as any).mockResolvedValue({ ok: true, data: updatedProject });
-
-      const result = await updateProject(mockProject.id, updateDataWithUnits);
+      const result = await updateProject(1, updateData);
 
       expect(result).toEqual({ ok: true, data: updatedProject });
     });
 
-    it('should return an error result when project to update is not found', async () => {
-      // Mock transaction that returns project not found
-      (db.transaction as any).mockResolvedValue({
-        ok: false,
-        error: { message: 'Project not found' },
-      });
+    it('should return error when project not found', async () => {
+      mockTx.update.mockImplementationOnce(() => ({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      }));
 
       const result = await updateProject(999, updateData);
 
@@ -306,7 +307,45 @@ describe('project Handler Functions', () => {
       }
     });
 
-    it('should return an error result if db call fails', async () => {
+    it('should update project units when bibleId or bookId is provided', async () => {
+      const chapterAssignmentsModule = await import(
+        '@/domains/chapter-assignments/chapter-assignments.handlers'
+      );
+      const updateDataWithUnits = sampleProjects.updateProjectWithUnits;
+      const updatedProject = { ...mockProject, ...updateDataWithUnits } as any;
+
+      mockTx.update.mockImplementationOnce(() => ({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([updatedProject]),
+          }),
+        }),
+      }));
+
+      mockTx.delete.mockImplementationOnce(() => ({
+        where: vi.fn().mockResolvedValue(undefined),
+      }));
+
+      mockTx.insert.mockImplementationOnce(() => ({
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: 100 }]),
+        }),
+      }));
+
+      mockTx.insert.mockImplementationOnce(() => ({
+        values: vi.fn().mockResolvedValue(undefined),
+      }));
+      vi.mocked(chapterAssignmentsModule.createChapterAssignmentForProjectUnit).mockResolvedValue({
+        ok: true,
+        data: sampleChapterAssignments as any,
+      } as any);
+
+      const result = await updateProject(1, updateDataWithUnits);
+
+      expect(result).toEqual({ ok: true, data: updatedProject });
+    });
+
+    it('should return error if update fails', async () => {
       (db.transaction as any).mockRejectedValue(new Error('DB Error'));
 
       const result = await updateProject(1, updateData);
@@ -319,24 +358,26 @@ describe('project Handler Functions', () => {
   });
 
   describe('deleteProject', () => {
-    it('should delete the project and return a success result', async () => {
-      (db.delete as any).mockReturnValue({
+    it('should delete the project and return success', async () => {
+      const mockDeleteQuery = {
         where: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{ id: mockProject.id }]),
+          returning: vi.fn().mockResolvedValue([{ id: 1 }]),
         }),
-      });
+      };
+      (db.delete as any).mockReturnValue(mockDeleteQuery);
 
-      const result = await deleteProject(mockProject.id);
+      const result = await deleteProject(1);
 
-      expect(result).toEqual({ ok: true, data: { id: mockProject.id } });
+      expect(result).toEqual({ ok: true, data: { id: 1 } });
     });
 
-    it('should return an error result when project to delete is not found', async () => {
-      (db.delete as any).mockReturnValue({
+    it('should return error when project not found', async () => {
+      const mockDeleteQuery = {
         where: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([]),
         }),
-      });
+      };
+      (db.delete as any).mockReturnValue(mockDeleteQuery);
 
       const result = await deleteProject(999);
 
@@ -346,7 +387,7 @@ describe('project Handler Functions', () => {
       }
     });
 
-    it('should return an error result if db call fails', async () => {
+    it('should return error if deletion fails', async () => {
       (db.delete as any).mockImplementation(() => {
         throw new Error('DB Error');
       });

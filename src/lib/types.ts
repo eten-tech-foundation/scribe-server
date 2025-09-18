@@ -1,6 +1,10 @@
 import type { OpenAPIHono, RouteConfig, RouteHandler } from '@hono/zod-openapi';
+import type { ExtractTablesWithRelations } from 'drizzle-orm';
+import type { PgQueryResultHKT, PgTransaction } from 'drizzle-orm/pg-core';
 import type { Schema } from 'hono';
 import type { PinoLogger } from 'hono-pino';
+
+import type * as schema from '@/db/schema';
 
 // Auth0 JWT Payload types
 export interface Auth0JWTPayload {
@@ -51,3 +55,9 @@ export type AppRouteHandler<R extends RouteConfig> = RouteHandler<R, AppBindings
 
 // Generic Result type
 export type Result<T, E = { message: string }> = { ok: true; data: T } | { ok: false; error: E };
+
+export type DbTransaction = PgTransaction<
+  PgQueryResultHKT,
+  typeof schema,
+  ExtractTablesWithRelations<typeof schema>
+>;

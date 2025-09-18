@@ -20,14 +20,14 @@ const projectWithLanguageNamesSchema = selectProjectsSchema
   });
 
 const createProjectWithUnitsSchema = insertProjectsSchema.extend({
-  bible_id: z.number().int(),
-  book_id: z.array(z.number().int()),
+  bibleId: z.number().int(),
+  bookId: z.array(z.number().int()),
   status: z.enum(['not_started', 'in_progress', 'completed']).default('not_started'),
 });
 
 const updateProjectWithUnitsSchema = patchProjectsSchema.extend({
-  bible_id: z.number().int().optional(),
-  book_id: z.array(z.number().int()).optional(),
+  bibleId: z.number().int().optional(),
+  bookId: z.array(z.number().int()).optional(),
   status: z.enum(['not_started', 'in_progress', 'completed']).default('not_started').optional(),
 });
 

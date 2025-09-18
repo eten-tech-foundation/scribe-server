@@ -8,18 +8,18 @@ import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import { bibles, languages, project_unit_bible_books, project_units, projects } from '@/db/schema';
-
+import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapter-assignments.handlers';
 export type Project = z.infer<typeof selectProjectsSchema>;
 
 export type CreateProjectInput = z.infer<typeof insertProjectsSchema> & {
-  bible_id: number;
-  book_id: number[];
+  bibleId: number;
+  bookId: number[];
   status?: 'not_started' | 'in_progress' | 'completed';
 };
 
 export type UpdateProjectInput = z.infer<typeof patchProjectsSchema> & {
-  bible_id?: number;
-  book_id?: number[];
+  bibleId?: number;
+  bookId?: number[];
   status?: 'not_started' | 'in_progress' | 'completed';
 };
 
@@ -97,7 +97,7 @@ export async function getProjectById(id: number): Promise<Result<ProjectWithLang
 export async function createProject(input: CreateProjectInput): Promise<Result<Project>> {
   try {
     return await db.transaction(async (tx) => {
-      const { bible_id, book_id, status = 'not_started', ...projectData } = input;
+      const { bibleId, bookId, status = 'not_started', ...projectData } = input;
 
       const [project] = await tx.insert(projects).values(projectData).returning();
 
@@ -109,14 +109,26 @@ export async function createProject(input: CreateProjectInput): Promise<Result<P
         })
         .returning();
 
-      const bibleBookEntries = book_id.map((bookId) => ({
+      const bibleBookEntries = bookId.map((bookId) => ({
         projectUnitId: projectUnit.id,
-        bibleId: bible_id,
+        bibleId,
         bookId,
       }));
 
       if (bibleBookEntries.length > 0) {
         await tx.insert(project_unit_bible_books).values(bibleBookEntries);
+      }
+
+      const assignmentsResult =
+        await chapterAssignmentsService.createChapterAssignmentForProjectUnit(
+          projectUnit.id,
+          bibleId,
+          bookId,
+          tx
+        );
+
+      if (!assignmentsResult.ok) {
+        throw new Error(assignmentsResult.error.message);
       }
 
       return { ok: true, data: project };
@@ -132,7 +144,7 @@ export async function updateProject(
 ): Promise<Result<Project>> {
   try {
     return await db.transaction(async (tx) => {
-      const { bible_id, book_id, status, ...projectData } = input;
+      const { bibleId, bookId, status, ...projectData } = input;
 
       const [updated] = await tx
         .update(projects)
@@ -144,7 +156,7 @@ export async function updateProject(
         return { ok: false, error: { message: 'Project not found' } };
       }
 
-      if (bible_id !== undefined || book_id !== undefined || status !== undefined) {
+      if (bibleId !== undefined || bookId !== undefined || status !== undefined) {
         await tx.delete(project_units).where(eq(project_units.projectId, id));
 
         const [projectUnit] = await tx
@@ -155,15 +167,27 @@ export async function updateProject(
           })
           .returning();
 
-        if (bible_id !== undefined && book_id !== undefined) {
-          const bibleBookEntries = book_id.map((bookId) => ({
+        if (bibleId !== undefined && bookId !== undefined) {
+          const bibleBookEntries = bookId.map((bookId) => ({
             projectUnitId: projectUnit.id,
-            bibleId: bible_id,
+            bibleId,
             bookId,
           }));
 
           if (bibleBookEntries.length > 0) {
             await tx.insert(project_unit_bible_books).values(bibleBookEntries);
+          }
+
+          const assignmentsResult =
+            await chapterAssignmentsService.createChapterAssignmentForProjectUnit(
+              projectUnit.id,
+              bibleId,
+              bookId,
+              tx
+            );
+
+          if (!assignmentsResult.ok) {
+            throw new Error(assignmentsResult.error.message);
           }
         }
       }
