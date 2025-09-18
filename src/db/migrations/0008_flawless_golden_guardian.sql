@@ -1,1 +1,0 @@
-ALTER TABLE "translated_verses" DROP COLUMN "status";

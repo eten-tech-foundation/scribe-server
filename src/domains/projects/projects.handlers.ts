@@ -9,8 +9,6 @@ import type { Result } from '@/lib/types';
 import { db } from '@/db';
 import { bibles, languages, project_unit_bible_books, project_units, projects } from '@/db/schema';
 import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapter-assignments.handlers';
-import * as projectChapterAssignmentsService from '@/domains/projects/chapter-assignments/project-chapter-assignments.handlers';
-
 export type Project = z.infer<typeof selectProjectsSchema>;
 
 export type CreateProjectInput = z.infer<typeof insertProjectsSchema> & {
@@ -159,7 +157,6 @@ export async function updateProject(
       }
 
       if (bibleId !== undefined || bookId !== undefined || status !== undefined) {
-        await projectChapterAssignmentsService.deleteChapterAssignmentsByProject(id);
         await tx.delete(project_units).where(eq(project_units.projectId, id));
 
         const [projectUnit] = await tx

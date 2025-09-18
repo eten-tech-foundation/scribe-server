@@ -129,7 +129,7 @@ export const project_units = pgTable('project_units', {
   id: serial('id').primaryKey(),
   projectId: integer('project_id')
     .notNull()
-    .references(() => projects.id, { onDelete: 'cascade' }),
+    .references(() => projects.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
   status: projectStatusEnum('status').notNull().default('not_started'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
@@ -140,7 +140,7 @@ export const project_units = pgTable('project_units', {
 export const project_unit_bible_books = pgTable('project_unit_bible_books', {
   projectUnitId: integer('project_unit_id')
     .notNull()
-    .references(() => project_units.id),
+    .references(() => project_units.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
   bibleId: integer('bible_id')
     .notNull()
     .references(() => bibles.id),
@@ -174,7 +174,7 @@ export const translated_verses = pgTable('translated_verses', {
   id: serial('id').primaryKey(),
   projectUnitId: integer('project_unit_id')
     .notNull()
-    .references(() => project_units.id, { onDelete: 'cascade' }),
+    .references(() => project_units.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
   content: varchar('content').notNull(),
   bibleTextId: integer('bible_text_id')
     .notNull()
@@ -192,7 +192,7 @@ export const chapter_assignments = pgTable(
     id: serial('id').primaryKey(),
     projectUnitId: integer('project_unit_id')
       .notNull()
-      .references(() => project_units.id),
+      .references(() => project_units.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     bibleId: integer('bible_id')
       .notNull()
       .references(() => bibles.id),
