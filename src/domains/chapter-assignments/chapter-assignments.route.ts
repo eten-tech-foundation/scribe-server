@@ -8,8 +8,6 @@ import { server } from '@/server/server';
 
 import * as chapterAssignmentsHandler from './chapter-assignments.handlers';
 
-// todo: middlewares for all routes
-// TODO: ensure manager and project access
 const chapterAssignmentResponse = z.object({
   id: z.number().int().optional(),
   projectUnitId: z.number().int(),
@@ -254,9 +252,7 @@ server.openapi(deleteChapterAssignmentRoute, async (c) => {
 // -----------------------------------
 // --- START NON-STANDARD ROUTES ---
 // -----------------------------------
-// todo /submit
 
-// todo /assign
 // -----------------------------------
 // --- END NON-STANDARD ROUTES ---
 // -----------------------------------

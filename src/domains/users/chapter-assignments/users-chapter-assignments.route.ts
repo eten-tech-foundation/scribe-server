@@ -8,7 +8,7 @@ import { requireManagerAccess, requireUserAccess } from '@/middlewares/role-auth
 import { server } from '@/server/server';
 
 import * as usersChapterAssignmentsHandler from './users-chapter-assignments.handlers';
-// TODO: check middleware for routes
+
 
 const getChapterAssignmentByUserResponse = z.object({
   projectName: z.string(),
@@ -117,7 +117,7 @@ const assignUsersToChaptersRoute = createRoute({
   summary: 'Assign user to specific chapters',
   description: 'Assigns a user to specific chapter assignments.',
 });
-// todo: this needs to ensure only ids that the manager has access to are updated
+
 server.use('/users/:userId/chapter-assignments', requireManagerAccess);
 
 server.openapi(assignUsersToChaptersRoute, async (c) => {
