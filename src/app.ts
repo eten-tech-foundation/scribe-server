@@ -16,6 +16,7 @@ import '@/domains/bible-books/bible-books.route';
 import '@/domains/projects/books/project-books.route';
 import '@/domains/bibles/bible-texts/bible-texts.route';
 import '@/domains/projects/translated-verses/translated-verses.route';
+import '@/domains/translated-verses/translated-verses.route';
 configureOpenAPI(server);
 
 export default server;

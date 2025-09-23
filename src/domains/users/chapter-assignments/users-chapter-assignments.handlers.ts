@@ -16,6 +16,7 @@ import {
 import { logger } from '@/lib/logger';
 
 export interface UserChapterAssignment {
+  chapterAssignmentId: number;
   projectName: string;
   projectUnitId: number;
   bibleId: number;
@@ -46,7 +47,7 @@ export async function getChapterAssignmentsByUserId(
         chapterNumber: chapter_assignments.chapterNumber,
         submittedTime: chapter_assignments.submittedTime,
         totalVerses: sql<number>`COUNT(${bible_texts.id})`,
-        completedVerses: sql<number>`COUNT(${translated_verses.id})`,
+        completedVerses: sql<number>`COUNT(CASE WHEN ${translated_verses.content} != '' AND ${translated_verses.content} IS NOT NULL THEN 1 END)`,
       })
       .from(chapter_assignments)
       .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
@@ -85,6 +86,7 @@ export async function getChapterAssignmentsByUserId(
       .orderBy(projects.name, books.eng_display_name, chapter_assignments.chapterNumber);
 
     const assignmentsWithProgress: UserChapterAssignment[] = rows.map((row) => ({
+      chapterAssignmentId: row.assignmentId,
       projectName: row.projectName,
       projectUnitId: row.projectUnitId,
       bibleId: row.bibleId,

@@ -12,7 +12,7 @@ import * as bibleTextsHandler from './bible-texts.handlers';
 const getBibleTextsByChapterRoute = createRoute({
   tags: ['Bible Texts'],
   method: 'get',
-  path: '/bibles/texts/{bibleId}/{bookId}/{chapterNumber}',
+  path: '/bibles/{bibleId}/books/{bookId}/chapters/{chapterNumber}/texts',
   request: {
     params: z.object({
       bibleId: z.coerce
@@ -67,10 +67,6 @@ const getBibleTextsByChapterRoute = createRoute({
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
       createMessageObjectSchema('Bad Request'),
       'Invalid parameters'
-    ),
-    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      createMessageObjectSchema('Unauthorized'),
-      'Authentication required'
     ),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),

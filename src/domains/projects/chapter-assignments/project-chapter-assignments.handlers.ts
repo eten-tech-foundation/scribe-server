@@ -133,7 +133,7 @@ export async function getChapterAssignmentProgressByProject(
         createdAt: chapter_assignments.createdAt,
         updatedAt: chapter_assignments.updatedAt,
         totalVerses: sql<number>`COUNT(${bible_texts.id})`,
-        completedVerses: sql<number>`COUNT(${translated_verses.id})`,
+        completedVerses: sql<number>`COUNT(CASE WHEN ${translated_verses.content} != '' AND ${translated_verses.content} IS NOT NULL THEN 1 END)`,
       })
       .from(chapter_assignments)
       .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))

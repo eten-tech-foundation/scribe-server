@@ -28,6 +28,10 @@ export async function getBibleTextsByChapter(
       )
       .orderBy(bible_texts.verseNumber);
 
+    if (texts.length === 0) {
+      return { ok: false, error: { message: 'Bible texts not found for the specified chapter' } };
+    }
+
     return { ok: true, data: texts };
   } catch {
     return { ok: false, error: { message: 'Failed to fetch bible texts' } };

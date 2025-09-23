@@ -10,6 +10,7 @@ import { server } from '@/server/server';
 import * as usersChapterAssignmentsHandler from './users-chapter-assignments.handlers';
 
 const getChapterAssignmentByUserResponse = z.object({
+  chapterAssignmentId: z.number(),
   projectName: z.string(),
   projectUnitId: z.number(),
   bibleId: z.number(),

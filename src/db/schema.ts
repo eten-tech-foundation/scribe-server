@@ -170,21 +170,27 @@ export const bible_texts = pgTable('bible_texts', {
     .$onUpdate(() => new Date()),
 });
 
-export const translated_verses = pgTable('translated_verses', {
-  id: serial('id').primaryKey(),
-  projectUnitId: integer('project_unit_id')
-    .notNull()
-    .references(() => project_units.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
-  content: varchar('content').notNull(),
-  bibleTextId: integer('bible_text_id')
-    .notNull()
-    .references(() => bible_texts.id),
-  assignedUserId: integer('assigned_user_id').references(() => users.id),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-});
+export const translated_verses = pgTable(
+  'translated_verses',
+  {
+    id: serial('id').primaryKey(),
+    projectUnitId: integer('project_unit_id')
+      .notNull()
+      .references(() => project_units.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    content: varchar('content').notNull(),
+    bibleTextId: integer('bible_text_id')
+      .notNull()
+      .references(() => bible_texts.id),
+    assignedUserId: integer('assigned_user_id').references(() => users.id),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('uq_translated_verse_per_bible_text').on(table.projectUnitId, table.bibleTextId),
+  ]
+);
 
 export const chapter_assignments = pgTable(
   'chapter_assignments',
@@ -375,7 +381,7 @@ export const insertBibleTextsSchema = createInsertSchema(bible_texts, {
 
 export const insertTranslatedVersesSchema = createInsertSchema(translated_verses, {
   projectUnitId: (schema) => schema.int(),
-  content: (schema) => schema.min(1),
+  content: (schema) => schema.min(0),
   bibleTextId: (schema) => schema.int(),
   assignedUserId: (schema) => schema.int().optional(),
 })
