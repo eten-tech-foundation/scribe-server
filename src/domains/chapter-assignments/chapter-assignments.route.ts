@@ -192,8 +192,6 @@ const submitChapterAssignmentRoute = createRoute({
   description: 'Marks a chapter assignment as submitted with the current timestamp.',
 });
 
-server.use('/chapter-assignments/*/submit', requireUserAccess);
-
 server.openapi(submitChapterAssignmentRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
 

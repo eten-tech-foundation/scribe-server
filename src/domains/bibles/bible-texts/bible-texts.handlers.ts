@@ -1,14 +1,16 @@
-import type { z } from '@hono/zod-openapi';
-
 import { and, eq } from 'drizzle-orm';
 
-import type { selectBibleTextsSchema } from '@/db/schema';
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import { bible_texts } from '@/db/schema';
 
-export type BibleText = z.infer<typeof selectBibleTextsSchema>;
+export interface BibleText {
+  id: number;
+  chapterNumber: number;
+  verseNumber: number;
+  text: string;
+}
 
 export async function getBibleTextsByChapter(
   bibleId: number,
@@ -17,7 +19,12 @@ export async function getBibleTextsByChapter(
 ): Promise<Result<BibleText[]>> {
   try {
     const texts = await db
-      .select()
+      .select({
+        id: bible_texts.id,
+        chapterNumber: bible_texts.chapterNumber,
+        verseNumber: bible_texts.verseNumber,
+        text: bible_texts.text,
+      })
       .from(bible_texts)
       .where(
         and(

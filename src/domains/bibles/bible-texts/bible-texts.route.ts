@@ -4,10 +4,16 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { selectBibleTextsSchema } from '@/db/schema';
 import { server } from '@/server/server';
 
 import * as bibleTextsHandler from './bible-texts.handlers';
+
+const bibleTextSchema = z.object({
+  id: z.number().int(),
+  chapterNumber: z.number().int(),
+  verseNumber: z.number().int(),
+  text: z.string(),
+});
 
 const getBibleTextsByChapterRoute = createRoute({
   tags: ['Bible Texts'],
@@ -61,7 +67,7 @@ const getBibleTextsByChapterRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      selectBibleTextsSchema.array().openapi('BibleTexts'),
+      bibleTextSchema.array().openapi('BibleTexts'),
       'The list of bible texts for the chapter'
     ),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
@@ -88,6 +94,10 @@ server.openapi(getBibleTextsByChapterRoute, async (c) => {
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
+  }
+
+  if (result.error.message.includes('not found')) {
+    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
   }
 
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);

@@ -136,3 +136,74 @@ server.openapi(upsertTranslatedVerseRoute, async (c) => {
 
   return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
 });
+
+const listTranslatedVersesRoute = createRoute({
+  tags: ['Translated Verses'],
+  method: 'get',
+  path: '/translated-verses',
+  request: {
+    query: z.object({
+      projectUnitId: z.coerce
+        .number()
+        .int()
+        .openapi({
+          param: { name: 'projectUnitId', in: 'query', required: false },
+          description: 'Filter by project unit ID',
+          example: 24,
+        })
+        .optional(),
+      bookId: z.coerce
+        .number()
+        .int()
+        .openapi({
+          param: { name: 'bookId', in: 'query', required: false },
+          description: 'Filter by book ID',
+          example: 1,
+        })
+        .optional(),
+      chapterNumber: z.coerce
+        .number()
+        .int()
+        .openapi({
+          param: { name: 'chapterNumber', in: 'query', required: false },
+          description: 'Filter by chapter number',
+          example: 1,
+        })
+        .optional(),
+    }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      selectTranslatedVersesSchema.array().openapi('TranslatedVerses'),
+      'The list of translated verses (optionally filtered)'
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'Access denied'
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
+  },
+  summary: 'List translated verses',
+  description:
+    'Returns a list of translated verses. If no query params are provided, all translated verses are returned. You can filter by projectUnitId, bookId, and chapterNumber.',
+});
+server.use('/translated-verses', requireUserAccess);
+server.openapi(listTranslatedVersesRoute, async (c) => {
+  const { projectUnitId, bookId, chapterNumber } = c.req.valid('query');
+  const result = await translatedVersesHandler.listTranslatedVerses({
+    projectUnitId,
+    bookId,
+    chapterNumber,
+  });
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
+  }
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+});

@@ -1,6 +1,6 @@
 import type { z } from '@hono/zod-openapi';
 
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import type {
   insertTranslatedVersesSchema,
@@ -16,10 +16,10 @@ export type TranslatedVerse = z.infer<typeof selectTranslatedVersesSchema>;
 export type CreateTranslatedVerseInput = z.infer<typeof insertTranslatedVersesSchema>;
 export type UpdateTranslatedVerseInput = z.infer<typeof patchTranslatedVersesSchema>;
 
-export interface GetTranslatedVersesFilters {
-  projectUnitId: number;
-  bookId: number;
-  chapterNumber: number;
+export interface TranslatedVersesFilters {
+  projectUnitId?: number;
+  bookId?: number;
+  chapterNumber?: number;
 }
 
 export async function getTranslatedVerseById(id: number): Promise<Result<TranslatedVerse>> {
@@ -117,5 +117,48 @@ export async function upsertTranslatedVerse(
     return { ok: true, data: result.data };
   } catch {
     return { ok: false, error: { message: 'Failed to upsert translated verse' } };
+  }
+}
+
+export async function listTranslatedVerses(
+  filters: TranslatedVersesFilters = {}
+): Promise<Result<TranslatedVerse[]>> {
+  try {
+    const conditions = [] as any[];
+    if (filters.projectUnitId !== undefined) {
+      conditions.push(eq(translated_verses.projectUnitId, filters.projectUnitId));
+    }
+    if (filters.bookId !== undefined) {
+      conditions.push(eq(bible_texts.bookId, filters.bookId));
+    }
+    if (filters.chapterNumber !== undefined) {
+      conditions.push(eq(bible_texts.chapterNumber, filters.chapterNumber));
+    }
+    const baseQuery = db
+      .select({
+        id: translated_verses.id,
+        projectUnitId: translated_verses.projectUnitId,
+        content: translated_verses.content,
+        bibleTextId: translated_verses.bibleTextId,
+        assignedUserId: translated_verses.assignedUserId,
+        createdAt: translated_verses.createdAt,
+        updatedAt: translated_verses.updatedAt,
+        verseNumber: bible_texts.verseNumber,
+      })
+      .from(translated_verses)
+      .innerJoin(bible_texts, eq(translated_verses.bibleTextId, bible_texts.id));
+    const verses =
+      conditions.length > 0
+        ? await baseQuery
+            .where(and(...conditions))
+            .orderBy(bible_texts.bookId, bible_texts.chapterNumber, bible_texts.verseNumber)
+        : await baseQuery.orderBy(
+            bible_texts.bookId,
+            bible_texts.chapterNumber,
+            bible_texts.verseNumber
+          );
+    return { ok: true, data: verses };
+  } catch {
+    return { ok: false, error: { message: 'Failed to fetch translated verses' } };
   }
 }
