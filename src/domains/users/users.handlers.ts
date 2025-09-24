@@ -12,6 +12,22 @@ export type User = z.infer<typeof selectUsersSchema>;
 export type CreateUserInput = z.infer<typeof insertUsersSchema>;
 export type UpdateUserInput = z.infer<typeof patchUsersSchema>;
 
+function handleUniqueConstraintError(error: unknown, defaultMessage: string): Result<never> {
+  if (error && typeof error === 'object' && 'cause' in error) {
+    const cause = (error as any).cause;
+    if (cause?.code === '23505') {
+      const constraintName = cause.constraint_name || '';
+      if (constraintName.includes('username')) {
+        return { ok: false, error: { message: 'Username already exists.' } };
+      }
+      if (constraintName.includes('email')) {
+        return { ok: false, error: { message: 'A user with this email already exists.' } };
+      }
+    }
+  }
+  return { ok: false, error: { message: defaultMessage } };
+}
+
 export async function getAllUsers(): Promise<Result<User[]>> {
   const userList = await db.select().from(users);
 
@@ -58,21 +74,29 @@ export async function getUserByEmailOrUsername(identifier: string): Promise<Resu
 }
 
 export async function createUser(input: CreateUserInput): Promise<Result<User>> {
-  const userInput = { ...input, email: input.email.toLowerCase() };
-  const [user] = await db.insert(users).values(userInput).returning();
+  try {
+    const userInput = { ...input, email: input.email.toLowerCase() };
+    const [user] = await db.insert(users).values(userInput).returning();
 
-  return user
-    ? { ok: true, data: user }
-    : { ok: false, error: { message: 'Unable to create user' } };
+    return user
+      ? { ok: true, data: user }
+      : { ok: false, error: { message: 'Unable to create user' } };
+  } catch (error) {
+    return handleUniqueConstraintError(error, 'Unable to create user');
+  }
 }
 
 export async function updateUser(id: number, input: UpdateUserInput): Promise<Result<User>> {
-  const updateInput = input.email ? { ...input, email: input.email.toLowerCase() } : input;
-  const [updated] = await db.update(users).set(updateInput).where(eq(users.id, id)).returning();
+  try {
+    const updateInput = input.email ? { ...input, email: input.email.toLowerCase() } : input;
+    const [updated] = await db.update(users).set(updateInput).where(eq(users.id, id)).returning();
 
-  return updated
-    ? { ok: true, data: updated }
-    : { ok: false, error: { message: 'Cannot update user' } };
+    return updated
+      ? { ok: true, data: updated }
+      : { ok: false, error: { message: 'Cannot update user' } };
+  } catch (error) {
+    return handleUniqueConstraintError(error, 'Cannot update user');
+  }
 }
 
 export async function deleteUser(id: number): Promise<Result<boolean>> {
