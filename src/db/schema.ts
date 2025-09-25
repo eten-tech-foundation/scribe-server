@@ -4,6 +4,7 @@ import type { Json } from 'drizzle-zod';
 import { z } from '@hono/zod-openapi';
 import {
   boolean,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -153,38 +154,60 @@ export const project_unit_bible_books = pgTable('project_unit_bible_books', {
     .$onUpdate(() => new Date()),
 });
 
-export const bible_texts = pgTable('bible_texts', {
-  id: serial('id').primaryKey(),
-  bibleId: integer('bible_id')
-    .notNull()
-    .references(() => bibles.id),
-  bookId: integer('book_id')
-    .notNull()
-    .references(() => books.id),
-  chapterNumber: integer('chapter_number').notNull(),
-  verseNumber: integer('verse_number').notNull(),
-  text: varchar('text').notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-});
+export const bible_texts = pgTable(
+  'bible_texts',
+  {
+    id: serial('id').primaryKey(),
+    bibleId: integer('bible_id')
+      .notNull()
+      .references(() => bibles.id),
+    bookId: integer('book_id')
+      .notNull()
+      .references(() => books.id),
+    chapterNumber: integer('chapter_number').notNull(),
+    verseNumber: integer('verse_number').notNull(),
+    text: varchar('text').notNull(),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index('idx_bible_texts_bible_book_chapter').on(
+      table.bibleId,
+      table.bookId,
+      table.chapterNumber
+    ),
+    index('idx_bible_texts_bible_book_chapter_verse').on(
+      table.bibleId,
+      table.bookId,
+      table.chapterNumber,
+      table.verseNumber
+    ),
+  ]
+);
 
-export const translated_verses = pgTable('translated_verses', {
-  id: serial('id').primaryKey(),
-  projectUnitId: integer('project_unit_id')
-    .notNull()
-    .references(() => project_units.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
-  content: varchar('content').notNull(),
-  bibleTextId: integer('bible_text_id')
-    .notNull()
-    .references(() => bible_texts.id),
-  assignedUserId: integer('assigned_user_id').references(() => users.id),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-});
+export const translated_verses = pgTable(
+  'translated_verses',
+  {
+    id: serial('id').primaryKey(),
+    projectUnitId: integer('project_unit_id')
+      .notNull()
+      .references(() => project_units.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    content: varchar('content').notNull(),
+    bibleTextId: integer('bible_text_id')
+      .notNull()
+      .references(() => bible_texts.id),
+    assignedUserId: integer('assigned_user_id').references(() => users.id),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('uq_translated_verse_per_bible_text').on(table.projectUnitId, table.bibleTextId),
+  ]
+);
 
 export const chapter_assignments = pgTable(
   'chapter_assignments',
@@ -375,7 +398,7 @@ export const insertBibleTextsSchema = createInsertSchema(bible_texts, {
 
 export const insertTranslatedVersesSchema = createInsertSchema(translated_verses, {
   projectUnitId: (schema) => schema.int(),
-  content: (schema) => schema.min(1),
+  content: (schema) => schema.min(0),
   bibleTextId: (schema) => schema.int(),
   assignedUserId: (schema) => schema.int().optional(),
 })

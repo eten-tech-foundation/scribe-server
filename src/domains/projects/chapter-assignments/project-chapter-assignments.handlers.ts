@@ -110,8 +110,7 @@ export interface ChapterAssignmentProgress {
 
 interface User {
   id: number;
-  firstName: string | null;
-  lastName: string | null;
+  displayName: string;
 }
 
 export async function getChapterAssignmentProgressByProject(
@@ -127,13 +126,12 @@ export async function getChapterAssignmentProgressByProject(
         chapterNumber: chapter_assignments.chapterNumber,
         bookNameEng: books.eng_display_name,
         assignedUserId: chapter_assignments.assignedUserId,
-        assignedUserFirstName: users.firstName,
-        assignedUserLastName: users.lastName,
+        assignedUserDisplayName: users.username,
         submittedTime: chapter_assignments.submittedTime,
         createdAt: chapter_assignments.createdAt,
         updatedAt: chapter_assignments.updatedAt,
         totalVerses: sql<number>`COUNT(${bible_texts.id})`,
-        completedVerses: sql<number>`COUNT(${translated_verses.id})`,
+        completedVerses: sql<number>`COUNT(CASE WHEN ${translated_verses.content} != '' AND ${translated_verses.content} IS NOT NULL THEN 1 END)`,
       })
       .from(chapter_assignments)
       .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
@@ -178,8 +176,7 @@ export async function getChapterAssignmentProgressByProject(
         assignedUser: row.assignedUserId
           ? {
               id: row.assignedUserId,
-              firstName: row.assignedUserFirstName,
-              lastName: row.assignedUserLastName,
+              displayName: row.assignedUserDisplayName ?? '',
             }
           : null,
         totalVerses: Number(row.totalVerses),

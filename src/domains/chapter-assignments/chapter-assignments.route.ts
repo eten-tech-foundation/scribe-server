@@ -4,6 +4,7 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
+import { requireProjectAccess, requireUserAccess } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as chapterAssignmentsHandler from './chapter-assignments.handlers';
@@ -30,6 +31,10 @@ const createChapterAssignmentRequest = z.object({
   chapterNumber: z.number().int(),
   assignedUserId: z.number().int().optional(),
 });
+
+server.use('/chapter-assignments/*/submit', requireUserAccess);
+server.use('/chapter-assignments', requireProjectAccess);
+server.use('/chapter-assignments/:id', requireProjectAccess);
 
 const createChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
@@ -146,6 +151,61 @@ server.openapi(updateChapterAssignmentRoute, async (c) => {
   }
 
   return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
+});
+
+const submitChapterAssignmentRoute = createRoute({
+  tags: ['Chapter Assignments'],
+  method: 'patch',
+  path: '/chapter-assignments/{chapterAssignmentId}/submit',
+  request: {
+    params: z.object({
+      chapterAssignmentId: z.coerce.number().int().positive(),
+    }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      chapterAssignmentResponse,
+      'The submitted chapter assignment'
+    ),
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+      createMessageObjectSchema('Bad Request'),
+      'Validation error or constraint violation'
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'You do not have permission to submit this chapter assignment.'
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
+      'Chapter assignment not found'
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
+  },
+  summary: 'Submit a chapter assignment',
+  description: 'Marks a chapter assignment as submitted with the current timestamp.',
+});
+
+server.openapi(submitChapterAssignmentRoute, async (c) => {
+  const { chapterAssignmentId } = c.req.valid('param');
+
+  const result = await chapterAssignmentsHandler.submitChapterAssignment(chapterAssignmentId);
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
+  }
+
+  if (result.error.message === 'Chapter assignment not found') {
+    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
 const getChapterAssignmentRoute = createRoute({

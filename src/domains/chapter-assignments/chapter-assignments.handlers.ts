@@ -62,6 +62,9 @@ export async function updateChapterAssignment(
       .set(updateData)
       .where(eq(chapter_assignments.id, chapterAssignmentId))
       .returning();
+    if (!assignment) {
+      return { ok: false, error: { message: 'Chapter assignment not found' } };
+    }
     return { ok: true, data: assignment };
   } catch (err) {
     logger.error({
@@ -74,7 +77,25 @@ export async function updateChapterAssignment(
     return { ok: false, error: { message: 'Failed to update chapter assignment' } };
   }
 }
-
+export async function submitChapterAssignment(
+  chapterAssignmentId: number
+): Promise<Result<ChapterAssignmentRecord>> {
+  try {
+    return await updateChapterAssignment(chapterAssignmentId, {
+      submittedTime: new Date(),
+    });
+  } catch (err) {
+    logger.error({
+      cause: err,
+      message: 'Failed to submit chapter assignment',
+      context: {
+        chapterAssignmentId,
+        submittedTime: 'auto-generated',
+      },
+    });
+    return { ok: false, error: { message: 'Failed to submit chapter assignment' } };
+  }
+}
 export async function getChapterAssignment(id: number): Promise<Result<ChapterAssignmentRecord>> {
   try {
     const [assignment] = await db

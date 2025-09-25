@@ -128,8 +128,7 @@ server.openapi(deleteProjectChapterAssignmentsRoute, async (c) => {
 // --------------------------------------
 const userResponse = z.object({
   id: z.number().int(),
-  firstName: z.string().nullable(),
-  lastName: z.string().nullable(),
+  displayName: z.string(),
 });
 
 const chapterAssignmentProgressResponse = z.object({

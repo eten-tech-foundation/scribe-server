@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto';
 import type { CreateUserInput, User } from '@/domains/users/users.handlers';
 import type { Result } from '@/lib/types';
 
-import { createUser, deleteUser, getUserByEmail } from '@/domains/users/users.handlers';
+import { createUser, deleteUser } from '@/domains/users/users.handlers';
 import env from '@/env';
 import { sendInvitationEmail } from '@/lib/services/notifications/mailgun.service';
 
@@ -27,26 +27,20 @@ export async function createUserWithInvitation(
 ): Promise<Result<UserInvitationResult>> {
   const normalizedInput = { ...input, email: input.email.toLowerCase() };
 
-  // 1. Check if user already exists
-  const existingUserResult = await getUserByEmail(normalizedInput.email);
-  if (existingUserResult.ok) {
-    return { ok: false, error: { message: 'A user with this email already exists.' } };
-  }
-
-  // 2. Create user in local database using handler
+  // 1. Create user in local database using handler
   const dbResult = await createUser(normalizedInput);
   if (!dbResult.ok) {
     return { ok: false, error: dbResult.error };
   }
 
   try {
-    // 3. Create user in Auth0
+    // 2. Create user in Auth0
     const auth0User = await createAuth0User(normalizedInput);
 
-    // 4. Create password change ticket (invitation link)
+    // 3. Create password change ticket (invitation link)
     const ticketUrl = await createPasswordChangeTicket(auth0User.user_id!);
 
-    // 5. Send invitation email
+    // 4. Send invitation email
     await sendUserInvitationEmail(normalizedInput, ticketUrl);
 
     return {
