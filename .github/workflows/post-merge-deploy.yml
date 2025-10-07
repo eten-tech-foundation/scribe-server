@@ -120,7 +120,7 @@ jobs:
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: scribe-server-prod
+          app-name: fluent-server-prod
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_PROD }}
           package: deployment/
           clean: true
