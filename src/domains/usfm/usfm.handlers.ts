@@ -14,6 +14,7 @@ import {
 import { logger } from '@/lib/logger';
 
 const MAX_COMPRESSION_LEVEL = 9;
+const BATCH_SIZE = 25;
 
 interface VerseData {
   bookId: number;
@@ -84,53 +85,69 @@ async function getProjectBooks(projectUnitId: number, bookIds?: number[]): Promi
   return query;
 }
 
-async function getBookVerses(projectUnitId: number, bookId: number): Promise<VerseData[]> {
-  const bibleIds = await db
-    .selectDistinct({ bibleId: project_unit_bible_books.bibleId })
-    .from(project_unit_bible_books)
-    .where(
-      and(
-        eq(project_unit_bible_books.projectUnitId, projectUnitId),
-        eq(project_unit_bible_books.bookId, bookId)
-      )
-    );
-
-  if (bibleIds.length === 0) {
-    return [];
+async function getBookVerses(
+  projectUnitId: number,
+  bookIds: number[]
+): Promise<Map<number, VerseData[]>> {
+  if (!bookIds || bookIds.length === 0) {
+    return new Map();
   }
 
-  const bibleIdArray = bibleIds.map((b) => b.bibleId);
+  const verses: VerseData[] = [];
 
-  const query = db
-    .select({
-      bookId: bible_texts.bookId,
-      bookCode: books.code,
-      bookName: books.eng_display_name,
-      chapterNumber: bible_texts.chapterNumber,
-      verseNumber: bible_texts.verseNumber,
-      translatedContent: translated_verses.content,
-    })
-    .from(bible_texts)
-    .innerJoin(books, eq(bible_texts.bookId, books.id))
-    .innerJoin(
-      project_unit_bible_books,
-      and(
-        eq(project_unit_bible_books.bookId, bible_texts.bookId),
-        eq(project_unit_bible_books.bibleId, bible_texts.bibleId),
-        eq(project_unit_bible_books.projectUnitId, projectUnitId)
-      )
-    )
-    .leftJoin(
-      translated_verses,
-      and(
-        eq(translated_verses.bibleTextId, bible_texts.id),
-        eq(translated_verses.projectUnitId, projectUnitId)
-      )
-    )
-    .where(and(inArray(bible_texts.bibleId, bibleIdArray), eq(bible_texts.bookId, bookId)))
-    .orderBy(asc(bible_texts.chapterNumber), asc(bible_texts.verseNumber));
+  for (let i = 0; i < bookIds.length; i += BATCH_SIZE) {
+    const batchBookIds = bookIds.slice(i, i + BATCH_SIZE);
 
-  return query;
+    const batchVerses = await db
+      .select({
+        bookId: bible_texts.bookId,
+        bookCode: books.code,
+        bookName: books.eng_display_name,
+        chapterNumber: bible_texts.chapterNumber,
+        verseNumber: bible_texts.verseNumber,
+        translatedContent: translated_verses.content,
+      })
+      .from(bible_texts)
+      .innerJoin(books, eq(bible_texts.bookId, books.id))
+      .innerJoin(
+        project_unit_bible_books,
+        and(
+          eq(project_unit_bible_books.bookId, bible_texts.bookId),
+          eq(project_unit_bible_books.bibleId, bible_texts.bibleId),
+          eq(project_unit_bible_books.projectUnitId, projectUnitId)
+        )
+      )
+      .leftJoin(
+        translated_verses,
+        and(
+          eq(translated_verses.bibleTextId, bible_texts.id),
+          eq(translated_verses.projectUnitId, projectUnitId)
+        )
+      )
+      .where(
+        and(
+          eq(project_unit_bible_books.projectUnitId, projectUnitId),
+          inArray(bible_texts.bookId, batchBookIds)
+        )
+      )
+      .orderBy(
+        asc(bible_texts.bookId),
+        asc(bible_texts.chapterNumber),
+        asc(bible_texts.verseNumber)
+      );
+
+    verses.push(...batchVerses);
+  }
+
+  const versesByBook = new Map<number, VerseData[]>();
+  for (const verse of verses) {
+    if (!versesByBook.has(verse.bookId)) {
+      versesByBook.set(verse.bookId, []);
+    }
+    versesByBook.get(verse.bookId)!.push(verse);
+  }
+
+  return versesByBook;
 }
 
 function createUSFMStreamForBook(verses: VerseData[]): Readable {
@@ -195,7 +212,7 @@ async function createUSFMZipStreamAsync(
 
   archive.on('warning', (err) => {
     if (err.code === 'ENOENT') {
-      logger.warn('Archive warning:', { warning: err, projectUnitId });
+      logger.warn('Archive warning - file not found:', { warning: err, projectUnitId });
     } else {
       hasError = true;
       logger.error('Archive critical warning:', { error: err, projectUnitId, bookIds });
@@ -207,41 +224,52 @@ async function createUSFMZipStreamAsync(
   });
 
   const processData = async () => {
-    for (const book of projectBooks) {
-      if (hasError) {
-        logger.warn('Stopping USFM generation due to error', { projectUnitId });
-        break;
+    try {
+      const bookIdArray = projectBooks.map((b) => b.bookId);
+      const versesByBook = await getBookVerses(projectUnitId, bookIdArray);
+
+      for (const book of projectBooks) {
+        if (hasError) {
+          logger.warn('Stopping USFM generation due to error', { projectUnitId });
+          break;
+        }
+
+        const verses = versesByBook.get(book.bookId) ?? [];
+
+        if (verses.length === 0) {
+          logger.warn('No verses found for book', {
+            projectUnitId,
+            bookId: book.bookId,
+            bookCode: book.bookCode,
+          });
+          continue;
+        }
+
+        const bookStream = createUSFMStreamForBook(verses);
+        archive.append(bookStream, { name: `${book.bookCode}.usfm` });
+
+        await new Promise((resolve) => process.nextTick(resolve));
       }
 
-      const verses = await getBookVerses(projectUnitId, book.bookId);
-
-      if (verses.length === 0) {
-        logger.warn('No verses found for book', {
-          projectUnitId,
-          bookId: book.bookId,
-          bookCode: book.bookCode,
-        });
-        continue;
+      if (!hasError) {
+        await archive.finalize();
+      } else {
+        archive.destroy();
       }
-
-      const bookStream = createUSFMStreamForBook(verses);
-      archive.append(bookStream, { name: `${book.bookCode}.usfm` });
-
-      await new Promise((resolve) => setImmediate(resolve));
-    }
-
-    if (!hasError) {
-      await archive.finalize();
+    } catch (error) {
+      hasError = true;
+      logger.error('Error processing USFM stream:', { error, projectUnitId, bookIds });
+      const err =
+        error instanceof Error ? error : new Error('Unknown error during USFM generation');
+      if (!archive.destroyed) {
+        archive.destroy(err);
+      }
     }
   };
 
   processData().catch((error) => {
     hasError = true;
-    logger.error('Error processing USFM stream:', { error, projectUnitId, bookIds });
-    const err = error instanceof Error ? error : new Error('Unknown error');
-    if (!archive.destroyed) {
-      archive.destroy(err);
-    }
+    logger.error('Unhandled error in processData:', { error, projectUnitId, bookIds });
   });
 
   return { stream: archive, cleanup };
