@@ -1,4 +1,5 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import type { Result } from '@/lib/types';
 
@@ -22,6 +23,8 @@ export interface UserChapterAssignment {
   bibleId: number;
   bibleName: string;
   targetLanguage: string;
+  sourceLangCode: string;
+  bookCode: string;
   bookId: number;
   book: string;
   chapterNumber: number;
@@ -29,6 +32,8 @@ export interface UserChapterAssignment {
   completedVerses: number;
   submittedTime: string | null;
 }
+
+const sourceLang = alias(languages, 'source_lang');
 
 export async function getChapterAssignmentsByUserId(
   userId: number
@@ -44,6 +49,8 @@ export async function getChapterAssignmentsByUserId(
         targetLanguage: languages.langName,
         bookId: chapter_assignments.bookId,
         bookName: books.eng_display_name,
+        bookCode: books.code,
+        sourceLangCode: sourceLang.langCodeIso6393,
         chapterNumber: chapter_assignments.chapterNumber,
         submittedTime: chapter_assignments.submittedTime,
         totalVerses: sql<number>`COUNT(${bible_texts.id})`,
@@ -54,6 +61,7 @@ export async function getChapterAssignmentsByUserId(
       .innerJoin(projects, eq(project_units.projectId, projects.id))
       .innerJoin(bibles, eq(chapter_assignments.bibleId, bibles.id))
       .innerJoin(languages, eq(projects.targetLanguage, languages.id))
+      .innerJoin(sourceLang, eq(projects.sourceLanguage, sourceLang.id))
       .innerJoin(books, eq(chapter_assignments.bookId, books.id))
       .innerJoin(
         bible_texts,
@@ -81,7 +89,9 @@ export async function getChapterAssignmentsByUserId(
         projects.name,
         bibles.name,
         languages.langName,
-        books.eng_display_name
+        sourceLang.langCodeIso6393,
+        books.eng_display_name,
+        books.code
       )
       .orderBy(projects.name, books.eng_display_name, chapter_assignments.chapterNumber);
 
@@ -90,8 +100,10 @@ export async function getChapterAssignmentsByUserId(
       projectName: row.projectName,
       projectUnitId: row.projectUnitId,
       bibleId: row.bibleId,
+      bookCode: row.bookCode,
       bibleName: row.bibleName,
       targetLanguage: row.targetLanguage,
+      sourceLangCode: row.sourceLangCode ?? '',
       bookId: row.bookId,
       book: row.bookName,
       chapterNumber: row.chapterNumber,
