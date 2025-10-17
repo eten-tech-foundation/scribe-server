@@ -16,6 +16,7 @@ import '@/domains/projects/books/project-books.route';
 import '@/domains/bibles/bible-texts/bible-texts.route';
 import '@/domains/translated-verses/translated-verses.route';
 import '@/domains/usfm/usfm.route';
+import '@/domains/chapter-assignments/editor-state/user-chapter-assignment-editor-state.route';
 configureOpenAPI(server);
 
 export default server;

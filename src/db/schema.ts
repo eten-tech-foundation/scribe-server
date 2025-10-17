@@ -240,6 +240,28 @@ export const chapter_assignments = pgTable(
   ]
 );
 
+export const user_chapter_assignment_editor_state = pgTable(
+  'user_chapter_assignment_editor_state',
+  {
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    chapterAssignmentId: integer('chapter_assignment_id')
+      .notNull()
+      .references(() => chapter_assignments.id, { onDelete: 'cascade' }),
+    resources: jsonb('resources').$type<Json>(),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('uq_user_chapter_assignment_editor_state').on(
+      table.userId,
+      table.chapterAssignmentId
+    ),
+  ]
+);
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({
   zodInstance: z,
 });
@@ -257,6 +279,9 @@ export const selectProjectUnitBibleBooksSchema = createSelectSchema(project_unit
 export const selectBibleTextsSchema = createSelectSchema(bible_texts);
 export const selectTranslatedVersesSchema = createSelectSchema(translated_verses);
 export const selectChapterAssignmentsSchema = createSelectSchema(chapter_assignments);
+export const selectUserChapterAssignmentEditorStateSchema = createSelectSchema(
+  user_chapter_assignment_editor_state
+);
 
 export const insertUsersSchema = createInsertSchema(users, {
   username: (schema) => schema.min(1).max(100),
@@ -433,6 +458,23 @@ export const insertChapterAssignmentsSchema = createInsertSchema(chapter_assignm
     updatedAt: true,
   });
 
+export const insertUserChapterAssignmentEditorStateSchema = createInsertSchema(
+  user_chapter_assignment_editor_state,
+  {
+    userId: (schema) => schema.int(),
+    chapterAssignmentId: (schema) => schema.int(),
+    resources: (schema) => schema.optional(),
+  }
+)
+  .required({
+    userId: true,
+    chapterAssignmentId: true,
+  })
+  .omit({
+    createdAt: true,
+    updatedAt: true,
+  });
+
 export const patchUsersSchema = insertUsersSchema.partial();
 export const patchRolesSchema = insertRolesSchema.partial();
 export const patchOrganizationsSchema = insertOrganizationsSchema.partial();
@@ -445,3 +487,5 @@ export const patchProjectUnitBibleBooksSchema = insertProjectUnitBibleBooksSchem
 export const patchBibleTextsSchema = insertBibleTextsSchema.partial();
 export const patchTranslatedVersesSchema = insertTranslatedVersesSchema.partial();
 export const patchChapterAssignmentsSchema = insertChapterAssignmentsSchema.partial();
+export const patchUserChapterAssignmentEditorStateSchema =
+  insertUserChapterAssignmentEditorStateSchema.partial();
