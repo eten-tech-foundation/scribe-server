@@ -240,6 +240,17 @@ export const chapter_assignments = pgTable(
   ]
 );
 
+export const editorStateResourcesSchema = z
+  .object({
+    activeResource: z.string().min(1),
+    bookCode: z.string().min(1),
+    chapterNumber: z.number(),
+    verseNumber: z.number(),
+    languageCode: z.string().min(1),
+    tabStatus: z.boolean(),
+  })
+  .nullable();
+
 export const user_chapter_assignment_editor_state = pgTable(
   'user_chapter_assignment_editor_state',
   {
@@ -249,7 +260,7 @@ export const user_chapter_assignment_editor_state = pgTable(
     chapterAssignmentId: integer('chapter_assignment_id')
       .notNull()
       .references(() => chapter_assignments.id, { onDelete: 'cascade' }),
-    resources: jsonb('resources').$type<Json>(),
+    resources: jsonb('resources').$type<z.infer<typeof editorStateResourcesSchema>>(),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
@@ -463,7 +474,7 @@ export const insertUserChapterAssignmentEditorStateSchema = createInsertSchema(
   {
     userId: (schema) => schema.int(),
     chapterAssignmentId: (schema) => schema.int(),
-    resources: (schema) => schema.optional(),
+    resources: () => editorStateResourcesSchema,
   }
 )
   .required({

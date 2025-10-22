@@ -5,8 +5,8 @@ import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import {
+  editorStateResourcesSchema,
   insertUserChapterAssignmentEditorStateSchema,
-  selectUserChapterAssignmentEditorStateSchema,
 } from '@/db/schema';
 import { requireUserAccess } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
@@ -36,7 +36,7 @@ const getEditorStateRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      selectUserChapterAssignmentEditorStateSchema.nullable(),
+      editorStateResourcesSchema,
       'The editor state for the current user (null if not previously saved)'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
@@ -100,10 +100,7 @@ const saveEditorStateRoute = createRoute({
     ),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      selectUserChapterAssignmentEditorStateSchema,
-      'The saved editor state'
-    ),
+    [HttpStatusCodes.OK]: jsonContent(editorStateResourcesSchema, 'The saved editor state'),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
       createMessageObjectSchema('Bad Request'),
       'Invalid request data'
@@ -157,5 +154,5 @@ server.openapi(saveEditorStateRoute, async (c) => {
     return c.json(result.data, HttpStatusCodes.OK);
   }
 
-  return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });

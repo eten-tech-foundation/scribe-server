@@ -3,8 +3,8 @@ import type { z } from '@hono/zod-openapi';
 import { and, eq, sql } from 'drizzle-orm';
 
 import type {
+  editorStateResourcesSchema,
   insertUserChapterAssignmentEditorStateSchema,
-  selectUserChapterAssignmentEditorStateSchema,
 } from '@/db/schema';
 import type { Result } from '@/lib/types';
 
@@ -12,9 +12,6 @@ import { db } from '@/db';
 import { user_chapter_assignment_editor_state } from '@/db/schema';
 import { logger } from '@/lib/logger';
 
-export type UserChapterAssignmentEditorState = z.infer<
-  typeof selectUserChapterAssignmentEditorStateSchema
->;
 export type UpsertUserChapterAssignmentEditorStateInput = z.infer<
   typeof insertUserChapterAssignmentEditorStateSchema
 >;
@@ -22,10 +19,10 @@ export type UpsertUserChapterAssignmentEditorStateInput = z.infer<
 export async function getEditorState(
   userId: number,
   chapterAssignmentId: number
-): Promise<Result<UserChapterAssignmentEditorState | null>> {
+): Promise<Result<z.infer<typeof editorStateResourcesSchema>>> {
   try {
-    const [state] = await db
-      .select()
+    const [result] = await db
+      .select({ resources: user_chapter_assignment_editor_state.resources })
       .from(user_chapter_assignment_editor_state)
       .where(
         and(
@@ -35,7 +32,7 @@ export async function getEditorState(
       )
       .limit(1);
 
-    return { ok: true, data: state ?? null };
+    return { ok: true, data: result?.resources ?? null };
   } catch (err) {
     logger.error({
       cause: err,
@@ -48,9 +45,9 @@ export async function getEditorState(
 
 export async function upsertEditorState(
   input: UpsertUserChapterAssignmentEditorStateInput
-): Promise<Result<UserChapterAssignmentEditorState>> {
+): Promise<Result<z.infer<typeof editorStateResourcesSchema>>> {
   try {
-    const [state] = await db
+    const [result] = await db
       .insert(user_chapter_assignment_editor_state)
       .values(input)
       .onConflictDoUpdate({
@@ -63,9 +60,9 @@ export async function upsertEditorState(
           updatedAt: sql`now()`,
         },
       })
-      .returning();
+      .returning({ resources: user_chapter_assignment_editor_state.resources });
 
-    return { ok: true, data: state };
+    return { ok: true, data: result.resources };
   } catch (err) {
     logger.error({
       cause: err,
