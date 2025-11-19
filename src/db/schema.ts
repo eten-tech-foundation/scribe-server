@@ -15,6 +15,8 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core';
 import { createSchemaFactory } from 'drizzle-zod';
+
+// Enums
 export const userStatusEnum = pgEnum('user_status', ['invited', 'verified', 'inactive']);
 export const scriptDirectionEnum = pgEnum('script_direction', ['ltr', 'rtl']);
 export const projectStatusEnum = pgEnum('project_status', [
@@ -22,7 +24,14 @@ export const projectStatusEnum = pgEnum('project_status', [
   'in_progress',
   'completed',
 ]);
+export const exportJobStatusEnum = pgEnum('export_job_status', [
+  'pending',
+  'processing',
+  'completed',
+  'failed',
+]);
 
+// Tables
 export const roles = pgTable('roles', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull().unique(),
@@ -273,10 +282,43 @@ export const user_chapter_assignment_editor_state = pgTable(
     ),
   ]
 );
+
+// NEW: USFM Export Jobs table
+export const usfmExportJobs = pgTable('usfm_export_jobs', {
+  id: serial('id').primaryKey(),
+  jobId: varchar('job_id', { length: 255 }).notNull().unique(),
+  projectUnitId: integer('project_unit_id')
+    .notNull()
+    .references(() => project_units.id, { onDelete: 'cascade' }),
+  bookIds: jsonb('book_ids').$type<number[]>(),
+  userId: integer('user_id').references(() => users.id),
+
+  status: exportJobStatusEnum('status').notNull().default('pending'),
+  progress: integer('progress').default(0),
+
+  filename: varchar('filename', { length: 255 }),
+  filePath: varchar('file_path', { length: 500 }),
+  fileSize: integer('file_size'),
+
+  error: varchar('error', { length: 1000 }),
+
+  projectName: varchar('project_name', { length: 255 }),
+  bookCount: integer('book_count'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+  expiresAt: timestamp('expires_at'),
+
+  isDownloaded: boolean('is_downloaded').default(false),
+});
+
+// Schema factory
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({
   zodInstance: z,
 });
 
+// Select schemas
 export const selectUsersSchema = createSelectSchema(users);
 export const selectRolesSchema = createSelectSchema(roles);
 export const selectOrganizationsSchema = createSelectSchema(organizations);
@@ -293,7 +335,9 @@ export const selectChapterAssignmentsSchema = createSelectSchema(chapter_assignm
 export const selectUserChapterAssignmentEditorStateSchema = createSelectSchema(
   user_chapter_assignment_editor_state
 );
+export const selectUsfmExportJobsSchema = createSelectSchema(usfmExportJobs);
 
+// Insert schemas
 export const insertUsersSchema = createInsertSchema(users, {
   username: (schema) => schema.min(1).max(100),
   email: (schema) => schema.email().max(255),
@@ -486,6 +530,24 @@ export const insertUserChapterAssignmentEditorStateSchema = createInsertSchema(
     updatedAt: true,
   });
 
+export const insertUsfmExportJobsSchema = createInsertSchema(usfmExportJobs, {
+  jobId: (schema) => schema.min(1).max(255),
+  projectUnitId: (schema) => schema.int(),
+  status: z.enum(['pending', 'processing', 'completed', 'failed']).default('pending'),
+  progress: (schema) => schema.int().min(0).max(100).default(0),
+})
+  .required({
+    jobId: true,
+    projectUnitId: true,
+    status: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+    // eslint-disable-next-line max-lines
+  });
+
+// Patch schemas
 export const patchUsersSchema = insertUsersSchema.partial();
 export const patchRolesSchema = insertRolesSchema.partial();
 export const patchOrganizationsSchema = insertOrganizationsSchema.partial();
@@ -500,3 +562,4 @@ export const patchTranslatedVersesSchema = insertTranslatedVersesSchema.partial(
 export const patchChapterAssignmentsSchema = insertChapterAssignmentsSchema.partial();
 export const patchUserChapterAssignmentEditorStateSchema =
   insertUserChapterAssignmentEditorStateSchema.partial();
+export const patchUsfmExportJobsSchema = insertUsfmExportJobsSchema.partial();
