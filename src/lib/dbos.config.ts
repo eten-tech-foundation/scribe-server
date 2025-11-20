@@ -11,9 +11,9 @@ export async function initializeDBOS() {
     });
 
     await DBOS.launch();
-    
+
     logger.info('✅ DBOS initialized');
-    
+
     return DBOS;
   } catch (error) {
     logger.error('❌ Failed to initialize DBOS', { error });

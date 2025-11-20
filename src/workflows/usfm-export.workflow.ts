@@ -26,11 +26,7 @@ async function initializeJob(workflowId: string, projectUnitId: number, bookIds?
 /**
  * Step 2: Generate and store ZIP file
  */
-async function generateAndStoreZip(
-  workflowId: string,
-  projectUnitId: number,
-  bookIds?: number[]
-) {
+async function generateAndStoreZip(workflowId: string, projectUnitId: number, bookIds?: number[]) {
   logger.info('Generating ZIP file', { workflowId, projectUnitId });
 
   // Update status to processing
@@ -117,10 +113,9 @@ export const usfmExportWorkflow = DBOS.registerWorkflow(
 
     try {
       // Step 1: Initialize job (idempotent)
-      await DBOS.runStep(
-        () => initializeJob(workflowId, projectUnitId, bookIds),
-        { name: 'initialize' }
-      );
+      await DBOS.runStep(() => initializeJob(workflowId, projectUnitId, bookIds), {
+        name: 'initialize',
+      });
 
       // Step 2: Generate and store ZIP (idempotent)
       const result = await DBOS.runStep(

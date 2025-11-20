@@ -395,8 +395,7 @@ server.openapi(getJobStatusRoute, async (c) => {
         error: job.error,
         createdAt: job.createdAt.toISOString(),
         completedAt: job.completedAt?.toISOString() ?? null,
-        downloadUrl:
-          job.status === 'completed' ? `/api/usfm/jobs/${workflowId}/download` : null,
+        downloadUrl: job.status === 'completed' ? `/api/usfm/jobs/${workflowId}/download` : null,
       },
       HttpStatusCodes.OK
     );
@@ -489,5 +488,5 @@ export {
   exportProjectUSFMRoute,
   getExportableBooksRoute,
   getJobStatusRoute,
-  startBackgroundExportRoute
+  startBackgroundExportRoute,
 };
