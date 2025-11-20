@@ -2,13 +2,30 @@ import 'dotenv/config';
 import { serve } from '@hono/node-server';
 
 import env from '@/env';
+import { initializeDBOS } from '@/lib/dbos.config';
+import { logger } from '@/lib/logger';
 
 import app from './app';
 
-// eslint-disable-next-line no-console
-console.log(`Server is running on port http://localhost:${env.PORT}`);
+async function main() {
+  try {
+    // Initialize DBOS
+    await initializeDBOS();
 
-serve({
-  fetch: app.fetch,
-  port: env.PORT,
-});
+    // Start server
+    serve(
+      {
+        fetch: app.fetch,
+        port: env.PORT,
+      },
+      (info) => {
+        logger.info(`🚀 Server running on http://localhost:${info.port}`);
+      }
+    );
+  } catch (error) {
+    logger.error('Failed to start', { error });
+    process.exit(1);
+  }
+}
+
+main();

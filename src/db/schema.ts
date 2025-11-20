@@ -10,6 +10,7 @@ import {
   pgEnum,
   pgTable,
   serial,
+  text,
   timestamp,
   uniqueIndex,
   varchar,
@@ -273,6 +274,36 @@ export const user_chapter_assignment_editor_state = pgTable(
     ),
   ]
 );
+// USFM Export Jobs Table
+export const usfmExportJobs = pgTable('usfm_export_jobs', {
+  id: serial('id').primaryKey(),
+  
+  // Workflow ID
+  workflowId: varchar('workflow_id', { length: 255 }).notNull().unique(),
+  
+  // Request data
+  projectUnitId: integer('project_unit_id').notNull(),
+  bookIds: jsonb('book_ids'),
+  
+  // Status
+  status: varchar('status', { length: 50 }).notNull().default('pending'),
+  progress: integer('progress').default(0),
+  
+  // File data (stored directly in database)
+  filename: varchar('filename', { length: 255 }),
+  fileData: text('file_data'), // Base64 encoded ZIP
+  fileSize: integer('file_size'),
+  
+  // Error
+  error: text('error'),
+  
+  // Metadata
+  projectName: varchar('project_name', { length: 255 }),
+  
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  completedAt: timestamp('completed_at'),
+});
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({
   zodInstance: z,
 });
@@ -500,3 +531,4 @@ export const patchTranslatedVersesSchema = insertTranslatedVersesSchema.partial(
 export const patchChapterAssignmentsSchema = insertChapterAssignmentsSchema.partial();
 export const patchUserChapterAssignmentEditorStateSchema =
   insertUserChapterAssignmentEditorStateSchema.partial();
+export type USFMExportJob = typeof usfmExportJobs.$inferSelect;

@@ -17,6 +17,7 @@ const EnvSchema = z.object({
     .default('info')
     .optional(),
   DATABASE_URL: z.string().url(),
+  DBOS_DATABASE_URL: z.string().url(),
   AUTH0_DOMAIN: z.string(),
   AUTH0_AUDIENCE: z.string(),
   APPLICATIONINSIGHTS_CONNECTION_STRING: z.string(),

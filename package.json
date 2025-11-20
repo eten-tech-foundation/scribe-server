@@ -16,6 +16,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@dbos-inc/dbos-sdk": "^4.4.9",
     "@hono/node-server": "^1.14.4",
     "@hono/zod-openapi": "^0.19.8",
     "@scalar/hono-api-reference": "^0.9.3",

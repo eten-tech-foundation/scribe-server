@@ -1,10 +1,16 @@
+/* eslint-disable node/prefer-global/buffer */
 import { createRoute, z } from '@hono/zod-openapi';
+import { eq } from 'drizzle-orm';
 import { stream } from 'hono/streaming';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 import { jsonContent } from 'stoker/openapi/helpers';
 
+import { db } from '@/db';
+import { usfmExportJobs } from '@/db/schema';
+import { DBOS } from '@/lib/dbos.config';
 import { logger } from '@/lib/logger';
 import { server } from '@/server/server';
+import { usfmExportWorkflow } from '@/workflows/usfm-export.workflow';
 
 import {
   createUSFMZipStreamAsync,
@@ -17,6 +23,10 @@ interface ErrorResponse {
   error: string;
   details?: string;
 }
+
+// ============================================================================
+// SCHEMAS
+// ============================================================================
 
 const projectUnitIdParam = z.object({
   projectUnitId: z.coerce.number().int().positive(),
@@ -44,6 +54,33 @@ const errorSchema = z.object({
   error: z.string(),
   details: z.string().optional(),
 });
+
+// NEW: Background export schemas
+const backgroundExportRequestSchema = z.object({
+  bookIds: z.array(z.number().int().positive()).optional(),
+});
+
+const backgroundExportResponseSchema = z.object({
+  workflowId: z.string(),
+  statusUrl: z.string(),
+});
+
+const jobStatusResponseSchema = z.object({
+  workflowId: z.string(),
+  status: z.string(),
+  progress: z.number().int(),
+  filename: z.string().nullable(),
+  fileSize: z.number().int().nullable(),
+  projectName: z.string().nullable(),
+  error: z.string().nullable(),
+  createdAt: z.string(),
+  completedAt: z.string().nullable(),
+  downloadUrl: z.string().nullable(),
+});
+
+// ============================================================================
+// ROUTE DEFINITIONS
+// ============================================================================
 
 const getExportableBooksRoute = createRoute({
   tags: ['USFM Export'],
@@ -81,6 +118,66 @@ const exportProjectUSFMRoute = createRoute({
   },
 });
 
+// NEW: Background export route
+const startBackgroundExportRoute = createRoute({
+  tags: ['USFM Export'],
+  method: 'post',
+  path: '/project-units/{projectUnitId}/usfm/background-export',
+  request: {
+    params: projectUnitIdParam,
+    body: jsonContent(backgroundExportRequestSchema, 'Book selection for background export'),
+  },
+  responses: {
+    [HttpStatusCodes.ACCEPTED]: jsonContent(backgroundExportResponseSchema, 'Export started'),
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(errorSchema, 'Bad request'),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(errorSchema, 'Project not found'),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(errorSchema, 'Internal server error'),
+  },
+});
+
+// NEW: Get job status route
+const getJobStatusRoute = createRoute({
+  tags: ['USFM Export'],
+  method: 'get',
+  path: '/usfm/jobs/{workflowId}',
+  request: {
+    params: z.object({ workflowId: z.string() }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(jobStatusResponseSchema, 'Job status'),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(errorSchema, 'Job not found'),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(errorSchema, 'Internal server error'),
+  },
+});
+
+// NEW: Download job route
+const downloadJobRoute = createRoute({
+  tags: ['USFM Export'],
+  method: 'get',
+  path: '/usfm/jobs/{workflowId}/download',
+  request: {
+    params: z.object({ workflowId: z.string() }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: {
+      description: 'ZIP file',
+      content: {
+        'application/zip': {
+          schema: { type: 'string', format: 'binary' },
+        },
+      },
+    },
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(errorSchema, 'Export not found'),
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(errorSchema, 'Export not ready'),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(errorSchema, 'Internal server error'),
+  },
+});
+
+// ============================================================================
+// ROUTE HANDLERS
+// ============================================================================
+
+// EXISTING: Get exportable books
 server.openapi(getExportableBooksRoute, async (c) => {
   try {
     const { projectUnitId } = c.req.valid('param');
@@ -111,6 +208,7 @@ server.openapi(getExportableBooksRoute, async (c) => {
   }
 });
 
+// EXISTING: Stream export (immediate download)
 server.openapi(exportProjectUSFMRoute, async (c) => {
   const { projectUnitId } = c.req.valid('param');
   const { bookIds } = c.req.valid('json');
@@ -204,4 +302,192 @@ server.openapi(exportProjectUSFMRoute, async (c) => {
   }
 });
 
-export { exportProjectUSFMRoute, getExportableBooksRoute };
+// NEW: Start background export
+server.openapi(startBackgroundExportRoute, async (c) => {
+  const { projectUnitId } = c.req.valid('param');
+  const { bookIds } = c.req.valid('json');
+
+  try {
+    // Validate book IDs if provided
+    if (bookIds && !(await validateBookIds(projectUnitId, bookIds))) {
+      logger.warn('Invalid book IDs provided for background export', { projectUnitId, bookIds });
+      return c.json(
+        {
+          error: 'Invalid book IDs',
+          details: 'One or more book IDs do not belong to this project unit',
+        },
+        HttpStatusCodes.BAD_REQUEST
+      );
+    }
+
+    // Check if project exists
+    const projectName = await getProjectName(projectUnitId);
+    if (!projectName) {
+      logger.warn('Project not found for background export', { projectUnitId });
+      return c.json(
+        { error: 'Project not found for this project unit' },
+        HttpStatusCodes.NOT_FOUND
+      );
+    }
+
+    // Generate unique workflow ID
+    const workflowId = `export-${projectUnitId}-${Date.now()}`;
+
+    logger.info('Starting background export', { workflowId, projectUnitId, bookIds });
+
+    // Start DBOS workflow (non-blocking)
+    const handle = await DBOS.startWorkflow(usfmExportWorkflow, {
+      workflowID: workflowId,
+    })(workflowId, projectUnitId, bookIds);
+
+    logger.info('Background export workflow started', {
+      workflowId: handle.workflowID,
+      projectUnitId,
+    });
+
+    return c.json(
+      {
+        workflowId: handle.workflowID,
+        statusUrl: `/api/usfm/jobs/${handle.workflowID}`,
+      },
+      HttpStatusCodes.ACCEPTED
+    );
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to start background export', { error: errorMessage, projectUnitId });
+
+    return c.json(
+      { error: 'Failed to start export', details: errorMessage },
+      HttpStatusCodes.INTERNAL_SERVER_ERROR
+    );
+  }
+});
+
+// NEW: Get job status
+server.openapi(getJobStatusRoute, async (c) => {
+  const { workflowId } = c.req.valid('param');
+
+  try {
+    const [job] = await db
+      .select()
+      .from(usfmExportJobs)
+      .where(eq(usfmExportJobs.workflowId, workflowId));
+
+    if (!job) {
+      logger.warn('Job status requested for non-existent job', { workflowId });
+      return c.json({ error: 'Export job not found' }, HttpStatusCodes.NOT_FOUND);
+    }
+
+    logger.debug('Job status retrieved', {
+      workflowId,
+      status: job.status,
+      progress: job.progress,
+    });
+
+    return c.json(
+      {
+        workflowId: job.workflowId,
+        status: job.status,
+        progress: job.progress ?? 0,
+        filename: job.filename,
+        fileSize: job.fileSize,
+        projectName: job.projectName,
+        error: job.error,
+        createdAt: job.createdAt.toISOString(),
+        completedAt: job.completedAt?.toISOString() ?? null,
+        downloadUrl:
+          job.status === 'completed' ? `/api/usfm/jobs/${workflowId}/download` : null,
+      },
+      HttpStatusCodes.OK
+    );
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to get job status', { error: errorMessage, workflowId });
+
+    return c.json(
+      { error: 'Failed to get job status', details: errorMessage },
+      HttpStatusCodes.INTERNAL_SERVER_ERROR
+    );
+  }
+});
+
+// NEW: Download completed export
+server.openapi(downloadJobRoute, async (c) => {
+  const { workflowId } = c.req.valid('param');
+
+  try {
+    const [job] = await db
+      .select()
+      .from(usfmExportJobs)
+      .where(eq(usfmExportJobs.workflowId, workflowId));
+
+    if (!job) {
+      logger.warn('Download requested for non-existent job', { workflowId });
+      return c.json({ error: 'Export not found' }, HttpStatusCodes.NOT_FOUND);
+    }
+
+    if (job.status !== 'completed') {
+      logger.warn('Download requested for incomplete job', {
+        workflowId,
+        status: job.status,
+      });
+      return c.json(
+        {
+          error: 'Export not ready',
+          details: `Current status: ${job.status}. Please wait for completion.`,
+        },
+        HttpStatusCodes.BAD_REQUEST
+      );
+    }
+
+    if (!job.fileData) {
+      logger.error('File data missing for completed job', { workflowId });
+      return c.json(
+        {
+          error: 'File data not available',
+          details: 'The export file is missing. Please create a new export.',
+        },
+        HttpStatusCodes.NOT_FOUND
+      );
+    }
+
+    logger.info('Serving export file', {
+      workflowId,
+      filename: job.filename,
+      fileSize: job.fileSize,
+    });
+
+    // Convert base64 back to buffer
+    const fileBuffer = Buffer.from(job.fileData, 'base64');
+
+    // Set response headers
+    c.header('Content-Type', 'application/zip');
+    c.header('Content-Disposition', `attachment; filename="${job.filename}"`);
+    c.header('Content-Length', fileBuffer.length.toString());
+    c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    c.header('Pragma', 'no-cache');
+    c.header('Expires', '0');
+
+    return c.body(fileBuffer);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Download failed', { error: errorMessage, workflowId });
+
+    return c.json(
+      { error: 'Download failed', details: errorMessage },
+      HttpStatusCodes.INTERNAL_SERVER_ERROR
+    );
+  }
+});
+
+// ============================================================================
+// EXPORTS
+// ============================================================================
+
+export {
+  downloadJobRoute,
+  exportProjectUSFMRoute,
+  getExportableBooksRoute,
+  getJobStatusRoute,
+  startBackgroundExportRoute
+};
