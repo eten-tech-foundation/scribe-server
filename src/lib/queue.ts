@@ -1,4 +1,4 @@
-import {PgBoss} from 'pg-boss';
+import { PgBoss } from 'pg-boss';
 
 import { logger } from '@/lib/logger';
 
@@ -20,7 +20,7 @@ export async function initializeQueue(): Promise<PgBoss> {
   }
 
   const connectionString = process.env.DATABASE_URL;
-  
+
   if (!connectionString) {
     throw new Error('DATABASE_URL is required for queue initialization');
   }
@@ -29,23 +29,14 @@ export async function initializeQueue(): Promise<PgBoss> {
     connectionString,
     schema: 'pgboss',
     max: 10,
-    application_name: 'scribe-server-queue',
-    superviseIntervalSeconds: 60,        // How often to check queues
-    maintenanceIntervalSeconds: 86400,   // Daily maintenance (1 day in seconds)
-    monitorIntervalSeconds: 60,          // How often to monitor each queue
+    application_name: 'fluent-server-queue',
+    superviseIntervalSeconds: 60,
+    maintenanceIntervalSeconds: 86400,
+    monitorIntervalSeconds: 60,
   });
 
   boss.on('error', (error: Error) => {
-    console.error('============ PgBoss ERROR ============');
-    console.error('Message:', error.message);
-    console.error('Stack:', error.stack);
-    console.error('Name:', error.name);
-    console.error('Code:', (error as any).code);
-    console.error('Cause:', error.cause);
-    console.error('Full Error:', error);
-    console.error('======================================');
-    
-    logger.error('PgBoss errors:', { 
+    logger.error('PgBoss error occurred', {
       error: error.message,
       stack: error.stack,
       name: error.name,
@@ -55,7 +46,7 @@ export async function initializeQueue(): Promise<PgBoss> {
   });
 
   await boss.start();
-  logger.info('PgBoss queue initialized successfully');
+  logger.info('PgBoss queue initialized');
 
   return boss;
 }
@@ -69,7 +60,7 @@ export async function getQueue(): Promise<PgBoss> {
 
 export async function stopQueue(): Promise<void> {
   if (boss) {
-    await boss.stop();
+    await boss.stop({ graceful: true, timeout: 30000 });
     boss = null;
     logger.info('PgBoss queue stopped');
   }

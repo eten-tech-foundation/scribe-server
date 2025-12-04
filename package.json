@@ -5,14 +5,16 @@
   "license": "MIT",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "dev:queue": "tsx watch src/index.ts",
+    "dev:worker": "tsx watch src/workers/standalone-worker.ts",
     "start": "node ./dist/src/index.js",
-    "worker": "tsx src/workers/standalone-worker.ts",
+    "worker": "node ./dist/src/workers/standalone-worker.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "cross-env NODE_ENV=test vitest",
     "build": "tsc && tsc-alias",
+    "build:webjob": "npm run build && node scripts/setup-webjob.js",
+    "deploy:prepare": "npm run build:webjob && cd wwwroot && zip -r ../deploy.zip . && cd ..",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"

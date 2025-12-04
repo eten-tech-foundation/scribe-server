@@ -2,64 +2,72 @@ import 'dotenv/config';
 import { serve } from '@hono/node-server';
 
 import env from '@/env';
+import { cleanupExpiredFiles, initializeFileStorage } from '@/lib/file-storage';
 import { logger } from '@/lib/logger';
 import { initializeQueue, QUEUE_NAMES, stopQueue } from '@/lib/queue';
-import { registerUSFMExportWorker } from '@/workers/usfm-export.worker';
 
 import app from './app';
 
 async function startServer() {
   try {
-    // Initialize queue system
-    logger.info('Initializing queue system...');
+    logger.info('Starting Scribe server');
+
+    await initializeFileStorage();
+    logger.info('File storage initialized');
+
+    logger.info('Initializing queue');
     const boss = await initializeQueue();
-    
-    // CREATE THE QUEUE FIRST (this was missing!)
-    logger.info('Creating USFM export queue...');
+
+    logger.info('Ensuring USFM export queue exists');
     await boss.createQueue(QUEUE_NAMES.USFM_EXPORT, {
       retryLimit: 3,
       retryDelay: 60,
       retryBackoff: true,
       expireInSeconds: 3600,
     });
-    logger.info('Queue created successfully');
-    
-    // Register workers AFTER queue is created
-    logger.info('Registering queue workers...');
-    await registerUSFMExportWorker(boss);
-    
-    // Start HTTP server
+
+    logger.info('Queue ready');
+
+    const cleanupInterval = setInterval(() => {
+      cleanupExpiredFiles().catch((error) => {
+        logger.error('Cleanup task failed', { error });
+      });
+    }, 3600000);
+
     const server = serve({
       fetch: app.fetch,
       port: env.PORT,
     });
 
-    logger.info(`Server is running on http://localhost:${env.PORT}`);
+    logger.info(`Server is running on port ${env.PORT}`);
 
-    // Graceful shutdown
     const gracefulShutdown = async (signal: string) => {
-      logger.info(`${signal} received, shutting down gracefully...`);
-      
+      logger.info(`${signal} received, shutting down server`);
       try {
+        clearInterval(cleanupInterval);
+
         server.close(() => {
           logger.info('HTTP server closed');
         });
-        
+
         await stopQueue();
-        
-        logger.info('Graceful shutdown completed');
+
+        logger.info('Shutdown completed');
         process.exit(0);
       } catch (error) {
-        logger.error('Error during shutdown:', { error });
+        logger.error('Error during shutdown', { error });
         process.exit(1);
       }
     };
 
-    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-    
+    process.on('SIGTERM', () => {
+      void gracefulShutdown('SIGTERM');
+    });
+    process.on('SIGINT', () => {
+      void gracefulShutdown('SIGINT');
+    });
   } catch (error) {
-    logger.error('Failed to start server:', { error });
+    logger.error('Failed to start server', { error });
     process.exit(1);
   }
 }

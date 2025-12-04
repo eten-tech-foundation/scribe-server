@@ -57,6 +57,11 @@ jobs:
           cd deployment
           npm install --prod --legacy-peer-deps
 
+      - name: Add WebJob to deployment package
+        run: |
+          export WEBJOB_ROOT=deployment
+          node scripts/setup-webjob.js
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
