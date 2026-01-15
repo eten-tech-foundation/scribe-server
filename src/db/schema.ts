@@ -22,6 +22,12 @@ export const projectStatusEnum = pgEnum('project_status', [
   'in_progress',
   'completed',
 ]);
+export const chapterStatusEnum = pgEnum('chapter_status', [
+  'not_started',
+  'draft',
+  'peer_check',
+  'community_review',
+]);
 
 export const roles = pgTable('roles', {
   id: serial('id').primaryKey(),
@@ -224,6 +230,8 @@ export const chapter_assignments = pgTable(
       .references(() => books.id),
     chapterNumber: integer('chapter_number').notNull(),
     assignedUserId: integer('assigned_user_id').references(() => users.id),
+    peerCheckerId: integer('peer_checker_id').references(() => users.id),
+    status: chapterStatusEnum('chapter_status').notNull().default('not_started'),
     submittedTime: timestamp('submitted_time'),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at')
@@ -455,6 +463,7 @@ export const insertChapterAssignmentsSchema = createInsertSchema(chapter_assignm
   bookId: (schema) => schema.int(),
   chapterNumber: (schema) => schema.int().min(1),
   assignedUserId: (schema) => schema.int(),
+  peerCheckerId: (schema) => schema.int(),
 })
   .required({
     projectUnitId: true,
@@ -462,9 +471,11 @@ export const insertChapterAssignmentsSchema = createInsertSchema(chapter_assignm
     bookId: true,
     chapterNumber: true,
     assignedUserId: true,
+    peerCheckerId: true,
   })
   .omit({
     id: true,
+    status: true,
     createdAt: true,
     updatedAt: true,
   });

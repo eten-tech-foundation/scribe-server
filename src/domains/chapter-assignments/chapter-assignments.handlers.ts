@@ -13,6 +13,8 @@ export interface ChapterAssignmentRecord {
   bookId: number;
   chapterNumber: number;
   assignedUserId: number | null;
+  peerCheckerId: number | null;
+  status: 'not_started' | 'draft' | 'peer_check' | 'community_review';
   submittedTime: Date | null;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -24,6 +26,7 @@ export interface CreateChapterAssignmentRequestData {
   bookId: number;
   chapterNumber: number;
   assignedUserId?: number;
+  peerCheckerId?: number;
 }
 
 // -------------------------------
@@ -49,6 +52,8 @@ export async function createChapterAssignment(
 
 export interface updateChapterAssignmentRequestData {
   assignedUserId?: number;
+  peerCheckerId?: number;
+  status?: 'draft' | 'peer_check' | 'community_review';
   submittedTime?: Date;
 }
 
@@ -78,11 +83,13 @@ export async function updateChapterAssignment(
   }
 }
 export async function submitChapterAssignment(
-  chapterAssignmentId: number
+  chapterAssignmentId: number,
+  status: 'peer_check' | 'community_review'
 ): Promise<Result<ChapterAssignmentRecord>> {
   try {
     return await updateChapterAssignment(chapterAssignmentId, {
       submittedTime: new Date(),
+      status,
     });
   } catch (err) {
     logger.error({
@@ -177,6 +184,7 @@ export async function createChapterAssignmentForProjectUnit(
       bookId: chapter.bookId,
       chapterNumber: chapter.chapterNumber,
       assignedUserId: null,
+      peerCheckerId: null,
     }));
 
     const chunkSize = 1000;

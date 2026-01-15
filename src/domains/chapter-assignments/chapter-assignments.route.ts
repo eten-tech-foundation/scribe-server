@@ -16,6 +16,8 @@ const chapterAssignmentResponse = z.object({
   bookId: z.number().int(),
   chapterNumber: z.number().int(),
   assignedUserId: z.number().int().nullable().optional(),
+  peerCheckerId: z.number().int().nullable().optional(),
+  status: z.enum(['not_started', 'draft', 'peer_check', 'community_review']).optional(),
   submittedTime: z.date().nullable().optional(),
   createdAt: z.date().nullable().optional(),
   updatedAt: z.date().nullable().optional(),
@@ -153,6 +155,10 @@ server.openapi(updateChapterAssignmentRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
 });
 
+const submitChapterAssignmentRequestSchema = z.object({
+  status: z.enum(['peer_check', 'community_review']),
+});
+
 const submitChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'patch',
@@ -161,6 +167,10 @@ const submitChapterAssignmentRoute = createRoute({
     params: z.object({
       chapterAssignmentId: z.coerce.number().int().positive(),
     }),
+    body: jsonContent(
+      submitChapterAssignmentRequestSchema,
+      'chapter assignment status to set upon submission'
+    ),
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
@@ -189,13 +199,17 @@ const submitChapterAssignmentRoute = createRoute({
     ),
   },
   summary: 'Submit a chapter assignment',
-  description: 'Marks a chapter assignment as submitted with the current timestamp.',
+  description: 'Marks a chapter assignment as submitted with the current timestamp and status.',
 });
 
 server.openapi(submitChapterAssignmentRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
+  const { status } = c.req.valid('json');
 
-  const result = await chapterAssignmentsHandler.submitChapterAssignment(chapterAssignmentId);
+  const result = await chapterAssignmentsHandler.submitChapterAssignment(
+    chapterAssignmentId,
+    status
+  );
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
