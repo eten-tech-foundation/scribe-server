@@ -30,6 +30,8 @@ export async function getProjectChapterAssignments(
         bookId: chapter_assignments.bookId,
         chapterNumber: chapter_assignments.chapterNumber,
         assignedUserId: chapter_assignments.assignedUserId,
+        peerCheckerId: chapter_assignments.peerCheckerId,
+        status: chapter_assignments.status,
         submittedTime: chapter_assignments.submittedTime,
         createdAt: chapter_assignments.createdAt,
         updatedAt: chapter_assignments.updatedAt,
