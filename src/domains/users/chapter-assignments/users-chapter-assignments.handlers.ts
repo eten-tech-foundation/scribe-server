@@ -80,13 +80,15 @@ export async function getChapterAssignmentsByUserId(
           eq(translated_verses.projectUnitId, chapter_assignments.projectUnitId)
         )
       )
-      .where(or(
-        eq(chapter_assignments.assignedUserId, userId),
-        and(
-          eq(chapter_assignments.peerCheckerId, userId),
-          eq(chapter_assignments.status, 'peer_check')
+      .where(
+        or(
+          eq(chapter_assignments.assignedUserId, userId),
+          and(
+            eq(chapter_assignments.peerCheckerId, userId),
+            eq(chapter_assignments.status, 'peer_check')
+          )
         )
-      ))
+      )
       .groupBy(
         chapter_assignments.id,
         chapter_assignments.projectUnitId,
