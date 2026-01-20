@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import type { Result } from '@/lib/types';
@@ -22,6 +22,7 @@ export interface UserChapterAssignment {
   projectUnitId: number;
   bibleId: number;
   bibleName: string;
+  chapterStatus: string;
   targetLanguage: string;
   sourceLangCode: string;
   bookCode: string;
@@ -46,6 +47,7 @@ export async function getChapterAssignmentsByUserId(
         projectUnitId: chapter_assignments.projectUnitId,
         bibleId: chapter_assignments.bibleId,
         bibleName: bibles.name,
+        chapterStatus: chapter_assignments.status,
         targetLanguage: languages.langName,
         bookId: chapter_assignments.bookId,
         bookName: books.eng_display_name,
@@ -78,7 +80,13 @@ export async function getChapterAssignmentsByUserId(
           eq(translated_verses.projectUnitId, chapter_assignments.projectUnitId)
         )
       )
-      .where(eq(chapter_assignments.assignedUserId, userId))
+      .where(or(
+        eq(chapter_assignments.assignedUserId, userId),
+        and(
+          eq(chapter_assignments.peerCheckerId, userId),
+          eq(chapter_assignments.status, 'peer_check')
+        )
+      ))
       .groupBy(
         chapter_assignments.id,
         chapter_assignments.projectUnitId,
@@ -102,6 +110,7 @@ export async function getChapterAssignmentsByUserId(
       bibleId: row.bibleId,
       bookCode: row.bookCode,
       bibleName: row.bibleName,
+      chapterStatus: row.chapterStatus,
       targetLanguage: row.targetLanguage,
       sourceLangCode: row.sourceLangCode ?? '',
       bookId: row.bookId,

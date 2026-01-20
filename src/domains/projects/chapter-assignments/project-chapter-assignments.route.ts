@@ -134,9 +134,11 @@ const userResponse = z.object({
 const chapterAssignmentProgressResponse = z.object({
   assignmentId: z.number(),
   projectUnitId: z.number(),
+  status: z.string(),
   bookNameEng: z.string(),
   chapterNumber: z.number(),
   assignedUser: z.nullable(userResponse),
+  peerChecker: z.nullable(userResponse),
   totalVerses: z.number().int(),
   completedVerses: z.number().int(),
   submittedTime: z.date().nullable(),

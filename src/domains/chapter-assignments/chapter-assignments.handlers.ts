@@ -62,9 +62,24 @@ export async function updateChapterAssignment(
   updateData: updateChapterAssignmentRequestData
 ): Promise<Result<ChapterAssignmentRecord>> {
   try {
+    const [currentAssignment] = await db
+      .select()
+      .from(chapter_assignments)
+      .where(eq(chapter_assignments.id, chapterAssignmentId))
+      .limit(1);
+
+    if (!currentAssignment) {
+      return { ok: false, error: { message: 'Chapter assignment not found' } };
+    }
+
+    const dataToUpdate = {
+      ...updateData,
+      ...(currentAssignment.status === 'not_started' && { status: 'draft' as const }),
+    };
+
     const [assignment] = await db
       .update(chapter_assignments)
-      .set(updateData)
+      .set(dataToUpdate)
       .where(eq(chapter_assignments.id, chapterAssignmentId))
       .returning();
     if (!assignment) {

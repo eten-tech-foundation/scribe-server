@@ -105,6 +105,7 @@ server.openapi(createChapterAssignmentRoute, async (c) => {
 // To change the other fields, we should create a new one instead.
 const updateChapterAssignmentRequestSchema = z.object({
   assignedUserId: z.number().int(),
+  peerCheckerId: z.number().int()
 });
 
 const updateChapterAssignmentRoute = createRoute({

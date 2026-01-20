@@ -1,4 +1,5 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import type { ChapterAssignmentRecord } from '@/domains/chapter-assignments/chapter-assignments.handlers';
 import type { Result } from '@/lib/types';
@@ -100,9 +101,11 @@ export async function deleteChapterAssignmentsByProject(
 export interface ChapterAssignmentProgress {
   assignmentId: number;
   projectUnitId: number;
+  status: string;
   bookNameEng: string;
   chapterNumber: number;
   assignedUser: User | null;
+  peerChecker: User | null;
   totalVerses: number;
   completedVerses: number;
   createdAt: Date | null;
@@ -119,6 +122,8 @@ export async function getChapterAssignmentProgressByProject(
   projectId: number
 ): Promise<Result<ChapterAssignmentProgress[]>> {
   try {
+    const assignedUser = alias(users, 'assignedUser');
+    const peerChecker = alias(users, 'peerChecker');
     const rows = await db
       .select({
         assignmentId: chapter_assignments.id,
@@ -126,9 +131,12 @@ export async function getChapterAssignmentProgressByProject(
         bibleId: chapter_assignments.bibleId,
         bookId: chapter_assignments.bookId,
         chapterNumber: chapter_assignments.chapterNumber,
+        status: chapter_assignments.status,
         bookNameEng: books.eng_display_name,
         assignedUserId: chapter_assignments.assignedUserId,
-        assignedUserDisplayName: users.username,
+        assignedUserDisplayName: assignedUser.username,
+        peerCheckerId: chapter_assignments.peerCheckerId,
+        peerCheckerDisplayName: peerChecker.username,
         submittedTime: chapter_assignments.submittedTime,
         createdAt: chapter_assignments.createdAt,
         updatedAt: chapter_assignments.updatedAt,
@@ -138,7 +146,8 @@ export async function getChapterAssignmentProgressByProject(
       .from(chapter_assignments)
       .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
       .innerJoin(books, eq(chapter_assignments.bookId, books.id))
-      .leftJoin(users, eq(chapter_assignments.assignedUserId, users.id))
+      .leftJoin(assignedUser, eq(chapter_assignments.assignedUserId, assignedUser.id))
+      .leftJoin(peerChecker, eq(chapter_assignments.peerCheckerId, peerChecker.id))
       .innerJoin(
         bible_texts,
         and(
@@ -165,7 +174,8 @@ export async function getChapterAssignmentProgressByProject(
         chapter_assignments.createdAt,
         chapter_assignments.updatedAt,
         books.eng_display_name,
-        users.id
+        assignedUser.id,
+        peerChecker.id
       )
       .orderBy(books.eng_display_name, chapter_assignments.chapterNumber);
 
@@ -173,12 +183,19 @@ export async function getChapterAssignmentProgressByProject(
       return {
         assignmentId: row.assignmentId,
         projectUnitId: row.projectUnitId,
+        status: row.status,
         bookNameEng: row.bookNameEng,
         chapterNumber: row.chapterNumber,
         assignedUser: row.assignedUserId
           ? {
               id: row.assignedUserId,
               displayName: row.assignedUserDisplayName ?? '',
+            }
+          : null,
+        peerChecker: row.peerCheckerId
+          ? {
+              id: row.peerCheckerId,
+              displayName: row.peerCheckerDisplayName ?? '',
             }
           : null,
         totalVerses: Number(row.totalVerses),

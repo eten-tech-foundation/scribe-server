@@ -15,6 +15,7 @@ const getChapterAssignmentByUserResponse = z.object({
   projectUnitId: z.number(),
   bibleId: z.number(),
   bibleName: z.string(),
+  chapterStatus: z.string(),
   targetLanguage: z.string(),
   sourceLangCode: z.string(),
   bookCode: z.string(),
