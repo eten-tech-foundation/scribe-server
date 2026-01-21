@@ -76,6 +76,7 @@ const assignUsersToChapterAssignmentsRequest = z.object({
   chapterAssignmentIds: z
     .array(z.number().int())
     .min(1, 'At least one chapter assignment ID is required'),
+  peerCheckerId: z.number().int(),
 });
 
 const assignUsersToChaptersRoute = createRoute({
@@ -88,7 +89,7 @@ const assignUsersToChaptersRoute = createRoute({
     }),
     body: jsonContent(
       assignUsersToChapterAssignmentsRequest,
-      'User assignment data for specific chapters'
+      'Add chapter assignment IDs and peer checker ID'
     ),
   },
   responses: {
@@ -129,7 +130,8 @@ server.openapi(assignUsersToChaptersRoute, async (c) => {
 
   const result = await usersChapterAssignmentsHandler.assignUserToChapters(
     assignedUserId,
-    assignmentData.chapterAssignmentIds
+    assignmentData.chapterAssignmentIds,
+    assignmentData.peerCheckerId
   );
 
   if (result.ok) {

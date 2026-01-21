@@ -98,13 +98,37 @@ export async function updateChapterAssignment(
   }
 }
 export async function submitChapterAssignment(
-  chapterAssignmentId: number,
-  status: 'peer_check' | 'community_review'
+  chapterAssignmentId: number
 ): Promise<Result<ChapterAssignmentRecord>> {
   try {
+    const [currentAssignment] = await db
+      .select()
+      .from(chapter_assignments)
+      .where(eq(chapter_assignments.id, chapterAssignmentId))
+      .limit(1);
+
+    if (!currentAssignment) {
+      return { ok: false, error: { message: 'Chapter assignment not found' } };
+    }
+
+    let nextStatus: 'peer_check' | 'community_review';
+
+    if (currentAssignment.status === 'draft') {
+      nextStatus = 'peer_check';
+    } else if (currentAssignment.status === 'peer_check') {
+      nextStatus = 'community_review';
+    } else {
+      return {
+        ok: false,
+        error: {
+          message: `Cannot submit assignment with status '${currentAssignment.status}'. Must be 'draft' or 'peer_check'.`,
+        },
+      };
+    }
+
     return await updateChapterAssignment(chapterAssignmentId, {
       submittedTime: new Date(),
-      status,
+      status: nextStatus,
     });
   } catch (err) {
     logger.error({
@@ -112,7 +136,6 @@ export async function submitChapterAssignment(
       message: 'Failed to submit chapter assignment',
       context: {
         chapterAssignmentId,
-        submittedTime: 'auto-generated',
       },
     });
     return { ok: false, error: { message: 'Failed to submit chapter assignment' } };

@@ -139,17 +139,42 @@ export async function getChapterAssignmentsByUserId(
 
 export async function assignUserToChapters(
   assignedUserId: number,
-  chapterAssignmentIds: number[]
+  chapterAssignmentIds: number[],
+  peerCheckerId: number
 ): Promise<Result<number[]>> {
   try {
     const updatedAssignmentIds = await db.transaction(async (tx) => {
-      const result = await tx
-        .update(chapter_assignments)
-        .set({ assignedUserId })
-        .where(inArray(chapter_assignments.id, chapterAssignmentIds))
-        .returning({ id: chapter_assignments.id });
+      const currentAssignments = await tx
+        .select({
+          id: chapter_assignments.id,
+          status: chapter_assignments.status,
+        })
+        .from(chapter_assignments)
+        .where(inArray(chapter_assignments.id, chapterAssignmentIds));
 
-      return result.map(({ id }) => id);
+      const statusUpdates = new Map(
+        currentAssignments.map((a) => [a.id, a.status === 'not_started'])
+      );
+
+      const results = await Promise.all(
+        chapterAssignmentIds.map(async (id) => {
+          const dataToUpdate = {
+            assignedUserId,
+            peerCheckerId,
+            ...(statusUpdates.get(id) && { status: 'draft' as const }),
+          };
+
+          const [updated] = await tx
+            .update(chapter_assignments)
+            .set(dataToUpdate)
+            .where(eq(chapter_assignments.id, id))
+            .returning({ id: chapter_assignments.id });
+
+          return updated.id;
+        })
+      );
+
+      return results;
     });
 
     return { ok: true, data: updatedAssignmentIds };
@@ -161,6 +186,7 @@ export async function assignUserToChapters(
         context: {
           assignedUserId,
           chapterAssignmentIds,
+          peerCheckerId,
         },
       },
       'Failed to assign users to chapters'

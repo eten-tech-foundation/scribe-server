@@ -156,10 +156,6 @@ server.openapi(updateChapterAssignmentRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
 });
 
-const submitChapterAssignmentRequestSchema = z.object({
-  status: z.enum(['peer_check', 'community_review']),
-});
-
 const submitChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'patch',
@@ -168,10 +164,6 @@ const submitChapterAssignmentRoute = createRoute({
     params: z.object({
       chapterAssignmentId: z.coerce.number().int().positive(),
     }),
-    body: jsonContent(
-      submitChapterAssignmentRequestSchema,
-      'chapter assignment status to set upon submission'
-    ),
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
@@ -200,17 +192,14 @@ const submitChapterAssignmentRoute = createRoute({
     ),
   },
   summary: 'Submit a chapter assignment',
-  description: 'Marks a chapter assignment as submitted with the current timestamp and status.',
+  description:
+    'Advances chapter assignment to next stage: draft → peer_check → community_review. Sets submission timestamp.',
 });
 
 server.openapi(submitChapterAssignmentRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
-  const { status } = c.req.valid('json');
 
-  const result = await chapterAssignmentsHandler.submitChapterAssignment(
-    chapterAssignmentId,
-    status
-  );
+  const result = await chapterAssignmentsHandler.submitChapterAssignment(chapterAssignmentId);
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
@@ -218,6 +207,10 @@ server.openapi(submitChapterAssignmentRoute, async (c) => {
 
   if (result.error.message === 'Chapter assignment not found') {
     return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  if (result.error.message.includes('Cannot submit assignment')) {
+    return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
   }
 
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);

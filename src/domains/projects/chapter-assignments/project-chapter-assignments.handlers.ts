@@ -179,11 +179,21 @@ export async function getChapterAssignmentProgressByProject(
       )
       .orderBy(books.eng_display_name, chapter_assignments.chapterNumber);
 
+    const formatStatus = (status: string): string => {
+      const statusMap: Record<string, string> = {
+        not_started: 'Not Started',
+        draft: 'Draft',
+        peer_check: 'Peer Check',
+        community_review: 'Community Review',
+      };
+      return statusMap[status] || status;
+    };
+
     const progressData: ChapterAssignmentProgress[] = rows.map((row) => {
       return {
         assignmentId: row.assignmentId,
         projectUnitId: row.projectUnitId,
-        status: row.status,
+        status: formatStatus(row.status),
         bookNameEng: row.bookNameEng,
         chapterNumber: row.chapterNumber,
         assignedUser: row.assignedUserId
