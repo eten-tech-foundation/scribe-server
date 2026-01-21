@@ -8,6 +8,13 @@
       "when": 1758197783512,
       "tag": "0000_lethal_malice",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1768974830575,
+      "tag": "0001_dashing_shriek",
+      "breakpoints": true
     }
   ]
 }
