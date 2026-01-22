@@ -60,7 +60,8 @@ const getChapterAssignmentsByUserIdRoute = createRoute({
     ),
   },
   summary: 'Get chapter assignments by user ID',
-  description: 'Returns all chapter assignments for a user, separated by their role (assigned translator and peer checker)',
+  description:
+    'Returns all chapter assignments for a user, separated by their role (assigned translator and peer checker)',
 });
 
 server.use('users/:userId/chapter-assignments/', requireUserAccess);

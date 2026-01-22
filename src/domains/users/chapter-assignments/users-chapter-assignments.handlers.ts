@@ -118,8 +118,9 @@ export async function getAssignedChaptersByUserId(
   userId: number
 ): Promise<Result<UserChapterAssignment[]>> {
   try {
-    const rows = await createChapterAssignmentsBaseQuery()
-      .where(eq(chapter_assignments.assignedUserId, userId));
+    const rows = await createChapterAssignmentsBaseQuery().where(
+      eq(chapter_assignments.assignedUserId, userId)
+    );
 
     return { ok: true, data: mapRowsToAssignments(rows) };
   } catch (err) {
@@ -128,9 +129,9 @@ export async function getAssignedChaptersByUserId(
       message: 'Failed to fetch assigned chapters by user ID',
       context: { userId },
     });
-    return { 
-      ok: false, 
-      error: { message: 'Failed to fetch assigned chapters by user ID' } 
+    return {
+      ok: false,
+      error: { message: 'Failed to fetch assigned chapters by user ID' },
     };
   }
 }
@@ -139,13 +140,12 @@ export async function getPeerCheckChaptersByUserId(
   userId: number
 ): Promise<Result<UserChapterAssignment[]>> {
   try {
-    const rows = await createChapterAssignmentsBaseQuery()
-      .where(
-        and(
-          eq(chapter_assignments.peerCheckerId, userId),
-          eq(chapter_assignments.status, 'peer_check')
-        )
-      );
+    const rows = await createChapterAssignmentsBaseQuery().where(
+      and(
+        eq(chapter_assignments.peerCheckerId, userId),
+        eq(chapter_assignments.status, 'peer_check')
+      )
+    );
 
     return { ok: true, data: mapRowsToAssignments(rows) };
   } catch (err) {
@@ -154,19 +154,19 @@ export async function getPeerCheckChaptersByUserId(
       message: 'Failed to fetch peer check chapters by user ID',
       context: { userId },
     });
-    return { 
-      ok: false, 
-      error: { message: 'Failed to fetch peer check chapters by user ID' } 
+    return {
+      ok: false,
+      error: { message: 'Failed to fetch peer check chapters by user ID' },
     };
   }
 }
 
-export async function getAllChapterAssignmentsByUserId(
-  userId: number
-): Promise<Result<{
-  assignedChapters: UserChapterAssignment[];
-  peerCheckChapters: UserChapterAssignment[];
-}>> {
+export async function getAllChapterAssignmentsByUserId(userId: number): Promise<
+  Result<{
+    assignedChapters: UserChapterAssignment[];
+    peerCheckChapters: UserChapterAssignment[];
+  }>
+> {
   try {
     const [assignedResult, peerCheckResult] = await Promise.all([
       getAssignedChaptersByUserId(userId),
@@ -193,9 +193,9 @@ export async function getAllChapterAssignmentsByUserId(
       message: 'Failed to fetch all chapter assignments by user ID',
       context: { userId },
     });
-    return { 
-      ok: false, 
-      error: { message: 'Failed to fetch all chapter assignments by user ID' } 
+    return {
+      ok: false,
+      error: { message: 'Failed to fetch all chapter assignments by user ID' },
     };
   }
 }
@@ -204,11 +204,11 @@ export async function getChapterAssignmentsByUserId(
   userId: number
 ): Promise<Result<UserChapterAssignment[]>> {
   const result = await getAllChapterAssignmentsByUserId(userId);
-  
+
   if (!result.ok) {
     return result as Result<UserChapterAssignment[]>;
   }
-  
+
   return {
     ok: true,
     data: [...result.data.assignedChapters, ...result.data.peerCheckChapters],
