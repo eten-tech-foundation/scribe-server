@@ -220,58 +220,43 @@ export async function assignUserToChapters(
   peerCheckerId: number
 ): Promise<Result<number[]>> {
   try {
-    const updatedAssignmentIds = await db.transaction(async (tx) => {
-      const currentAssignments = await tx
-        .select({
-          id: chapter_assignments.id,
-          status: chapter_assignments.status,
-        })
-        .from(chapter_assignments)
-        .where(inArray(chapter_assignments.id, chapterAssignmentIds));
+    if (chapterAssignmentIds.length === 0) {
+      return { ok: true, data: [] };
+    }
+    if (chapterAssignmentIds.length > 1000) {
+      return {
+        ok: false,
+        error: { message: 'Cannot assign more than 1000 chapters at once' },
+      };
+    }
 
-      const statusUpdates = new Map(
-        currentAssignments.map((a) => [a.id, a.status === 'not_started'])
-      );
-
-      const results = await Promise.all(
-        chapterAssignmentIds.map(async (id) => {
-          const dataToUpdate = {
-            assignedUserId,
-            peerCheckerId,
-            ...(statusUpdates.get(id) && { status: 'draft' as const }),
-          };
-
-          const [updated] = await tx
-            .update(chapter_assignments)
-            .set(dataToUpdate)
-            .where(eq(chapter_assignments.id, id))
-            .returning({ id: chapter_assignments.id });
-
-          return updated.id;
-        })
-      );
-
-      return results;
-    });
-
-    return { ok: true, data: updatedAssignmentIds };
-  } catch (err) {
-    logger.error(
-      {
-        error: err,
-        message: 'Failed to assign users to chapters',
-        context: {
-          assignedUserId,
-          chapterAssignmentIds,
-          peerCheckerId,
-        },
-      },
-      'Failed to assign users to chapters'
-    );
+    const updatedAssignments = await db
+      .update(chapter_assignments)
+      .set({
+        assignedUserId,
+        peerCheckerId,
+        status: sql`
+           CASE
+             WHEN ${chapter_assignments.status} = 'not_started' THEN 'draft'
+             ELSE ${chapter_assignments.status}
+           END `,
+      })
+      .where(inArray(chapter_assignments.id, chapterAssignmentIds))
+      .returning({ id: chapter_assignments.id });
 
     return {
+      ok: true,
+      data: updatedAssignments.map((a) => a.id),
+    };
+  } catch (err) {
+    logger.error({
+      error: err instanceof Error ? err.message : err,
+      message: 'Failed to assign users to chapters',
+      context: { assignedUserId, chapterAssignmentIds, peerCheckerId },
+    });
+    return {
       ok: false,
-      error: { message: 'Failed to assign users to chapters' },
+      error: { message: 'An unexpected error occurred during assignment' },
     };
   }
 }

@@ -245,6 +245,9 @@ export const chapter_assignments = pgTable(
       table.bookId,
       table.chapterNumber
     ),
+    index('idx_chapter_assignments_assigned_user').on(table.assignedUserId),
+    index('idx_chapter_assignments_peer_checker_status').on(table.peerCheckerId, table.status),
+    index('idx_chapter_assignments_project_unit').on(table.projectUnitId),
   ]
 );
 
