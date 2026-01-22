@@ -43,7 +43,7 @@ const getChapterAssignmentsByUserIdRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      getChapterAssignmentsByUserResponseV2.openapi('ChapterAssignmentsByUser'), // Remove .array() here!
+      getChapterAssignmentsByUserResponseV2.openapi('ChapterAssignmentsByUser'),
       'Chapter assignments for the user separated by role'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
