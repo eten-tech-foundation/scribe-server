@@ -34,6 +34,7 @@ export interface UserChapterAssignment {
   submittedTime: string | null;
 }
 
+const MAX_CHAPTER_ASSIGNMENTS_PER_REQUEST = 1000;
 const sourceLang = alias(languages, 'source_lang');
 
 function createChapterAssignmentsBaseQuery() {
@@ -174,10 +175,10 @@ export async function getAllChapterAssignmentsByUserId(userId: number): Promise<
     ]);
 
     if (!assignedResult.ok) {
-      return assignedResult as Result<any>;
+      return assignedResult;
     }
     if (!peerCheckResult.ok) {
-      return peerCheckResult as Result<any>;
+      return peerCheckResult;
     }
 
     return {
@@ -223,26 +224,30 @@ export async function assignUserToChapters(
     if (chapterAssignmentIds.length === 0) {
       return { ok: true, data: [] };
     }
-    if (chapterAssignmentIds.length > 1000) {
+    if (chapterAssignmentIds.length > MAX_CHAPTER_ASSIGNMENTS_PER_REQUEST) {
       return {
         ok: false,
-        error: { message: 'Cannot assign more than 1000 chapters at once' },
+        error: {
+          message: `Cannot assign more than ${MAX_CHAPTER_ASSIGNMENTS_PER_REQUEST} chapters at once`,
+        },
       };
     }
 
-    const updatedAssignments = await db
-      .update(chapter_assignments)
-      .set({
-        assignedUserId,
-        peerCheckerId,
-        status: sql`
-           CASE
-             WHEN ${chapter_assignments.status} = 'not_started' THEN 'draft'
-             ELSE ${chapter_assignments.status}
-           END `,
-      })
-      .where(inArray(chapter_assignments.id, chapterAssignmentIds))
-      .returning({ id: chapter_assignments.id });
+    const updatedAssignments = await db.transaction(async (tx) => {
+      return await tx
+        .update(chapter_assignments)
+        .set({
+          assignedUserId,
+          peerCheckerId,
+          status: sql`
+             CASE
+               WHEN ${chapter_assignments.status} = 'not_started' THEN 'draft'
+               ELSE ${chapter_assignments.status}
+             END `,
+        })
+        .where(inArray(chapter_assignments.id, chapterAssignmentIds))
+        .returning({ id: chapter_assignments.id });
+    });
 
     return {
       ok: true,
@@ -256,7 +261,7 @@ export async function assignUserToChapters(
     });
     return {
       ok: false,
-      error: { message: 'An unexpected error occurred during assignment' },
+      error: { message: 'An unexpected error occurred during chapter assignment' },
     };
   }
 }
