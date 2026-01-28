@@ -69,8 +69,22 @@ src/
 
 3. **Push database schema:**
 
+   To push schema changes directly to the database:
+
    ```bash
-   npx drizzle-kit push
+     npx drizzle-kit push
+   ```
+
+   To generate migration files:
+
+   ```bash
+     npx drizzle-kit generate
+   ```
+
+   To apply generated migrations:
+
+   ```bash
+     npx drizzle-kit migrate
    ```
 
 4. **Start development server:**

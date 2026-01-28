@@ -15,6 +15,7 @@ const getChapterAssignmentByUserResponse = z.object({
   projectUnitId: z.number(),
   bibleId: z.number(),
   bibleName: z.string(),
+  chapterStatus: z.string(),
   targetLanguage: z.string(),
   sourceLangCode: z.string(),
   bookCode: z.string(),
@@ -24,6 +25,11 @@ const getChapterAssignmentByUserResponse = z.object({
   totalVerses: z.number().int(),
   completedVerses: z.number().int(),
   submittedTime: z.string().nullable(),
+});
+
+const getChapterAssignmentsByUserResponseV2 = z.object({
+  assignedChapters: getChapterAssignmentByUserResponse.array(),
+  peerCheckChapters: getChapterAssignmentByUserResponse.array(),
 });
 
 const getChapterAssignmentsByUserIdRoute = createRoute({
@@ -37,8 +43,8 @@ const getChapterAssignmentsByUserIdRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      getChapterAssignmentByUserResponse.array().openapi('ChapterAssignmentsByUser'),
-      'Chapter assignments for the user with bible and language details'
+      getChapterAssignmentsByUserResponseV2.openapi('ChapterAssignmentsByUser'),
+      'Chapter assignments for the user separated by role'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       createMessageObjectSchema('Unauthorized'),
@@ -54,7 +60,8 @@ const getChapterAssignmentsByUserIdRoute = createRoute({
     ),
   },
   summary: 'Get chapter assignments by user ID',
-  description: 'Returns all chapter assignments for a user',
+  description:
+    'Returns all chapter assignments for a user, separated by their role (assigned translator and peer checker)',
 });
 
 server.use('users/:userId/chapter-assignments/', requireUserAccess);
@@ -62,7 +69,7 @@ server.use('users/:userId/chapter-assignments/', requireUserAccess);
 server.openapi(getChapterAssignmentsByUserIdRoute, async (c) => {
   const { userId } = c.req.valid('param');
 
-  const result = await usersChapterAssignmentsHandler.getChapterAssignmentsByUserId(userId);
+  const result = await usersChapterAssignmentsHandler.getAllChapterAssignmentsByUserId(userId);
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
@@ -75,6 +82,7 @@ const assignUsersToChapterAssignmentsRequest = z.object({
   chapterAssignmentIds: z
     .array(z.number().int())
     .min(1, 'At least one chapter assignment ID is required'),
+  peerCheckerId: z.number().int(),
 });
 
 const assignUsersToChaptersRoute = createRoute({
@@ -87,7 +95,7 @@ const assignUsersToChaptersRoute = createRoute({
     }),
     body: jsonContent(
       assignUsersToChapterAssignmentsRequest,
-      'User assignment data for specific chapters'
+      'Add chapter assignment IDs and peer checker ID'
     ),
   },
   responses: {
@@ -128,7 +136,8 @@ server.openapi(assignUsersToChaptersRoute, async (c) => {
 
   const result = await usersChapterAssignmentsHandler.assignUserToChapters(
     assignedUserId,
-    assignmentData.chapterAssignmentIds
+    assignmentData.chapterAssignmentIds,
+    assignmentData.peerCheckerId
   );
 
   if (result.ok) {

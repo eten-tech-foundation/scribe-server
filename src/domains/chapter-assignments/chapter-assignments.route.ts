@@ -16,6 +16,8 @@ const chapterAssignmentResponse = z.object({
   bookId: z.number().int(),
   chapterNumber: z.number().int(),
   assignedUserId: z.number().int().nullable().optional(),
+  peerCheckerId: z.number().int().nullable().optional(),
+  status: z.enum(['not_started', 'draft', 'peer_check', 'community_review']).optional(),
   submittedTime: z.date().nullable().optional(),
   createdAt: z.date().nullable().optional(),
   updatedAt: z.date().nullable().optional(),
@@ -103,6 +105,7 @@ server.openapi(createChapterAssignmentRoute, async (c) => {
 // To change the other fields, we should create a new one instead.
 const updateChapterAssignmentRequestSchema = z.object({
   assignedUserId: z.number().int(),
+  peerCheckerId: z.number().int(),
 });
 
 const updateChapterAssignmentRoute = createRoute({
@@ -189,7 +192,8 @@ const submitChapterAssignmentRoute = createRoute({
     ),
   },
   summary: 'Submit a chapter assignment',
-  description: 'Marks a chapter assignment as submitted with the current timestamp.',
+  description:
+    'Advances chapter assignment to next stage: draft → peer_check → community_review. Sets submission timestamp.',
 });
 
 server.openapi(submitChapterAssignmentRoute, async (c) => {
@@ -203,6 +207,10 @@ server.openapi(submitChapterAssignmentRoute, async (c) => {
 
   if (result.error.message === 'Chapter assignment not found') {
     return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  if (result.error.message.includes('Cannot submit assignment')) {
+    return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
   }
 
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);

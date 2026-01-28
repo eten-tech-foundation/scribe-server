@@ -13,6 +13,8 @@ export interface ChapterAssignmentRecord {
   bookId: number;
   chapterNumber: number;
   assignedUserId: number | null;
+  peerCheckerId: number | null;
+  status: 'not_started' | 'draft' | 'peer_check' | 'community_review';
   submittedTime: Date | null;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -24,6 +26,7 @@ export interface CreateChapterAssignmentRequestData {
   bookId: number;
   chapterNumber: number;
   assignedUserId?: number;
+  peerCheckerId?: number;
 }
 
 // -------------------------------
@@ -49,6 +52,8 @@ export async function createChapterAssignment(
 
 export interface updateChapterAssignmentRequestData {
   assignedUserId?: number;
+  peerCheckerId?: number;
+  status?: 'draft' | 'peer_check' | 'community_review';
   submittedTime?: Date;
 }
 
@@ -57,9 +62,24 @@ export async function updateChapterAssignment(
   updateData: updateChapterAssignmentRequestData
 ): Promise<Result<ChapterAssignmentRecord>> {
   try {
+    const [currentAssignment] = await db
+      .select()
+      .from(chapter_assignments)
+      .where(eq(chapter_assignments.id, chapterAssignmentId))
+      .limit(1);
+
+    if (!currentAssignment) {
+      return { ok: false, error: { message: 'Chapter assignment not found' } };
+    }
+
+    const dataToUpdate = {
+      ...updateData,
+      ...(currentAssignment.status === 'not_started' && { status: 'draft' as const }),
+    };
+
     const [assignment] = await db
       .update(chapter_assignments)
-      .set(updateData)
+      .set(dataToUpdate)
       .where(eq(chapter_assignments.id, chapterAssignmentId))
       .returning();
     if (!assignment) {
@@ -81,8 +101,34 @@ export async function submitChapterAssignment(
   chapterAssignmentId: number
 ): Promise<Result<ChapterAssignmentRecord>> {
   try {
+    const [currentAssignment] = await db
+      .select()
+      .from(chapter_assignments)
+      .where(eq(chapter_assignments.id, chapterAssignmentId))
+      .limit(1);
+
+    if (!currentAssignment) {
+      return { ok: false, error: { message: 'Chapter assignment not found' } };
+    }
+
+    let nextStatus: 'peer_check' | 'community_review';
+
+    if (currentAssignment.status === 'draft') {
+      nextStatus = 'peer_check';
+    } else if (currentAssignment.status === 'peer_check') {
+      nextStatus = 'community_review';
+    } else {
+      return {
+        ok: false,
+        error: {
+          message: `Cannot submit assignment with status '${currentAssignment.status}'. Must be 'draft' or 'peer_check'.`,
+        },
+      };
+    }
+
     return await updateChapterAssignment(chapterAssignmentId, {
       submittedTime: new Date(),
+      status: nextStatus,
     });
   } catch (err) {
     logger.error({
@@ -90,7 +136,6 @@ export async function submitChapterAssignment(
       message: 'Failed to submit chapter assignment',
       context: {
         chapterAssignmentId,
-        submittedTime: 'auto-generated',
       },
     });
     return { ok: false, error: { message: 'Failed to submit chapter assignment' } };
@@ -177,6 +222,7 @@ export async function createChapterAssignmentForProjectUnit(
       bookId: chapter.bookId,
       chapterNumber: chapter.chapterNumber,
       assignedUserId: null,
+      peerCheckerId: null,
     }));
 
     const chunkSize = 1000;

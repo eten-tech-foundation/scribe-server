@@ -1,0 +1,3 @@
+CREATE INDEX "idx_chapter_assignments_assigned_user" ON "chapter_assignments" USING btree ("assigned_user_id");--> statement-breakpoint
+CREATE INDEX "idx_chapter_assignments_peer_checker_status" ON "chapter_assignments" USING btree ("peer_checker_id","chapter_status");--> statement-breakpoint
+CREATE INDEX "idx_chapter_assignments_project_unit" ON "chapter_assignments" USING btree ("project_unit_id");
