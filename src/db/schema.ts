@@ -30,6 +30,7 @@ export const chapterStatusEnum = pgEnum('chapter_status', [
   'peer_check',
   'community_review',
 ]);
+export const assignmentRoleEnum = pgEnum('assignment_role', ['drafter', 'peer_checker']);
 
 export const roles = pgTable('roles', {
   id: serial('id').primaryKey(),
@@ -281,6 +282,7 @@ export const chapter_assignment_assigned_user_history = pgTable(
     assignedUserId: integer('assigned_user_id')
       .notNull()
       .references(() => users.id),
+    role: assignmentRoleEnum('role').notNull(),
     status: chapterStatusEnum('status').notNull(),
     createdAt: timestamp('created_at').defaultNow(),
   },
@@ -566,11 +568,13 @@ export const insertChapterAssignmentAssignedUserHistorySchema = createInsertSche
   {
     chapterAssignmentId: (schema) => schema.int(),
     assignedUserId: (schema) => schema.int(),
+    role: z.enum(['drafter', 'peer_checker']),
   }
 )
   .required({
     chapterAssignmentId: true,
     assignedUserId: true,
+    role: true,
     status: true,
   })
   .omit({

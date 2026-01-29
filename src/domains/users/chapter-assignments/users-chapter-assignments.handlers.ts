@@ -280,6 +280,7 @@ export async function assignUserToChapters(
             assignedUserHistoryRecords.push({
               chapterAssignmentId: updatedAssignment.id,
               assignedUserId,
+              role: 'drafter' as const,
               status: updatedAssignment.status,
             });
           }
@@ -288,6 +289,7 @@ export async function assignUserToChapters(
             assignedUserHistoryRecords.push({
               chapterAssignmentId: updatedAssignment.id,
               assignedUserId: peerCheckerId,
+              role: 'peer_checker' as const,
               status: updatedAssignment.status,
             });
           }

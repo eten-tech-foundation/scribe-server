@@ -278,6 +278,7 @@ export async function assignAllProjectChapterAssignmentsToUser(
             assignedUserHistoryRecords.push({
               chapterAssignmentId: updatedAssignment.id,
               assignedUserId: assignmentData.assignedUserId,
+              role: 'drafter' as const,
               status: updatedAssignment.status,
             });
           }

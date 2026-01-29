@@ -64,7 +64,7 @@ const getChapterAssignmentsByUserIdRoute = createRoute({
     'Returns all chapter assignments for a user, separated by their role (assigned translator and peer checker)',
 });
 
-server.use('users/:userId/chapter-assignments/', requireUserAccess);
+server.use('/users/:userId/chapter-assignments', requireUserAccess);
 
 server.openapi(getChapterAssignmentsByUserIdRoute, async (c) => {
   const { userId } = c.req.valid('param');

@@ -148,6 +148,7 @@ export async function createChapterAssignment(
         await tx.insert(chapter_assignment_assigned_user_history).values({
           chapterAssignmentId: assignment.id,
           assignedUserId: assignment.assignedUserId,
+          role: 'drafter',
           status: 'not_started',
         });
       }
@@ -156,6 +157,7 @@ export async function createChapterAssignment(
         await tx.insert(chapter_assignment_assigned_user_history).values({
           chapterAssignmentId: assignment.id,
           assignedUserId: assignment.peerCheckerId,
+          role: 'peer_checker',
           status: 'not_started',
         });
       }
@@ -220,6 +222,7 @@ export async function updateChapterAssignment(
         await tx.insert(chapter_assignment_assigned_user_history).values({
           chapterAssignmentId: updatedAssignment.id,
           assignedUserId: updatedAssignment.assignedUserId,
+          role: 'drafter',
           status: updatedAssignment.status,
         });
       }
@@ -232,6 +235,7 @@ export async function updateChapterAssignment(
         await tx.insert(chapter_assignment_assigned_user_history).values({
           chapterAssignmentId: updatedAssignment.id,
           assignedUserId: updatedAssignment.peerCheckerId,
+          role: 'peer_checker',
           status: updatedAssignment.status,
         });
       }
