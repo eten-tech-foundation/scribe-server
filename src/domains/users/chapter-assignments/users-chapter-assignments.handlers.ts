@@ -8,6 +8,8 @@ import {
   bible_texts,
   bibles,
   books,
+  chapter_assignment_assigned_user_history,
+  chapter_assignment_status_history,
   chapter_assignments,
   languages,
   project_units,
@@ -215,6 +217,7 @@ export async function getChapterAssignmentsByUserId(
     data: [...result.data.assignedChapters, ...result.data.peerCheckChapters],
   };
 }
+
 export async function assignUserToChapters(
   assignedUserId: number,
   chapterAssignmentIds: number[],
@@ -234,19 +237,81 @@ export async function assignUserToChapters(
     }
 
     const updatedAssignments = await db.transaction(async (tx) => {
-      return await tx
+      const currentAssignments = await tx
+        .select({
+          id: chapter_assignments.id,
+          status: chapter_assignments.status,
+          assignedUserId: chapter_assignments.assignedUserId,
+          peerCheckerId: chapter_assignments.peerCheckerId,
+        })
+        .from(chapter_assignments)
+        .where(inArray(chapter_assignments.id, chapterAssignmentIds));
+
+      const updated = await tx
         .update(chapter_assignments)
         .set({
           assignedUserId,
           peerCheckerId,
           status: sql`
-             CASE
-               WHEN ${chapter_assignments.status} = 'not_started' THEN 'draft'
-               ELSE ${chapter_assignments.status}
-             END `,
+            CASE
+              WHEN ${chapter_assignments.status} = 'not_started' THEN 'draft'::chapter_status
+              ELSE ${chapter_assignments.status}
+            END`,
         })
         .where(inArray(chapter_assignments.id, chapterAssignmentIds))
-        .returning({ id: chapter_assignments.id });
+        .returning({
+          id: chapter_assignments.id,
+          status: chapter_assignments.status,
+        });
+
+      if (updated.length > 0) {
+        const assignedUserHistoryRecords = [];
+        const statusHistoryRecords = [];
+
+        for (const updatedAssignment of updated) {
+          const currentAssignment = currentAssignments.find((a) => a.id === updatedAssignment.id);
+          if (!currentAssignment) continue;
+
+          const drafterChanged = currentAssignment.assignedUserId !== assignedUserId;
+          const peerCheckerChanged = currentAssignment.peerCheckerId !== peerCheckerId;
+          const statusChanged = currentAssignment.status !== updatedAssignment.status;
+
+          if (drafterChanged) {
+            assignedUserHistoryRecords.push({
+              chapterAssignmentId: updatedAssignment.id,
+              assignedUserId,
+              status: updatedAssignment.status,
+            });
+          }
+
+          if (peerCheckerChanged) {
+            assignedUserHistoryRecords.push({
+              chapterAssignmentId: updatedAssignment.id,
+              assignedUserId: peerCheckerId,
+              status: updatedAssignment.status,
+            });
+          }
+
+          if (statusChanged) {
+            statusHistoryRecords.push({
+              chapterAssignmentId: updatedAssignment.id,
+              status: updatedAssignment.status,
+            });
+          }
+        }
+
+        if (assignedUserHistoryRecords.length > 0) {
+          await tx
+            .insert(chapter_assignment_assigned_user_history)
+            .values(assignedUserHistoryRecords);
+        }
+
+        if (statusHistoryRecords.length > 0) {
+          await tx.insert(chapter_assignment_status_history).values(statusHistoryRecords);
+        }
+      }
+
+      return updated;
     });
 
     return {
