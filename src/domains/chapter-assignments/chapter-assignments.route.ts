@@ -102,7 +102,6 @@ server.openapi(createChapterAssignmentRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
 });
 
-// [FIXED] Updated comment to reflect that we update both assigned users
 const updateChapterAssignmentRequestSchema = z.object({
   assignedUserId: z.number().int(),
   peerCheckerId: z.number().int(),

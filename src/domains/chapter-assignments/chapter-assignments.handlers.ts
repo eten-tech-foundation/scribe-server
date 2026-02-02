@@ -1,6 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
 
-import type { DbTransaction, Result } from '@/lib/types';
+import type { DbTransaction, Result, USJDocument } from '@/lib/types';
 
 import { db } from '@/db';
 import {
@@ -13,6 +13,7 @@ import {
   translated_verses,
 } from '@/db/schema';
 import { logger } from '@/lib/logger';
+import { convertUSFMToUSJ, generateUSFMText } from '@/lib/usfm-converter';
 
 export interface ChapterAssignmentRecord {
   id: number;
@@ -44,89 +45,78 @@ export interface updateChapterAssignmentRequestData {
   submittedTime?: Date;
 }
 
-interface VerseContent {
-  verseNumber: string;
-  verseText: string;
-  contents: string[];
-}
-
-interface ChapterContent {
-  chapterNumber: string;
-  contents: Array<{ p: null } | VerseContent>;
-}
-
-interface SnapshotContent {
-  book: {
-    bookCode: string;
-    meta: Array<{ h: string } | Array<{ mt: string[] }>>;
-  };
-  chapters: ChapterContent[];
-  _messages?: {
-    _warnings?: string[];
-  };
+interface VerseData {
+  bookId: number;
+  bookCode: string;
+  bookName: string;
+  chapterNumber: number;
+  verseNumber: number;
+  translatedContent: string | null;
 }
 
 async function getAssignmentContent(
   tx: DbTransaction,
   assignment: ChapterAssignmentRecord
-): Promise<SnapshotContent> {
-  const verses = await tx
-    .select({
-      id: translated_verses.id,
-      content: translated_verses.content,
-      verseNumber: bible_texts.verseNumber,
-      bibleTextId: bible_texts.id,
-      bookCode: books.code,
-      bookName: books.eng_display_name,
-    })
-    .from(translated_verses)
-    .innerJoin(bible_texts, eq(translated_verses.bibleTextId, bible_texts.id))
-    .innerJoin(books, eq(bible_texts.bookId, books.id))
-    .where(
-      and(
-        eq(translated_verses.projectUnitId, assignment.projectUnitId),
-        eq(bible_texts.chapterNumber, assignment.chapterNumber),
-        eq(bible_texts.bookId, assignment.bookId),
-        eq(bible_texts.bibleId, assignment.bibleId)
+): Promise<USJDocument> {
+  try {
+    const verses = await tx
+      .select({
+        id: translated_verses.id,
+        content: translated_verses.content,
+        verseNumber: bible_texts.verseNumber,
+        bibleTextId: bible_texts.id,
+        bookCode: books.code,
+        bookName: books.eng_display_name,
+      })
+      .from(translated_verses)
+      .innerJoin(bible_texts, eq(translated_verses.bibleTextId, bible_texts.id))
+      .innerJoin(books, eq(bible_texts.bookId, books.id))
+      .where(
+        and(
+          eq(translated_verses.projectUnitId, assignment.projectUnitId),
+          eq(bible_texts.chapterNumber, assignment.chapterNumber),
+          eq(bible_texts.bookId, assignment.bookId),
+          eq(bible_texts.bibleId, assignment.bibleId)
+        )
       )
-    )
-    .orderBy(bible_texts.verseNumber);
+      .orderBy(bible_texts.verseNumber);
 
-  const bookCode = verses[0]?.bookCode || 'UNKNOWN';
-  const bookName = verses[0]?.bookName || 'Unknown Book';
-
-  const verseContents: any[] = [{ p: null }];
-
-  for (const v of verses) {
-    const verse = Object.assign(
-      {},
-      { verseNumber: v.verseNumber.toString() },
-      { verseText: v.content },
-      { contents: [v.content] }
-    );
-    verseContents.push(verse);
-  }
-
-  const chapter = Object.assign(
-    {},
-    { chapterNumber: assignment.chapterNumber.toString() },
-    { contents: verseContents }
-  );
-
-  const book = Object.assign({}, { bookCode }, { meta: [{ h: bookName }, [{ mt: [bookName] }]] });
-
-  const snapshotContent = Object.assign(
-    {},
-    { book },
-    { chapters: [chapter] },
-    {
-      _messages: {
-        _warnings: verses.length === 0 ? ['No translated verses found for this chapter.'] : [],
-      },
+    if (verses.length === 0) {
+      logger.warn('No translated verses found for assignment', {
+        assignmentId: assignment.id,
+        chapterNumber: assignment.chapterNumber,
+      });
+      return {
+        type: 'USJ',
+        version: '0.0.1',
+        content: [],
+      };
     }
-  );
 
-  return snapshotContent as SnapshotContent;
+    // Transform query results to match VerseData interface
+    const verseData: VerseData[] = verses.map((v) => ({
+      bookId: assignment.bookId,
+      bookCode: v.bookCode,
+      bookName: v.bookName,
+      chapterNumber: assignment.chapterNumber,
+      verseNumber: v.verseNumber,
+      translatedContent: v.content,
+    }));
+
+    // Generate USFM text from verses
+    const usfmText = generateUSFMText(verseData);
+
+    // Convert USFM to USJ format
+    const usjContent = convertUSFMToUSJ(usfmText);
+
+    return usjContent;
+  } catch (error) {
+    logger.error('Failed to generate assignment content', {
+      error,
+      assignmentId: assignment.id,
+    });
+    throw error;
+  }
 }
 
 export async function createChapterAssignment(
