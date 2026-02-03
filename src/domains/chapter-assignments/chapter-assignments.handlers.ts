@@ -54,71 +54,9 @@ interface VerseData {
   translatedContent: string | null;
 }
 
-async function getAssignmentContent(
-  tx: DbTransaction,
-  assignment: ChapterAssignmentRecord
-): Promise<USJDocument> {
-  try {
-    const verses = await tx
-      .select({
-        id: translated_verses.id,
-        content: translated_verses.content,
-        verseNumber: bible_texts.verseNumber,
-        bibleTextId: bible_texts.id,
-        bookCode: books.code,
-        bookName: books.eng_display_name,
-      })
-      .from(translated_verses)
-      .innerJoin(bible_texts, eq(translated_verses.bibleTextId, bible_texts.id))
-      .innerJoin(books, eq(bible_texts.bookId, books.id))
-      .where(
-        and(
-          eq(translated_verses.projectUnitId, assignment.projectUnitId),
-          eq(bible_texts.chapterNumber, assignment.chapterNumber),
-          eq(bible_texts.bookId, assignment.bookId),
-          eq(bible_texts.bibleId, assignment.bibleId)
-        )
-      )
-      .orderBy(bible_texts.verseNumber);
-
-    if (verses.length === 0) {
-      logger.warn('No translated verses found for assignment', {
-        assignmentId: assignment.id,
-        chapterNumber: assignment.chapterNumber,
-      });
-      return {
-        type: 'USJ',
-        version: '0.0.1',
-        content: [],
-      };
-    }
-
-    // Transform query results to match VerseData interface
-    const verseData: VerseData[] = verses.map((v) => ({
-      bookId: assignment.bookId,
-      bookCode: v.bookCode,
-      bookName: v.bookName,
-      chapterNumber: assignment.chapterNumber,
-      verseNumber: v.verseNumber,
-      translatedContent: v.content,
-    }));
-
-    // Generate USFM text from verses
-    const usfmText = generateUSFMText(verseData);
-
-    // Convert USFM to USJ format
-    const usjContent = convertUSFMToUSJ(usfmText);
-
-    return usjContent;
-  } catch (error) {
-    logger.error('Failed to generate assignment content', {
-      error,
-      assignmentId: assignment.id,
-    });
-    throw error;
-  }
-}
-
+// -------------------------------
+// --- START STANDARD HANDLERS ---
+// -------------------------------
 export async function createChapterAssignment(
   chapterAssignment: CreateChapterAssignmentRequestData
 ): Promise<Result<ChapterAssignmentRecord>> {
@@ -255,69 +193,6 @@ export async function updateChapterAssignment(
   }
 }
 
-export async function submitChapterAssignment(
-  chapterAssignmentId: number
-): Promise<Result<ChapterAssignmentRecord>> {
-  return await db.transaction(async (tx) => {
-    try {
-      const [currentAssignment] = await tx
-        .select()
-        .from(chapter_assignments)
-        .where(eq(chapter_assignments.id, chapterAssignmentId))
-        .limit(1);
-
-      if (!currentAssignment) {
-        return { ok: false, error: { message: 'Chapter assignment not found' } };
-      }
-
-      let nextStatus: 'peer_check' | 'community_review';
-      let snapshotUser: number | null = null;
-
-      if (currentAssignment.status === 'draft') {
-        nextStatus = 'peer_check';
-        snapshotUser = currentAssignment.assignedUserId;
-      } else if (currentAssignment.status === 'peer_check') {
-        nextStatus = 'community_review';
-        snapshotUser = currentAssignment.peerCheckerId;
-      } else {
-        return {
-          ok: false,
-          error: {
-            message: `Cannot submit assignment with status '${currentAssignment.status}'. Must be 'draft' or 'peer_check'.`,
-          },
-        };
-      }
-
-      const content = await getAssignmentContent(tx, currentAssignment);
-
-      await tx.insert(chapter_assignment_snapshots).values({
-        chapterAssignmentId,
-        status: currentAssignment.status,
-        assignedUserId: snapshotUser,
-        content: content as any,
-      });
-
-      const updateResult = await updateChapterAssignment(
-        chapterAssignmentId,
-        {
-          submittedTime: new Date(),
-          status: nextStatus,
-        },
-        tx
-      );
-
-      return updateResult;
-    } catch (err) {
-      logger.error({
-        cause: err,
-        message: 'Failed to submit chapter assignment',
-        context: { chapterAssignmentId },
-      });
-      return { ok: false, error: { message: 'Failed to submit chapter assignment' } };
-    }
-  });
-}
-
 export async function getChapterAssignment(id: number): Promise<Result<ChapterAssignmentRecord>> {
   try {
     const [assignment] = await db
@@ -420,6 +295,143 @@ export async function createChapterAssignmentForProjectUnit(
     };
   }
 }
+
+export async function submitChapterAssignment(
+  chapterAssignmentId: number
+): Promise<Result<ChapterAssignmentRecord>> {
+  return await db.transaction(async (tx) => {
+    try {
+      const [currentAssignment] = await tx
+        .select()
+        .from(chapter_assignments)
+        .where(eq(chapter_assignments.id, chapterAssignmentId))
+        .limit(1);
+
+      if (!currentAssignment) {
+        return { ok: false, error: { message: 'Chapter assignment not found' } };
+      }
+
+      let nextStatus: 'peer_check' | 'community_review';
+      let snapshotUser: number | null = null;
+
+      switch (currentAssignment.status) {
+        case 'draft':
+          nextStatus = 'peer_check';
+          snapshotUser = currentAssignment.assignedUserId;
+          break;
+        case 'peer_check':
+          nextStatus = 'community_review';
+          snapshotUser = currentAssignment.peerCheckerId;
+          break;
+        default:
+          return {
+            ok: false,
+            error: {
+              message: `Cannot submit assignment with status '${currentAssignment.status}'. Must be 'draft' or 'peer_check'.`,
+            },
+          };
+      }
+
+      const content = await getAssignmentContent(tx, currentAssignment);
+
+      await tx.insert(chapter_assignment_snapshots).values({
+        chapterAssignmentId,
+        status: currentAssignment.status,
+        assignedUserId: snapshotUser,
+        content: content as any,
+      });
+
+      const updateResult = await updateChapterAssignment(
+        chapterAssignmentId,
+        {
+          submittedTime: new Date(),
+          status: nextStatus,
+        },
+        tx
+      );
+
+      return updateResult;
+    } catch (err) {
+      logger.error({
+        cause: err,
+        message: 'Failed to submit chapter assignment',
+        context: { chapterAssignmentId },
+      });
+      return { ok: false, error: { message: 'Failed to submit chapter assignment' } };
+    }
+  });
+}
 // ---------------------------------
 // --- END NON-STANDARD HANDLERS ---
 // ---------------------------------
+
+// ------------------------------
+// --- START HELPER FUNCTIONS ---
+// ------------------------------
+async function getAssignmentContent(
+  tx: DbTransaction,
+  assignment: ChapterAssignmentRecord
+): Promise<USJDocument> {
+  try {
+    const verses = await tx
+      .select({
+        id: translated_verses.id,
+        content: translated_verses.content,
+        verseNumber: bible_texts.verseNumber,
+        bibleTextId: bible_texts.id,
+        bookCode: books.code,
+        bookName: books.eng_display_name,
+      })
+      .from(translated_verses)
+      .innerJoin(bible_texts, eq(translated_verses.bibleTextId, bible_texts.id))
+      .innerJoin(books, eq(bible_texts.bookId, books.id))
+      .where(
+        and(
+          eq(translated_verses.projectUnitId, assignment.projectUnitId),
+          eq(bible_texts.chapterNumber, assignment.chapterNumber),
+          eq(bible_texts.bookId, assignment.bookId),
+          eq(bible_texts.bibleId, assignment.bibleId)
+        )
+      )
+      .orderBy(bible_texts.verseNumber);
+
+    if (verses.length === 0) {
+      logger.warn('No translated verses found for assignment', {
+        assignmentId: assignment.id,
+        chapterNumber: assignment.chapterNumber,
+      });
+      return {
+        type: 'USJ',
+        version: '0.0.1',
+        content: [],
+      };
+    }
+
+    // Transform query results to match VerseData interface
+    const verseData: VerseData[] = verses.map((v) => ({
+      bookId: assignment.bookId,
+      bookCode: v.bookCode,
+      bookName: v.bookName,
+      chapterNumber: assignment.chapterNumber,
+      verseNumber: v.verseNumber,
+      translatedContent: v.content,
+    }));
+
+    // Generate USFM text from verses
+    const usfmText = generateUSFMText(verseData);
+
+    // Convert USFM to USJ format
+    const usjContent = convertUSFMToUSJ(usfmText);
+
+    return usjContent;
+  } catch (error) {
+    logger.error('Failed to generate assignment content', {
+      error,
+      assignmentId: assignment.id,
+    });
+    throw error;
+  }
+}
+// ----------------------------
+// --- END HELPER FUNCTIONS ---
+// ----------------------------
