@@ -38,7 +38,7 @@ export interface CreateChapterAssignmentRequestData {
   peerCheckerId?: number;
 }
 
-export interface updateChapterAssignmentRequestData {
+export interface UpdateChapterAssignmentRequestData {
   assignedUserId?: number;
   peerCheckerId?: number;
   status?: 'draft' | 'peer_check' | 'community_review';
@@ -104,7 +104,7 @@ export async function createChapterAssignment(
 
 export async function updateChapterAssignment(
   chapterAssignmentId: number,
-  updateData: updateChapterAssignmentRequestData,
+  updateData: UpdateChapterAssignmentRequestData,
   externalTx?: DbTransaction
 ): Promise<Result<ChapterAssignmentRecord>> {
   const executeUpdate = async (tx: DbTransaction): Promise<Result<ChapterAssignmentRecord>> => {
