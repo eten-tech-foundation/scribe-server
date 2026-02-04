@@ -1,6 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 
 import type { DbTransaction, Result, USJDocument } from '@/lib/types';
+import type { VerseData } from '@/lib/usfm-converter';
 
 import { db } from '@/db';
 import {
@@ -15,6 +16,10 @@ import {
 import { logger } from '@/lib/logger';
 import { convertUSFMToUSJ, generateUSFMText } from '@/lib/usfm-converter';
 
+export type ChapterAssignmentStatus = 'not_started' | 'draft' | 'peer_check' | 'community_review';
+
+const USJ_SPEC_VERSION = '0.0.1';
+
 export interface ChapterAssignmentRecord {
   id: number;
   projectUnitId: number;
@@ -23,7 +28,7 @@ export interface ChapterAssignmentRecord {
   chapterNumber: number;
   assignedUserId: number | null;
   peerCheckerId: number | null;
-  status: 'not_started' | 'draft' | 'peer_check' | 'community_review';
+  status: ChapterAssignmentStatus;
   submittedTime: Date | null;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -41,17 +46,14 @@ export interface CreateChapterAssignmentRequestData {
 export interface UpdateChapterAssignmentRequestData {
   assignedUserId?: number;
   peerCheckerId?: number;
-  status?: 'draft' | 'peer_check' | 'community_review';
+  status?: ChapterAssignmentStatus;
   submittedTime?: Date;
 }
 
-interface VerseData {
+interface ChapterListRow {
+  bibleId: number;
   bookId: number;
-  bookCode: string;
-  bookName: string;
   chapterNumber: number;
-  verseNumber: number;
-  translatedContent: string | null;
 }
 
 // -------------------------------
@@ -116,7 +118,7 @@ export async function updateChapterAssignment(
         .limit(1);
 
       if (!currentAssignment) {
-        throw new Error('Chapter assignment not found');
+        return { ok: false, error: { message: 'Chapter assignment not found' } };
       }
 
       const hasUserAssignment =
@@ -169,11 +171,13 @@ export async function updateChapterAssignment(
       }
 
       return { ok: true, data: updatedAssignment };
-    } catch (err: any) {
-      if (err.message === 'Chapter assignment not found') {
-        return { ok: false, error: { message: err.message } };
-      }
-      throw err;
+    } catch (err) {
+      logger.error({
+        cause: err,
+        message: 'Failed to update chapter assignment',
+        context: { chapterAssignmentId, updateData },
+      });
+      return { ok: false, error: { message: 'Failed to update chapter assignment' } };
     }
   };
 
@@ -264,7 +268,7 @@ export async function createChapterAssignmentForProjectUnit(
       return { ok: true, data: [] };
     }
 
-    const assignments = chapters_list.map((chapter: any) => ({
+    const assignments = chapters_list.map((chapter: ChapterListRow) => ({
       projectUnitId,
       bibleId: chapter.bibleId,
       bookId: chapter.bookId,
@@ -332,13 +336,16 @@ export async function submitChapterAssignment(
           };
       }
 
-      const content = await getAssignmentContent(tx, currentAssignment);
+      const contentResult = await getAssignmentContent(tx, currentAssignment);
+      if (!contentResult.ok) {
+        return contentResult;
+      }
 
       await tx.insert(chapter_assignment_snapshots).values({
         chapterAssignmentId,
         status: currentAssignment.status,
         assignedUserId: snapshotUser,
-        content: content as any,
+        content: contentResult.data,
       });
 
       const updateResult = await updateChapterAssignment(
@@ -371,7 +378,7 @@ export async function submitChapterAssignment(
 async function getAssignmentContent(
   tx: DbTransaction,
   assignment: ChapterAssignmentRecord
-): Promise<USJDocument> {
+): Promise<Result<USJDocument>> {
   try {
     const verses = await tx
       .select({
@@ -401,9 +408,12 @@ async function getAssignmentContent(
         chapterNumber: assignment.chapterNumber,
       });
       return {
-        type: 'USJ',
-        version: '0.0.1',
-        content: [],
+        ok: true,
+        data: {
+          type: 'USJ',
+          version: USJ_SPEC_VERSION,
+          content: [],
+        },
       };
     }
 
@@ -420,16 +430,27 @@ async function getAssignmentContent(
     // Generate USFM text from verses
     const usfmText = generateUSFMText(verseData);
 
-    // Convert USFM to USJ format
-    const usjContent = convertUSFMToUSJ(usfmText);
+    // Convert USFM to USJ format using Result pattern
+    const conversionResult = convertUSFMToUSJ(usfmText);
 
-    return usjContent;
+    if (!conversionResult.ok) {
+      logger.error('Failed to convert USFM to USJ', {
+        assignmentId: assignment.id,
+        error: conversionResult.error,
+      });
+      return conversionResult;
+    }
+
+    return { ok: true, data: conversionResult.data };
   } catch (error) {
     logger.error('Failed to generate assignment content', {
       error,
       assignmentId: assignment.id,
     });
-    throw error;
+    return {
+      ok: false,
+      error: { message: 'Failed to generate assignment content' },
+    };
   }
 }
 // ----------------------------

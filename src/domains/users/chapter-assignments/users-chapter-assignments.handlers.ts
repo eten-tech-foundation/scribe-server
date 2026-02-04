@@ -36,6 +36,24 @@ export interface UserChapterAssignment {
   submittedTime: string | null;
 }
 
+interface QueryRow {
+  assignmentId: number;
+  projectName: string;
+  projectUnitId: number;
+  bibleId: number;
+  bibleName: string;
+  chapterStatus: string;
+  targetLanguage: string;
+  bookId: number;
+  bookName: string;
+  bookCode: string;
+  sourceLangCode: string | null;
+  chapterNumber: number;
+  submittedTime: Date | null;
+  totalVerses: number;
+  completedVerses: number;
+}
+
 const MAX_CHAPTER_ASSIGNMENTS_PER_REQUEST = 1000;
 const sourceLang = alias(languages, 'source_lang');
 
@@ -97,7 +115,7 @@ function createChapterAssignmentsBaseQuery() {
     .orderBy(projects.name, books.eng_display_name, chapter_assignments.chapterNumber);
 }
 
-function mapRowsToAssignments(rows: any[]): UserChapterAssignment[] {
+function mapRowsToAssignments(rows: QueryRow[]): UserChapterAssignment[] {
   return rows.map((row) => ({
     chapterAssignmentId: row.assignmentId,
     projectName: row.projectName,
@@ -201,21 +219,6 @@ export async function getAllChapterAssignmentsByUserId(userId: number): Promise<
       error: { message: 'Failed to fetch all chapter assignments by user ID' },
     };
   }
-}
-
-export async function getChapterAssignmentsByUserId(
-  userId: number
-): Promise<Result<UserChapterAssignment[]>> {
-  const result = await getAllChapterAssignmentsByUserId(userId);
-
-  if (!result.ok) {
-    return result as Result<UserChapterAssignment[]>;
-  }
-
-  return {
-    ok: true,
-    data: [...result.data.assignedChapters, ...result.data.peerCheckChapters],
-  };
 }
 
 export async function assignUserToChapters(
