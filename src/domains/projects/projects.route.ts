@@ -6,7 +6,11 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { insertProjectsSchema, patchProjectsSchema, selectProjectsSchema } from '@/db/schema';
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
-import { requireManagerAccess, requireOrgAccess, requireProjectAccess } from '@/middlewares/role-auth';
+import {
+  requireManagerAccess,
+  requireOrgAccess,
+  requireProjectAccess,
+} from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as projectHandler from './projects.handlers';

@@ -4,7 +4,7 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { requireOrgAccess} from '@/middlewares/role-auth';
+import { requireOrgAccess } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as projectUnitsBibleBooksHandler from './project-books.handlers';
