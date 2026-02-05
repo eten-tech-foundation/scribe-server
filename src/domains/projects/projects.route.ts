@@ -6,7 +6,7 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { insertProjectsSchema, patchProjectsSchema, selectProjectsSchema } from '@/db/schema';
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
-import { requireManagerAccess, requireProjectAccess } from '@/middlewares/role-auth';
+import { requireManagerAccess, requireOrgAccess, requireProjectAccess } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as projectHandler from './projects.handlers';
@@ -57,7 +57,7 @@ const listProjectsRoute = createRoute({
   description: 'Returns a list of all projects within the organization',
 });
 
-server.use('/projects', requireManagerAccess);
+server.use('/projects', requireOrgAccess);
 
 server.openapi(listProjectsRoute, async (c) => {
   const currentUser = c.get('user');

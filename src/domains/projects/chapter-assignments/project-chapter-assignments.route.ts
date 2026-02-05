@@ -4,12 +4,13 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { requireManagerAccess, requireProjectAccess } from '@/middlewares/role-auth';
+import { requireManagerAccess, requireOrgAccess, requireProjectAccess } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as projectChapterAssignmentsHandler from './project-chapter-assignments.handlers';
 
-server.use('/projects/:projectId/chapter-assignments/*', requireProjectAccess);
+server.use('/projects/:projectId/chapter-assignments', requireProjectAccess);
+server.use('/projects/:projectId/chapter-assignments/progress', requireOrgAccess);
 // ----------------------------------
 // --- START STANDARD CRUD ROUTES ---
 // ----------------------------------

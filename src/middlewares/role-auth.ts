@@ -158,3 +158,31 @@ export const requireProjectAccess: MiddlewareHandler<AppBindings> = async (c, ne
   c.set('user', user);
   await next();
 };
+
+export const requireOrgAccess: MiddlewareHandler<AppBindings> = async (c, next) => {
+  const user = await getAuthenticatedUser(c);
+ 
+    const projectIdParam = c.req.param('id') || c.req.param('projectId');
+ 
+  if (projectIdParam) {
+    const projectId = Number.parseInt(projectIdParam, 10);
+ 
+    if (Number.isNaN(projectId)) {
+      throw new HTTPException(HttpStatusCodes.BAD_REQUEST, {
+        message: 'Invalid Project ID'
+      });
+    }
+ 
+    const projectResult = await getProjectById(projectId);
+ 
+       if (!projectResult.ok || projectResult.data.organization !== user.organization) {
+      throw new HTTPException(HttpStatusCodes.NOT_FOUND, {
+        message: 'Project not found',
+      });
+    }
+  }
+ 
+  c.set('user', user);
+  await next();
+};
+

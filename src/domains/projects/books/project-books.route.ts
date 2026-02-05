@@ -4,7 +4,7 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { requireProjectAccess } from '@/middlewares/role-auth';
+import { requireOrgAccess} from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as projectUnitsBibleBooksHandler from './project-books.handlers';
@@ -50,7 +50,7 @@ const getProjectBooksRoute = createRoute({
   description: 'Returns a list of all bible books associated with a specific project',
 });
 
-server.use('/projects/:projectId/books', requireProjectAccess);
+server.use('/projects/:projectId/books', requireOrgAccess);
 
 server.openapi(getProjectBooksRoute, async (c) => {
   const { projectId } = c.req.valid('param');
