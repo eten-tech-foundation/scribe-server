@@ -32,6 +32,7 @@ const createChapterAssignmentRequest = z.object({
   bookId: z.number().int(),
   chapterNumber: z.number().int(),
   assignedUserId: z.number().int().optional(),
+  peerCheckerId: z.number().int().optional(),
 });
 
 server.use('/chapter-assignments/*/submit', requireUserAccess);
@@ -101,8 +102,6 @@ server.openapi(createChapterAssignmentRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
 });
 
-// Here we only allow the update of the assignedUserId.
-// To change the other fields, we should create a new one instead.
 const updateChapterAssignmentRequestSchema = z.object({
   assignedUserId: z.number().int(),
   peerCheckerId: z.number().int(),
@@ -118,7 +117,7 @@ const updateChapterAssignmentRoute = createRoute({
     }),
     body: jsonContent(
       updateChapterAssignmentRequestSchema,
-      'User id to assign to the chapter assignment to.'
+      'Users to assign to the chapter assignment.'
     ),
   },
   responses: {

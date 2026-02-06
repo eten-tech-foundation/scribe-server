@@ -8,6 +8,8 @@ import { db } from '@/db';
 import {
   bible_texts,
   books,
+  chapter_assignment_assigned_user_history,
+  chapter_assignment_status_history,
   chapter_assignments,
   organizations,
   project_units,
@@ -46,9 +48,7 @@ export async function getProjectChapterAssignments(
     logger.error({
       cause: err,
       message: 'Failed to get project chapter assignments',
-      context: {
-        projectId,
-      },
+      context: { projectId },
     });
     return { ok: false, error: { message: 'Failed to get project chapter assignments' } };
   }
@@ -80,9 +80,7 @@ export async function deleteChapterAssignmentsByProject(
     logger.error({
       cause: err,
       message: 'Failed to delete chapter assignments for project',
-      context: {
-        projectId,
-      },
+      context: { projectId },
     });
 
     return {
@@ -227,9 +225,33 @@ export async function assignAllProjectChapterAssignmentsToUser(
 
   try {
     const updatedAssignments = await db.transaction(async (tx) => {
+      const currentAssignments = await tx
+        .select({
+          id: chapter_assignments.id,
+          status: chapter_assignments.status,
+          assignedUserId: chapter_assignments.assignedUserId,
+        })
+        .from(chapter_assignments)
+        .where(
+          inArray(
+            chapter_assignments.projectUnitId,
+            db
+              .select({ id: project_units.id })
+              .from(project_units)
+              .where(eq(project_units.projectId, projectId))
+          )
+        );
+
       const updated = await tx
         .update(chapter_assignments)
-        .set({ assignedUserId: assignmentData.assignedUserId })
+        .set({
+          assignedUserId: assignmentData.assignedUserId,
+          status: sql`
+            CASE
+              WHEN ${chapter_assignments.status} = 'not_started' THEN 'draft'::chapter_status
+              ELSE ${chapter_assignments.status}
+            END`,
+        })
         .where(
           inArray(
             chapter_assignments.projectUnitId,
@@ -240,6 +262,45 @@ export async function assignAllProjectChapterAssignmentsToUser(
           )
         )
         .returning();
+
+      if (updated.length > 0) {
+        const assignedUserHistoryRecords = [];
+        const statusHistoryRecords = [];
+
+        for (const updatedAssignment of updated) {
+          const currentAssignment = currentAssignments.find((a) => a.id === updatedAssignment.id);
+          if (!currentAssignment) continue;
+
+          const drafterChanged = currentAssignment.assignedUserId !== assignmentData.assignedUserId;
+          const statusChanged = currentAssignment.status !== updatedAssignment.status;
+
+          if (drafterChanged) {
+            assignedUserHistoryRecords.push({
+              chapterAssignmentId: updatedAssignment.id,
+              assignedUserId: assignmentData.assignedUserId,
+              role: 'drafter' as const,
+              status: updatedAssignment.status,
+            });
+          }
+
+          if (statusChanged) {
+            statusHistoryRecords.push({
+              chapterAssignmentId: updatedAssignment.id,
+              status: updatedAssignment.status,
+            });
+          }
+        }
+
+        if (assignedUserHistoryRecords.length > 0) {
+          await tx
+            .insert(chapter_assignment_assigned_user_history)
+            .values(assignedUserHistoryRecords);
+        }
+
+        if (statusHistoryRecords.length > 0) {
+          await tx.insert(chapter_assignment_status_history).values(statusHistoryRecords);
+        }
+      }
 
       return updated;
     });
@@ -282,10 +343,7 @@ async function isAssignedUserInProjectOrganization(
     logger.error({
       message: 'Failed to check if user is in project organization',
       cause: err,
-      context: {
-        assignedUserId,
-        projectId,
-      },
+      context: { assignedUserId, projectId },
     });
     return false;
   }

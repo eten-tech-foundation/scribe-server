@@ -8,6 +8,8 @@ import {
   bible_texts,
   bibles,
   books,
+  chapter_assignment_assigned_user_history,
+  chapter_assignment_status_history,
   chapter_assignments,
   languages,
   project_units,
@@ -32,6 +34,24 @@ export interface UserChapterAssignment {
   totalVerses: number;
   completedVerses: number;
   submittedTime: string | null;
+}
+
+interface QueryRow {
+  assignmentId: number;
+  projectName: string;
+  projectUnitId: number;
+  bibleId: number;
+  bibleName: string;
+  chapterStatus: string;
+  targetLanguage: string;
+  bookId: number;
+  bookName: string;
+  bookCode: string;
+  sourceLangCode: string | null;
+  chapterNumber: number;
+  submittedTime: Date | null;
+  totalVerses: number;
+  completedVerses: number;
 }
 
 const MAX_CHAPTER_ASSIGNMENTS_PER_REQUEST = 1000;
@@ -95,7 +115,7 @@ function createChapterAssignmentsBaseQuery() {
     .orderBy(projects.name, books.eng_display_name, chapter_assignments.chapterNumber);
 }
 
-function mapRowsToAssignments(rows: any[]): UserChapterAssignment[] {
+function mapRowsToAssignments(rows: QueryRow[]): UserChapterAssignment[] {
   return rows.map((row) => ({
     chapterAssignmentId: row.assignmentId,
     projectName: row.projectName,
@@ -201,20 +221,6 @@ export async function getAllChapterAssignmentsByUserId(userId: number): Promise<
   }
 }
 
-export async function getChapterAssignmentsByUserId(
-  userId: number
-): Promise<Result<UserChapterAssignment[]>> {
-  const result = await getAllChapterAssignmentsByUserId(userId);
-
-  if (!result.ok) {
-    return result as Result<UserChapterAssignment[]>;
-  }
-
-  return {
-    ok: true,
-    data: [...result.data.assignedChapters, ...result.data.peerCheckChapters],
-  };
-}
 export async function assignUserToChapters(
   assignedUserId: number,
   chapterAssignmentIds: number[],
@@ -234,19 +240,83 @@ export async function assignUserToChapters(
     }
 
     const updatedAssignments = await db.transaction(async (tx) => {
-      return await tx
+      const currentAssignments = await tx
+        .select({
+          id: chapter_assignments.id,
+          status: chapter_assignments.status,
+          assignedUserId: chapter_assignments.assignedUserId,
+          peerCheckerId: chapter_assignments.peerCheckerId,
+        })
+        .from(chapter_assignments)
+        .where(inArray(chapter_assignments.id, chapterAssignmentIds));
+
+      const updated = await tx
         .update(chapter_assignments)
         .set({
           assignedUserId,
           peerCheckerId,
           status: sql`
-             CASE
-               WHEN ${chapter_assignments.status} = 'not_started' THEN 'draft'
-               ELSE ${chapter_assignments.status}
-             END `,
+            CASE
+              WHEN ${chapter_assignments.status} = 'not_started' THEN 'draft'::chapter_status
+              ELSE ${chapter_assignments.status}
+            END`,
         })
         .where(inArray(chapter_assignments.id, chapterAssignmentIds))
-        .returning({ id: chapter_assignments.id });
+        .returning({
+          id: chapter_assignments.id,
+          status: chapter_assignments.status,
+        });
+
+      if (updated.length > 0) {
+        const assignedUserHistoryRecords = [];
+        const statusHistoryRecords = [];
+
+        for (const updatedAssignment of updated) {
+          const currentAssignment = currentAssignments.find((a) => a.id === updatedAssignment.id);
+          if (!currentAssignment) continue;
+
+          const drafterChanged = currentAssignment.assignedUserId !== assignedUserId;
+          const peerCheckerChanged = currentAssignment.peerCheckerId !== peerCheckerId;
+          const statusChanged = currentAssignment.status !== updatedAssignment.status;
+
+          if (drafterChanged) {
+            assignedUserHistoryRecords.push({
+              chapterAssignmentId: updatedAssignment.id,
+              assignedUserId,
+              role: 'drafter' as const,
+              status: updatedAssignment.status,
+            });
+          }
+
+          if (peerCheckerChanged) {
+            assignedUserHistoryRecords.push({
+              chapterAssignmentId: updatedAssignment.id,
+              assignedUserId: peerCheckerId,
+              role: 'peer_checker' as const,
+              status: updatedAssignment.status,
+            });
+          }
+
+          if (statusChanged) {
+            statusHistoryRecords.push({
+              chapterAssignmentId: updatedAssignment.id,
+              status: updatedAssignment.status,
+            });
+          }
+        }
+
+        if (assignedUserHistoryRecords.length > 0) {
+          await tx
+            .insert(chapter_assignment_assigned_user_history)
+            .values(assignedUserHistoryRecords);
+        }
+
+        if (statusHistoryRecords.length > 0) {
+          await tx.insert(chapter_assignment_status_history).values(statusHistoryRecords);
+        }
+      }
+
+      return updated;
     });
 
     return {

@@ -22,6 +22,13 @@
       "when": 1769080528201,
       "tag": "0002_clumsy_nekra",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1769700451777,
+      "tag": "0003_yellow_millenium_guard",
+      "breakpoints": true
     }
   ]
 }

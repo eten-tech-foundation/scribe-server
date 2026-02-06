@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import type { Json } from 'drizzle-zod';
 
@@ -6,6 +7,7 @@ import {
   boolean,
   index,
   integer,
+  json,
   jsonb,
   pgEnum,
   pgTable,
@@ -28,6 +30,7 @@ export const chapterStatusEnum = pgEnum('chapter_status', [
   'peer_check',
   'community_review',
 ]);
+export const assignmentRoleEnum = pgEnum('assignment_role', ['drafter', 'peer_checker']);
 
 export const roles = pgTable('roles', {
   id: serial('id').primaryKey(),
@@ -251,6 +254,57 @@ export const chapter_assignments = pgTable(
   ]
 );
 
+export const chapter_assignment_snapshots = pgTable(
+  'chapter_assignment_snapshots',
+  {
+    id: serial('id').primaryKey(),
+    chapterAssignmentId: integer('chapter_assignment_id')
+      .notNull()
+      .references(() => chapter_assignments.id, { onDelete: 'cascade' }),
+    status: chapterStatusEnum('status').notNull(),
+    assignedUserId: integer('assigned_user_id').references(() => users.id),
+    content: json('content').$type<Json>().notNull(),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (table) => [
+    index('idx_ca_snapshots_assignment').on(table.chapterAssignmentId),
+    index('idx_ca_snapshots_user').on(table.assignedUserId),
+  ]
+);
+
+export const chapter_assignment_assigned_user_history = pgTable(
+  'chapter_assignment_assigned_user_history',
+  {
+    id: serial('id').primaryKey(),
+    chapterAssignmentId: integer('chapter_assignment_id')
+      .notNull()
+      .references(() => chapter_assignments.id, { onDelete: 'cascade' }),
+    assignedUserId: integer('assigned_user_id')
+      .notNull()
+      .references(() => users.id),
+    role: assignmentRoleEnum('role').notNull(),
+    status: chapterStatusEnum('status').notNull(),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (table) => [
+    index('idx_ca_user_history_assignment').on(table.chapterAssignmentId),
+    index('idx_ca_user_history_user').on(table.assignedUserId),
+  ]
+);
+
+export const chapter_assignment_status_history = pgTable(
+  'chapter_assignment_status_history',
+  {
+    id: serial('id').primaryKey(),
+    chapterAssignmentId: integer('chapter_assignment_id')
+      .notNull()
+      .references(() => chapter_assignments.id, { onDelete: 'cascade' }),
+    status: chapterStatusEnum('status').notNull(),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (table) => [index('idx_ca_status_history_assignment').on(table.chapterAssignmentId)]
+);
+
 export const editorStateResourcesSchema = z
   .object({
     activeResource: z.string().min(1),
@@ -301,6 +355,15 @@ export const selectProjectUnitBibleBooksSchema = createSelectSchema(project_unit
 export const selectBibleTextsSchema = createSelectSchema(bible_texts);
 export const selectTranslatedVersesSchema = createSelectSchema(translated_verses);
 export const selectChapterAssignmentsSchema = createSelectSchema(chapter_assignments);
+export const selectChapterAssignmentSnapshotsSchema = createSelectSchema(
+  chapter_assignment_snapshots
+);
+export const selectChapterAssignmentAssignedUserHistorySchema = createSelectSchema(
+  chapter_assignment_assigned_user_history
+);
+export const selectChapterAssignmentStatusHistorySchema = createSelectSchema(
+  chapter_assignment_status_history
+);
 export const selectUserChapterAssignmentEditorStateSchema = createSelectSchema(
   user_chapter_assignment_editor_state
 );
@@ -483,6 +546,57 @@ export const insertChapterAssignmentsSchema = createInsertSchema(chapter_assignm
     updatedAt: true,
   });
 
+export const insertChapterAssignmentSnapshotsSchema = createInsertSchema(
+  chapter_assignment_snapshots,
+  {
+    chapterAssignmentId: (schema) => schema.int(),
+    assignedUserId: (schema) => schema.int().optional(),
+  }
+)
+  .required({
+    chapterAssignmentId: true,
+    status: true,
+    content: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+  });
+
+export const insertChapterAssignmentAssignedUserHistorySchema = createInsertSchema(
+  chapter_assignment_assigned_user_history,
+  {
+    chapterAssignmentId: (schema) => schema.int(),
+    assignedUserId: (schema) => schema.int(),
+    role: z.enum(['drafter', 'peer_checker']),
+  }
+)
+  .required({
+    chapterAssignmentId: true,
+    assignedUserId: true,
+    role: true,
+    status: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+  });
+
+export const insertChapterAssignmentStatusHistorySchema = createInsertSchema(
+  chapter_assignment_status_history,
+  {
+    chapterAssignmentId: (schema) => schema.int(),
+  }
+)
+  .required({
+    chapterAssignmentId: true,
+    status: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+  });
+
 export const insertUserChapterAssignmentEditorStateSchema = createInsertSchema(
   user_chapter_assignment_editor_state,
   {
@@ -512,5 +626,11 @@ export const patchProjectUnitBibleBooksSchema = insertProjectUnitBibleBooksSchem
 export const patchBibleTextsSchema = insertBibleTextsSchema.partial();
 export const patchTranslatedVersesSchema = insertTranslatedVersesSchema.partial();
 export const patchChapterAssignmentsSchema = insertChapterAssignmentsSchema.partial();
+export const patchChapterAssignmentSnapshotsSchema =
+  insertChapterAssignmentSnapshotsSchema.partial();
+export const patchChapterAssignmentAssignedUserHistorySchema =
+  insertChapterAssignmentAssignedUserHistorySchema.partial();
+export const patchChapterAssignmentStatusHistorySchema =
+  insertChapterAssignmentStatusHistorySchema.partial();
 export const patchUserChapterAssignmentEditorStateSchema =
   insertUserChapterAssignmentEditorStateSchema.partial();
