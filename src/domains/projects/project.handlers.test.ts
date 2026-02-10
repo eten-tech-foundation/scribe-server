@@ -23,6 +23,15 @@ const mockTx = {
 vi.mock('@/db', () => ({
   db: {
     selectDistinct: vi.fn(),
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        innerJoin: vi.fn(() => ({
+          groupBy: vi.fn(() => ({
+            as: vi.fn(() => ({})),
+          })),
+        })),
+      })),
+    })),
     transaction: vi.fn(),
     insert: vi.fn(),
     update: vi.fn(),
