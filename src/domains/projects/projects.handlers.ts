@@ -1,14 +1,22 @@
 import type { z } from '@hono/zod-openapi';
 
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import type { insertProjectsSchema, patchProjectsSchema, selectProjectsSchema } from '@/db/schema';
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
-import { bibles, languages, project_unit_bible_books, project_units, projects } from '@/db/schema';
+import {
+  bibles,
+  chapter_assignments,
+  languages,
+  project_unit_bible_books,
+  project_units,
+  projects,
+} from '@/db/schema';
 import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapter-assignments.handlers';
+
 export type Project = z.infer<typeof selectProjectsSchema>;
 
 export type CreateProjectInput = z.infer<typeof insertProjectsSchema> & {
@@ -27,11 +35,24 @@ export type ProjectWithLanguageNames = Omit<Project, 'sourceLanguage' | 'targetL
   sourceLanguageName: string;
   targetLanguageName: string;
   sourceName: string;
+  lastChapterActivity: Date | null;
 };
 
 const sourceLanguages = alias(languages, 'sourceLanguages');
 const targetLanguages = alias(languages, 'targetLanguages');
 const sourceBibles = alias(bibles, 'sourceBibles');
+
+const lastActivitySubquery = db
+  .select({
+    projectId: project_units.projectId,
+    lastChapterActivity: sql<Date>`MAX(${chapter_assignments.updatedAt})`.as(
+      'last_chapter_activity'
+    ),
+  })
+  .from(chapter_assignments)
+  .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
+  .groupBy(project_units.projectId)
+  .as('last_activity');
 
 const projectWithLangNames = {
   id: projects.id,
@@ -45,6 +66,7 @@ const projectWithLangNames = {
   sourceLanguageName: sourceLanguages.langName,
   targetLanguageName: targetLanguages.langName,
   sourceName: sourceBibles.name,
+  lastChapterActivity: lastActivitySubquery.lastChapterActivity,
 } as const;
 
 const baseJoinQuery = () =>
@@ -58,7 +80,8 @@ const baseJoinQuery = () =>
       project_unit_bible_books,
       eq(project_unit_bible_books.projectUnitId, project_units.id)
     )
-    .innerJoin(sourceBibles, eq(sourceBibles.id, project_unit_bible_books.bibleId));
+    .innerJoin(sourceBibles, eq(sourceBibles.id, project_unit_bible_books.bibleId))
+    .leftJoin(lastActivitySubquery, eq(projects.id, lastActivitySubquery.projectId));
 
 export async function getAllProjects(): Promise<Result<ProjectWithLanguageNames[]>> {
   try {

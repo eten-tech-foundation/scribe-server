@@ -23,6 +23,18 @@ const mockTx = {
 vi.mock('@/db', () => ({
   db: {
     selectDistinct: vi.fn(),
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        innerJoin: vi.fn(() => ({
+          groupBy: vi.fn(() => ({
+            as: vi.fn(() => ({
+              projectId: undefined,
+              lastChapterActivity: undefined,
+            })),
+          })),
+        })),
+      })),
+    })),
     transaction: vi.fn(),
     insert: vi.fn(),
     update: vi.fn(),
@@ -59,7 +71,9 @@ describe('project Handler Functions', () => {
             innerJoin: vi.fn().mockReturnValue({
               innerJoin: vi.fn().mockReturnValue({
                 innerJoin: vi.fn().mockReturnValue({
-                  innerJoin: vi.fn().mockResolvedValue([mockProjectWithLanguageNames]),
+                  innerJoin: vi.fn().mockReturnValue({
+                    leftJoin: vi.fn().mockResolvedValue([mockProjectWithLanguageNames]),
+                  }),
                 }),
               }),
             }),
@@ -96,7 +110,9 @@ describe('project Handler Functions', () => {
               innerJoin: vi.fn().mockReturnValue({
                 innerJoin: vi.fn().mockReturnValue({
                   innerJoin: vi.fn().mockReturnValue({
-                    where: vi.fn().mockResolvedValue([mockProjectWithLanguageNames]),
+                    leftJoin: vi.fn().mockReturnValue({
+                      where: vi.fn().mockResolvedValue([mockProjectWithLanguageNames]),
+                    }),
                   }),
                 }),
               }),
@@ -134,8 +150,10 @@ describe('project Handler Functions', () => {
               innerJoin: vi.fn().mockReturnValue({
                 innerJoin: vi.fn().mockReturnValue({
                   innerJoin: vi.fn().mockReturnValue({
-                    where: vi.fn().mockReturnValue({
-                      limit: vi.fn().mockResolvedValue([mockProjectWithLanguageNames]),
+                    leftJoin: vi.fn().mockReturnValue({
+                      where: vi.fn().mockReturnValue({
+                        limit: vi.fn().mockResolvedValue([mockProjectWithLanguageNames]),
+                      }),
                     }),
                   }),
                 }),
@@ -159,8 +177,10 @@ describe('project Handler Functions', () => {
               innerJoin: vi.fn().mockReturnValue({
                 innerJoin: vi.fn().mockReturnValue({
                   innerJoin: vi.fn().mockReturnValue({
-                    where: vi.fn().mockReturnValue({
-                      limit: vi.fn().mockResolvedValue([]),
+                    leftJoin: vi.fn().mockReturnValue({
+                      where: vi.fn().mockReturnValue({
+                        limit: vi.fn().mockResolvedValue([]),
+                      }),
                     }),
                   }),
                 }),
