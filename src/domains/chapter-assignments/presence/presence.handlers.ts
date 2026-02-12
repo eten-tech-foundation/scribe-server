@@ -74,10 +74,10 @@ export async function registerPresenceAndCheck(
       }
 
       const isFirst = firstEditor.userId === userId;
-      
+
       const displayName = resolveDisplayName(
-        firstEditor.username, 
-        firstEditor.firstName, 
+        firstEditor.username,
+        firstEditor.firstName,
         firstEditor.lastName
       );
 
