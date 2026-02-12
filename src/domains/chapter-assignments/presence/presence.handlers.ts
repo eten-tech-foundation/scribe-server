@@ -6,100 +6,115 @@ import { db } from '@/db';
 import { active_chapter_editors, users } from '@/db/schema';
 import { logger } from '@/lib/logger';
 
-const STALE_THRESHOLD_MINUTES = 5;
+function resolveDisplayName(
+  username: string,
+  firstName: string | null,
+  lastName: string | null
+): string {
+  const names = [firstName, lastName].filter((n) => n && n.trim().length > 0);
+  return names.length > 0 ? names.join(' ') : username;
+}
+
+const STALE_THRESHOLD_MINUTES = 2;
 
 export interface PresenceResult {
   isFirstEditor: boolean;
   firstEditorName: string | null;
 }
+
 export async function registerPresenceAndCheck(
   userId: number,
   chapterAssignmentId: number
 ): Promise<Result<PresenceResult>> {
-  try {
-    const now = new Date();
-    const staleTime = new Date(now.getTime() - STALE_THRESHOLD_MINUTES * 60 * 1000);
+  return await db.transaction(async (tx) => {
+    try {
+      const now = new Date();
+      const staleTime = new Date(now.getTime() - STALE_THRESHOLD_MINUTES * 60 * 1000);
 
-    await db
-      .delete(active_chapter_editors)
-      .where(
-        and(
-          eq(active_chapter_editors.chapterAssignmentId, chapterAssignmentId),
-          lt(active_chapter_editors.lastHeartbeat, staleTime)
-        )
+      await tx
+        .delete(active_chapter_editors)
+        .where(
+          and(
+            eq(active_chapter_editors.chapterAssignmentId, chapterAssignmentId),
+            lt(active_chapter_editors.lastHeartbeat, staleTime)
+          )
+        );
+
+      await tx
+        .insert(active_chapter_editors)
+        .values({
+          userId,
+          chapterAssignmentId,
+          startedAt: now,
+          lastHeartbeat: now,
+        })
+        .onConflictDoUpdate({
+          target: [active_chapter_editors.chapterAssignmentId, active_chapter_editors.userId],
+          set: {
+            lastHeartbeat: now,
+          },
+        });
+
+      const [firstEditor] = await tx
+        .select({
+          userId: active_chapter_editors.userId,
+          username: users.username,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          startedAt: active_chapter_editors.startedAt,
+        })
+        .from(active_chapter_editors)
+        .innerJoin(users, eq(active_chapter_editors.userId, users.id))
+        .where(eq(active_chapter_editors.chapterAssignmentId, chapterAssignmentId))
+        .orderBy(asc(active_chapter_editors.startedAt))
+        .limit(1);
+
+      if (!firstEditor) {
+        return { ok: true, data: { isFirstEditor: true, firstEditorName: null } };
+      }
+
+      const isFirst = firstEditor.userId === userId;
+      
+      const displayName = resolveDisplayName(
+        firstEditor.username, 
+        firstEditor.firstName, 
+        firstEditor.lastName
       );
 
-    await db
-      .insert(active_chapter_editors)
-      .values({
-        userId,
-        chapterAssignmentId,
-        startedAt: now,
-        lastHeartbeat: now,
-      })
-      .onConflictDoUpdate({
-        target: [active_chapter_editors.chapterAssignmentId, active_chapter_editors.userId],
-        set: {
-          lastHeartbeat: now,
+      return {
+        ok: true,
+        data: {
+          isFirstEditor: isFirst,
+          firstEditorName: isFirst ? null : displayName,
         },
+      };
+    } catch (err) {
+      logger.error({
+        cause: err,
+        message: 'Failed to register presence',
+        context: { userId, chapterAssignmentId },
       });
-
-    const [firstEditor] = await db
-      .select({
-        userId: active_chapter_editors.userId,
-        username: users.username,
-        firstName: users.firstName,
-        lastName: users.lastName,
-      })
-      .from(active_chapter_editors)
-      .innerJoin(users, eq(active_chapter_editors.userId, users.id))
-      .where(eq(active_chapter_editors.chapterAssignmentId, chapterAssignmentId))
-      .orderBy(asc(active_chapter_editors.startedAt))
-      .limit(1);
-
-    if (!firstEditor) {
-      return { ok: true, data: { isFirstEditor: true, firstEditorName: null } };
+      return { ok: false, error: { message: 'Failed to sync presence' } };
     }
-
-    const isFirst = firstEditor.userId === userId;
-
-    let displayName = firstEditor.username;
-    if (firstEditor.firstName && firstEditor.lastName) {
-      displayName = `${firstEditor.firstName} ${firstEditor.lastName}`;
-    }
-
-    return {
-      ok: true,
-      data: {
-        isFirstEditor: isFirst,
-        firstEditorName: isFirst ? null : displayName,
-      },
-    };
-  } catch (err) {
-    logger.error({
-      cause: err,
-      message: 'Failed to register presence',
-      context: { userId, chapterAssignmentId },
-    });
-    return { ok: false, error: { message: 'Failed to sync presence' } };
-  }
+  });
 }
 
 export async function removePresence(
   userId: number,
   chapterAssignmentId: number
-): Promise<Result<void>> {
+): Promise<Result<boolean>> {
   try {
-    await db
+    const [deletedRecord] = await db
       .delete(active_chapter_editors)
       .where(
         and(
           eq(active_chapter_editors.userId, userId),
           eq(active_chapter_editors.chapterAssignmentId, chapterAssignmentId)
         )
-      );
+      )
+      .returning({ id: active_chapter_editors.id });
 
-    return { ok: true, data: undefined };
+    return { ok: true, data: !!deletedRecord };
   } catch (err) {
     logger.error({
       cause: err,
