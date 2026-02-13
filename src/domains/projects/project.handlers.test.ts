@@ -218,7 +218,8 @@ describe('project Handler Functions', () => {
       const chapterAssignmentsModule = await import(
         '@/domains/chapter-assignments/chapter-assignments.handlers'
       );
-      const { bibleId, bookId, status, ...projectWithoutExtras } = mockProjectInput;
+      const { bibleId, bookId, projectUnitStatus, ...projectWithoutExtras } = mockProjectInput;
+
       const createdProject = { ...projectWithoutExtras, id: 2 } as any;
 
       // Mock successful creation
@@ -261,7 +262,8 @@ describe('project Handler Functions', () => {
       const chapterAssignmentsModule = await import(
         '@/domains/chapter-assignments/chapter-assignments.handlers'
       );
-      const { bibleId, bookId, status, ...projectWithoutExtras } = mockProjectInput;
+      const { bibleId, bookId, projectUnitStatus, ...projectWithoutExtras } = mockProjectInput;
+
       const createdProject = { ...projectWithoutExtras, id: 2 } as any;
 
       // Mock successful project creation but failed chapter assignment

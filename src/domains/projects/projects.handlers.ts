@@ -19,16 +19,16 @@ import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapte
 
 export type Project = z.infer<typeof selectProjectsSchema>;
 
-export type CreateProjectInput = z.infer<typeof insertProjectsSchema> & {
+export type CreateProjectInput = Omit<z.infer<typeof insertProjectsSchema>, 'status'> & {
   bibleId: number;
   bookId: number[];
-  status?: 'not_started' | 'in_progress' | 'completed';
+  projectUnitStatus?: 'not_started' | 'in_progress' | 'completed';
 };
 
-export type UpdateProjectInput = z.infer<typeof patchProjectsSchema> & {
+export type UpdateProjectInput = Omit<z.infer<typeof patchProjectsSchema>, 'status'> & {
   bibleId?: number;
   bookId?: number[];
-  status?: 'not_started' | 'in_progress' | 'completed';
+  projectUnitStatus?: 'not_started' | 'in_progress' | 'completed';
 };
 
 export type ProjectWithLanguageNames = Omit<Project, 'sourceLanguage' | 'targetLanguage'> & {
@@ -59,6 +59,7 @@ const projectWithLangNames = {
   name: projects.name,
   organization: projects.organization,
   isActive: projects.isActive,
+  status: projects.status,
   createdBy: projects.createdBy,
   createdAt: projects.createdAt,
   updatedAt: projects.updatedAt,
@@ -120,7 +121,7 @@ export async function getProjectById(id: number): Promise<Result<ProjectWithLang
 export async function createProject(input: CreateProjectInput): Promise<Result<Project>> {
   try {
     return await db.transaction(async (tx) => {
-      const { bibleId, bookId, status = 'not_started', ...projectData } = input;
+      const { bibleId, bookId, projectUnitStatus = 'not_started', ...projectData } = input;
 
       const [project] = await tx.insert(projects).values(projectData).returning();
 
@@ -128,7 +129,7 @@ export async function createProject(input: CreateProjectInput): Promise<Result<P
         .insert(project_units)
         .values({
           projectId: project.id,
-          status,
+          status: projectUnitStatus,
         })
         .returning();
 
@@ -167,7 +168,7 @@ export async function updateProject(
 ): Promise<Result<Project>> {
   try {
     return await db.transaction(async (tx) => {
-      const { bibleId, bookId, status, ...projectData } = input;
+      const { bibleId, bookId, projectUnitStatus, ...projectData } = input;
 
       const [updated] = await tx
         .update(projects)
@@ -179,14 +180,14 @@ export async function updateProject(
         return { ok: false, error: { message: 'Project not found' } };
       }
 
-      if (bibleId !== undefined || bookId !== undefined || status !== undefined) {
+      if (bibleId !== undefined || bookId !== undefined || projectUnitStatus !== undefined) {
         await tx.delete(project_units).where(eq(project_units.projectId, id));
 
         const [projectUnit] = await tx
           .insert(project_units)
           .values({
             projectId: id,
-            status: status || 'not_started',
+            status: projectUnitStatus || 'not_started',
           })
           .returning();
 

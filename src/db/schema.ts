@@ -24,6 +24,10 @@ export const projectStatusEnum = pgEnum('project_status', [
   'in_progress',
   'completed',
 ]);
+export const projectAssignmentStatusEnum = pgEnum('project_assignment_status', [
+  'active',
+  'not_assigned',
+]);
 export const chapterStatusEnum = pgEnum('chapter_status', [
   'not_started',
   'draft',
@@ -95,6 +99,7 @@ export const projects = pgTable('projects', {
     .notNull()
     .references(() => organizations.id),
   isActive: boolean('is_active').default(true),
+  status: projectAssignmentStatusEnum('status').notNull().default('not_assigned'),
   createdBy: integer('created_by').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
@@ -418,6 +423,7 @@ export const insertProjectsSchema = createInsertSchema(projects, {
   targetLanguage: (schema) => schema.int(),
   organization: (schema) => schema.int(),
   isActive: (schema) => schema.default(true),
+  status: z.enum(['active', 'not_assigned']).default('not_assigned'),
 })
   .required({
     name: true,
