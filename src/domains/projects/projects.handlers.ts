@@ -180,7 +180,7 @@ export async function updateProject(
         return { ok: false, error: { message: 'Project not found' } };
       }
 
-      if (bibleId !== undefined || bookId !== undefined || projectUnitStatus !== undefined) {
+      if (bibleId !== undefined || bookId !== undefined) {
         await tx.delete(project_units).where(eq(project_units.projectId, id));
 
         const [projectUnit] = await tx
@@ -214,6 +214,11 @@ export async function updateProject(
             throw new Error(assignmentsResult.error.message);
           }
         }
+      } else if (projectUnitStatus !== undefined) {
+        await tx
+          .update(project_units)
+          .set({ status: projectUnitStatus })
+          .where(eq(project_units.projectId, id));
       }
 
       return { ok: true, data: updated };
