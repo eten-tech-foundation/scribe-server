@@ -140,7 +140,11 @@ const WORKFLOW_DEFINITION: WorkflowStep[] = chapterStatusEnum.enumValues.map((st
   label: formatLabel(status),
 }));
 
-function transformProjectData(rawProject: any): ProjectWithLanguageNames {
+type BaseJoinQueryResult = Awaited<ReturnType<typeof baseJoinQuery>>;
+type RawProjectRow = BaseJoinQueryResult[number];
+
+function mapProjectDataToProjectWithLanguages(rawProject: RawProjectRow): ProjectWithLanguageNames {
+  const { counts, ...rest } = rawProject;
   const defaultCounts = chapterStatusEnum.enumValues.reduce((acc, status) => {
     acc[status] = 0;
     return acc;
@@ -148,24 +152,14 @@ function transformProjectData(rawProject: any): ProjectWithLanguageNames {
 
   const finalCounts = {
     ...defaultCounts,
-    ...(rawProject.counts || {}),
+    ...(counts || {}),
   };
 
   return {
-    ...rawProject,
-    chapterStatusCounts: finalCounts,
+    ...rest,
+    chapterStatusCounts:finalCounts,
     workflowConfig: WORKFLOW_DEFINITION,
-    counts: undefined,
   };
-}
-export async function getAllProjects(): Promise<Result<ProjectWithLanguageNames[]>> {
-  try {
-    const rawProjects = await baseJoinQuery();
-    const projectList = rawProjects.map(transformProjectData);
-    return { ok: true, data: projectList };
-  } catch {
-    return { ok: false, error: { message: 'Failed to fetch projects' } };
-  }
 }
 
 export async function getProjectsByOrganization(
@@ -173,7 +167,7 @@ export async function getProjectsByOrganization(
 ): Promise<Result<ProjectWithLanguageNames[]>> {
   try {
     const rawProjects = await baseJoinQuery().where(eq(projects.organization, organizationId));
-    const projectList = rawProjects.map(transformProjectData);
+    const projectList = rawProjects.map(mapProjectDataToProjectWithLanguages);
     return { ok: true, data: projectList };
   } catch {
     return { ok: false, error: { message: 'Failed to fetch organization projects' } };
@@ -188,7 +182,7 @@ export async function getProjectById(id: number): Promise<Result<ProjectWithLang
       return { ok: false, error: { message: 'Project not found' } };
     }
 
-    const project = transformProjectData(rawProjects[0]);
+    const project = mapProjectDataToProjectWithLanguages(rawProjects[0]);
 
     return { ok: true, data: project };
   } catch {

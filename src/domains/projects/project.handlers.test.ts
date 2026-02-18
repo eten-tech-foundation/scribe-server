@@ -6,7 +6,6 @@ import { resetAllMocks, sampleChapterAssignments, sampleProjects } from '@/test/
 import {
   createProject,
   deleteProject,
-  getAllProjects,
   getProjectById,
   getProjectsByOrganization,
   updateProject,
@@ -53,23 +52,6 @@ vi.mock('@/domains/projects/chapter-assignments/project-chapter-assignments.hand
 }));
 
 /**
- * For getAllProjects the chain ends at groupBy (no where/limit).
- * We mock groupBy to resolve directly.
- */
-function buildMockQueryChainDirect(terminalValue: unknown) {
-  const groupByMock = vi.fn().mockResolvedValue(terminalValue);
-  const leftJoin2Mock = vi.fn().mockReturnValue({ groupBy: groupByMock });
-  const leftJoin1Mock = vi.fn().mockReturnValue({ leftJoin: leftJoin2Mock });
-  const innerJoin5Mock = vi.fn().mockReturnValue({ leftJoin: leftJoin1Mock });
-  const innerJoin4Mock = vi.fn().mockReturnValue({ innerJoin: innerJoin5Mock });
-  const innerJoin3Mock = vi.fn().mockReturnValue({ innerJoin: innerJoin4Mock });
-  const innerJoin2Mock = vi.fn().mockReturnValue({ innerJoin: innerJoin3Mock });
-  const innerJoin1Mock = vi.fn().mockReturnValue({ innerJoin: innerJoin2Mock });
-  const fromMock = vi.fn().mockReturnValue({ innerJoin: innerJoin1Mock });
-  return { from: fromMock };
-}
-
-/**
  * For getProjectsByOrganization the chain ends at groupBy().where().
  */
 function buildMockQueryChainWhere(terminalValue: unknown) {
@@ -113,43 +95,6 @@ describe('project Handler Functions', () => {
   beforeEach(() => {
     resetAllMocks();
     (db.transaction as any).mockImplementation(async (cb: any) => cb(mockTx));
-  });
-
-  describe('getAllProjects', () => {
-    it('should return all projects with language names (including chapterStatusCounts)', async () => {
-      (db.selectDistinct as any).mockReturnValue(buildMockQueryChainDirect([mockRawProject]));
-
-      const result = await getAllProjects();
-
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.data).toHaveLength(1);
-        expect(result.data[0]).toMatchObject({
-          id: mockRawProject.id,
-          name: mockRawProject.name,
-          sourceLanguageName: mockRawProject.sourceLanguageName,
-          targetLanguageName: mockRawProject.targetLanguageName,
-          sourceName: mockRawProject.sourceName,
-        });
-        // transformProjectData guarantees these fields exist
-        expect(result.data[0].chapterStatusCounts).toBeDefined();
-        expect(result.data[0].workflowConfig).toBeDefined();
-        expect(Array.isArray(result.data[0].workflowConfig)).toBe(true);
-      }
-    });
-
-    it('should return error if db call fails', async () => {
-      (db.selectDistinct as any).mockImplementation(() => {
-        throw new Error('DB Error');
-      });
-
-      const result = await getAllProjects();
-
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.error.message).toBe('Failed to fetch projects');
-      }
-    });
   });
 
   describe('getProjectsByOrganization', () => {
