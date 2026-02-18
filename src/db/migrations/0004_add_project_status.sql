@@ -1,0 +1,2 @@
+CREATE TYPE "public"."project_assignment_status" AS ENUM('active', 'not_assigned');--> statement-breakpoint
+ALTER TABLE "projects" ADD COLUMN "status" "project_assignment_status" DEFAULT 'not_assigned' NOT NULL;
