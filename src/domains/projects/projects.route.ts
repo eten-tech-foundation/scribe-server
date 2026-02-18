@@ -19,16 +19,19 @@ const projectWithLanguageNamesSchema = selectProjectsSchema
     sourceName: z.string().optional(),
   });
 
-const createProjectWithUnitsSchema = insertProjectsSchema.extend({
+const createProjectWithUnitsSchema = insertProjectsSchema.omit({ status: true }).extend({
   bibleId: z.number().int(),
   bookId: z.array(z.number().int()),
-  status: z.enum(['not_started', 'in_progress', 'completed']).default('not_started'),
+  projectUnitStatus: z
+    .enum(['not_started', 'in_progress', 'completed'])
+    .default('not_started')
+    .optional(),
 });
 
-const updateProjectWithUnitsSchema = patchProjectsSchema.extend({
+const updateProjectWithUnitsSchema = patchProjectsSchema.omit({ status: true }).extend({
   bibleId: z.number().int().optional(),
   bookId: z.array(z.number().int()).optional(),
-  status: z.enum(['not_started', 'in_progress', 'completed']).default('not_started').optional(),
+  projectUnitStatus: z.enum(['not_started', 'in_progress', 'completed']).optional(),
 });
 
 const listProjectsRoute = createRoute({

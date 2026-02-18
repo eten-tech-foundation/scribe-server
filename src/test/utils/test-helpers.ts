@@ -148,7 +148,7 @@ export const sampleProjects = {
     createdBy: 1,
     organization: 1,
     metadata: { priority: 'high', category: 'product' },
-    status: 'not_started' as const,
+    projectUnitStatus: 'not_started' as const,
     bibleId: 1,
     bookId: [1, 2],
   },
@@ -161,7 +161,7 @@ export const sampleProjects = {
     metadata: { priority: 'medium', category: 'updated' },
     bibleId: 2,
     bookId: [3, 4, 5],
-    status: 'in_progress' as const,
+    projectUnitStatus: 'in_progress' as const,
   },
   projectWithLanguageNames1: {
     id: 1,
