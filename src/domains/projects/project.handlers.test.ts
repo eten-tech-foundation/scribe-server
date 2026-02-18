@@ -330,9 +330,6 @@ describe('project Handler Functions', () => {
     });
 
     it('should update project units when bibleId or bookId is provided', async () => {
-      const chapterAssignmentsModule = await import(
-        '@/domains/chapter-assignments/chapter-assignments.handlers'
-      );
       const updateDataWithUnits = sampleProjects.updateProjectWithUnits;
       const updatedProject = { ...mockProject, ...updateDataWithUnits } as any;
 
@@ -344,23 +341,11 @@ describe('project Handler Functions', () => {
         }),
       }));
 
-      mockTx.delete.mockImplementationOnce(() => ({
-        where: vi.fn().mockResolvedValue(undefined),
-      }));
-
-      mockTx.insert.mockImplementationOnce(() => ({
-        values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{ id: 100 }]),
+      mockTx.update.mockImplementationOnce(() => ({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined),
         }),
       }));
-
-      mockTx.insert.mockImplementationOnce(() => ({
-        values: vi.fn().mockResolvedValue(undefined),
-      }));
-      vi.mocked(chapterAssignmentsModule.createChapterAssignmentForProjectUnit).mockResolvedValue({
-        ok: true,
-        data: sampleChapterAssignments as any,
-      } as any);
 
       const result = await updateProject(1, updateDataWithUnits);
 
