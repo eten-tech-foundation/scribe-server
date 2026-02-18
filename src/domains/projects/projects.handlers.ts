@@ -157,7 +157,7 @@ function mapProjectDataToProjectWithLanguages(rawProject: RawProjectRow): Projec
 
   return {
     ...rest,
-    chapterStatusCounts:finalCounts,
+    chapterStatusCounts: finalCounts,
     workflowConfig: WORKFLOW_DEFINITION,
   };
 }
