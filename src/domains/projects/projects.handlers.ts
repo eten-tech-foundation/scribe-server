@@ -10,6 +10,7 @@ import { db } from '@/db';
 import {
   bibles,
   chapter_assignments,
+  chapterStatusEnum,
   languages,
   project_unit_bible_books,
   project_units,
@@ -19,6 +20,12 @@ import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapte
 
 export type Project = z.infer<typeof selectProjectsSchema>;
 
+export type ChapterStatusCounts = Record<string, number>;
+
+export interface WorkflowStep {
+  id: string;
+  label: string;
+}
 export type CreateProjectInput = Omit<z.infer<typeof insertProjectsSchema>, 'status'> & {
   bibleId: number;
   bookId: number[];
@@ -36,6 +43,8 @@ export type ProjectWithLanguageNames = Omit<Project, 'sourceLanguage' | 'targetL
   targetLanguageName: string;
   sourceName: string;
   lastChapterActivity: Date | null;
+  chapterStatusCounts: ChapterStatusCounts;
+  workflowConfig: WorkflowStep[];
 };
 
 const sourceLanguages = alias(languages, 'sourceLanguages');
@@ -54,6 +63,31 @@ const lastActivitySubquery = db
   .groupBy(project_units.projectId)
   .as('last_activity');
 
+const rawCountsSubquery = db
+  .select({
+    projectId: project_units.projectId,
+    status: chapter_assignments.status,
+    count: sql<number>`count(*)::int`.as('count'),
+  })
+  .from(chapter_assignments)
+  .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
+  .groupBy(project_units.projectId, chapter_assignments.status)
+  .as('raw_counts');
+
+const chapterStatusCountsSubquery = db
+  .select({
+    projectId: rawCountsSubquery.projectId,
+    counts: sql<Record<string, number>>`
+      jsonb_object_agg(
+        ${rawCountsSubquery.status}, 
+        ${rawCountsSubquery.count}
+      )
+    `.as('counts'),
+  })
+  .from(rawCountsSubquery)
+  .groupBy(rawCountsSubquery.projectId)
+  .as('chapter_status_counts');
+
 const projectWithLangNames = {
   id: projects.id,
   name: projects.name,
@@ -68,6 +102,7 @@ const projectWithLangNames = {
   targetLanguageName: targetLanguages.langName,
   sourceName: sourceBibles.name,
   lastChapterActivity: lastActivitySubquery.lastChapterActivity,
+  counts: chapterStatusCountsSubquery.counts,
 } as const;
 
 const baseJoinQuery = () =>
@@ -82,11 +117,51 @@ const baseJoinQuery = () =>
       eq(project_unit_bible_books.projectUnitId, project_units.id)
     )
     .innerJoin(sourceBibles, eq(sourceBibles.id, project_unit_bible_books.bibleId))
-    .leftJoin(lastActivitySubquery, eq(projects.id, lastActivitySubquery.projectId));
+    .leftJoin(lastActivitySubquery, eq(projects.id, lastActivitySubquery.projectId))
+    .leftJoin(chapterStatusCountsSubquery, eq(projects.id, chapterStatusCountsSubquery.projectId))
+    .groupBy(
+      projects.id,
+      sourceLanguages.id,
+      targetLanguages.id,
+      sourceBibles.id,
+      lastActivitySubquery.lastChapterActivity,
+      chapterStatusCountsSubquery.counts
+    );
 
+const formatLabel = (str: string) => {
+  return str
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+const WORKFLOW_DEFINITION: WorkflowStep[] = chapterStatusEnum.enumValues.map((status) => ({
+  id: status,
+  label: formatLabel(status),
+}));
+
+function transformProjectData(rawProject: any): ProjectWithLanguageNames {
+  const defaultCounts = chapterStatusEnum.enumValues.reduce((acc, status) => {
+    acc[status] = 0;
+    return acc;
+  }, {} as ChapterStatusCounts);
+
+  const finalCounts = {
+    ...defaultCounts,
+    ...(rawProject.counts || {}),
+  };
+
+  return {
+    ...rawProject,
+    chapterStatusCounts: finalCounts,
+    workflowConfig: WORKFLOW_DEFINITION,
+    counts: undefined,
+  };
+}
 export async function getAllProjects(): Promise<Result<ProjectWithLanguageNames[]>> {
   try {
-    const projectList = await baseJoinQuery();
+    const rawProjects = await baseJoinQuery();
+    const projectList = rawProjects.map(transformProjectData);
     return { ok: true, data: projectList };
   } catch {
     return { ok: false, error: { message: 'Failed to fetch projects' } };
@@ -97,7 +172,8 @@ export async function getProjectsByOrganization(
   organizationId: number
 ): Promise<Result<ProjectWithLanguageNames[]>> {
   try {
-    const projectList = await baseJoinQuery().where(eq(projects.organization, organizationId));
+    const rawProjects = await baseJoinQuery().where(eq(projects.organization, organizationId));
+    const projectList = rawProjects.map(transformProjectData);
     return { ok: true, data: projectList };
   } catch {
     return { ok: false, error: { message: 'Failed to fetch organization projects' } };
@@ -106,11 +182,13 @@ export async function getProjectsByOrganization(
 
 export async function getProjectById(id: number): Promise<Result<ProjectWithLanguageNames>> {
   try {
-    const [project] = await baseJoinQuery().where(eq(projects.id, id)).limit(1);
+    const rawProjects = await baseJoinQuery().where(eq(projects.id, id)).limit(1);
 
-    if (!project) {
+    if (rawProjects.length === 0) {
       return { ok: false, error: { message: 'Project not found' } };
     }
+
+    const project = transformProjectData(rawProjects[0]);
 
     return { ok: true, data: project };
   } catch {
