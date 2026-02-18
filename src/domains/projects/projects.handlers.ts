@@ -180,41 +180,7 @@ export async function updateProject(
         return { ok: false, error: { message: 'Project not found' } };
       }
 
-      if (bibleId !== undefined || bookId !== undefined) {
-        await tx.delete(project_units).where(eq(project_units.projectId, id));
-
-        const [projectUnit] = await tx
-          .insert(project_units)
-          .values({
-            projectId: id,
-            status: projectUnitStatus || 'not_started',
-          })
-          .returning();
-
-        if (bibleId !== undefined && bookId !== undefined) {
-          const bibleBookEntries = bookId.map((bookId) => ({
-            projectUnitId: projectUnit.id,
-            bibleId,
-            bookId,
-          }));
-
-          if (bibleBookEntries.length > 0) {
-            await tx.insert(project_unit_bible_books).values(bibleBookEntries);
-          }
-
-          const assignmentsResult =
-            await chapterAssignmentsService.createChapterAssignmentForProjectUnit(
-              projectUnit.id,
-              bibleId,
-              bookId,
-              tx
-            );
-
-          if (!assignmentsResult.ok) {
-            throw new Error(assignmentsResult.error.message);
-          }
-        }
-      } else if (projectUnitStatus !== undefined) {
+      if (projectUnitStatus !== undefined) {
         await tx
           .update(project_units)
           .set({ status: projectUnitStatus })
