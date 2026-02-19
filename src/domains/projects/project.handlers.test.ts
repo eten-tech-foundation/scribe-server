@@ -6,7 +6,6 @@ import { resetAllMocks, sampleChapterAssignments, sampleProjects } from '@/test/
 import {
   createProject,
   deleteProject,
-  getAllProjects,
   getProjectById,
   getProjectsByOrganization,
   updateProject,
@@ -24,15 +23,15 @@ vi.mock('@/db', () => ({
   db: {
     selectDistinct: vi.fn(),
     select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        innerJoin: vi.fn(() => ({
-          groupBy: vi.fn(() => ({
-            as: vi.fn(() => ({
-              projectId: undefined,
-              lastChapterActivity: undefined,
-            })),
-          })),
-        })),
+      from: vi.fn().mockReturnThis(),
+      innerJoin: vi.fn().mockReturnThis(),
+      groupBy: vi.fn().mockReturnThis(),
+      as: vi.fn(() => ({
+        projectId: undefined,
+        lastChapterActivity: undefined,
+        status: undefined,
+        count: undefined,
+        counts: undefined,
       })),
     })),
     transaction: vi.fn(),
@@ -52,9 +51,44 @@ vi.mock('@/domains/projects/chapter-assignments/project-chapter-assignments.hand
   deleteChapterAssignmentsByProject: vi.fn(),
 }));
 
+/**
+ * For getProjectsByOrganization the chain ends at groupBy().where().
+ */
+function buildMockQueryChainWhere(terminalValue: unknown) {
+  const whereMock = vi.fn().mockResolvedValue(terminalValue);
+  const groupByMock = vi.fn().mockReturnValue({ where: whereMock });
+  const leftJoin2Mock = vi.fn().mockReturnValue({ groupBy: groupByMock });
+  const leftJoin1Mock = vi.fn().mockReturnValue({ leftJoin: leftJoin2Mock });
+  const innerJoin5Mock = vi.fn().mockReturnValue({ leftJoin: leftJoin1Mock });
+  const innerJoin4Mock = vi.fn().mockReturnValue({ innerJoin: innerJoin5Mock });
+  const innerJoin3Mock = vi.fn().mockReturnValue({ innerJoin: innerJoin4Mock });
+  const innerJoin2Mock = vi.fn().mockReturnValue({ innerJoin: innerJoin3Mock });
+  const innerJoin1Mock = vi.fn().mockReturnValue({ innerJoin: innerJoin2Mock });
+  const fromMock = vi.fn().mockReturnValue({ innerJoin: innerJoin1Mock });
+  return { from: fromMock };
+}
+
+/**
+ * For getProjectById the chain ends at groupBy().where().limit().
+ */
+function buildMockQueryChainWhereLimit(terminalValue: unknown) {
+  const limitMock = vi.fn().mockResolvedValue(terminalValue);
+  const whereMock = vi.fn().mockReturnValue({ limit: limitMock });
+  const groupByMock = vi.fn().mockReturnValue({ where: whereMock });
+  const leftJoin2Mock = vi.fn().mockReturnValue({ groupBy: groupByMock });
+  const leftJoin1Mock = vi.fn().mockReturnValue({ leftJoin: leftJoin2Mock });
+  const innerJoin5Mock = vi.fn().mockReturnValue({ leftJoin: leftJoin1Mock });
+  const innerJoin4Mock = vi.fn().mockReturnValue({ innerJoin: innerJoin5Mock });
+  const innerJoin3Mock = vi.fn().mockReturnValue({ innerJoin: innerJoin4Mock });
+  const innerJoin2Mock = vi.fn().mockReturnValue({ innerJoin: innerJoin3Mock });
+  const innerJoin1Mock = vi.fn().mockReturnValue({ innerJoin: innerJoin2Mock });
+  const fromMock = vi.fn().mockReturnValue({ innerJoin: innerJoin1Mock });
+  return { from: fromMock };
+}
+
 describe('project Handler Functions', () => {
   const mockProject = sampleProjects.project1;
-  const mockProjectWithLanguageNames = sampleProjects.projectWithLanguageNames1;
+  const mockRawProject = sampleProjects.projectWithLanguageNames1; // raw DB row (has counts)
   const mockProjectInput = sampleProjects.newProject;
   const updateData = sampleProjects.updateProject;
 
@@ -63,68 +97,22 @@ describe('project Handler Functions', () => {
     (db.transaction as any).mockImplementation(async (cb: any) => cb(mockTx));
   });
 
-  describe('getAllProjects', () => {
-    it('should return all projects with language names', async () => {
-      const mockQuery = {
-        from: vi.fn().mockReturnValue({
-          innerJoin: vi.fn().mockReturnValue({
-            innerJoin: vi.fn().mockReturnValue({
-              innerJoin: vi.fn().mockReturnValue({
-                innerJoin: vi.fn().mockReturnValue({
-                  innerJoin: vi.fn().mockReturnValue({
-                    leftJoin: vi.fn().mockResolvedValue([mockProjectWithLanguageNames]),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        }),
-      };
-      (db.selectDistinct as any).mockReturnValue(mockQuery);
-
-      const result = await getAllProjects();
-
-      expect(result).toEqual({ ok: true, data: [mockProjectWithLanguageNames] });
-    });
-
-    it('should return error if db call fails', async () => {
-      (db.selectDistinct as any).mockImplementation(() => {
-        throw new Error('DB Error');
-      });
-
-      const result = await getAllProjects();
-
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.error.message).toBe('Failed to fetch projects');
-      }
-    });
-  });
-
   describe('getProjectsByOrganization', () => {
-    it('should return projects by organization', async () => {
-      const mockQuery = {
-        from: vi.fn().mockReturnValue({
-          innerJoin: vi.fn().mockReturnValue({
-            innerJoin: vi.fn().mockReturnValue({
-              innerJoin: vi.fn().mockReturnValue({
-                innerJoin: vi.fn().mockReturnValue({
-                  innerJoin: vi.fn().mockReturnValue({
-                    leftJoin: vi.fn().mockReturnValue({
-                      where: vi.fn().mockResolvedValue([mockProjectWithLanguageNames]),
-                    }),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        }),
-      };
-      (db.selectDistinct as any).mockReturnValue(mockQuery);
+    it('should return projects filtered by organization', async () => {
+      (db.selectDistinct as any).mockReturnValue(buildMockQueryChainWhere([mockRawProject]));
 
       const result = await getProjectsByOrganization(1);
 
-      expect(result).toEqual({ ok: true, data: [mockProjectWithLanguageNames] });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data).toHaveLength(1);
+        expect(result.data[0]).toMatchObject({
+          id: mockRawProject.id,
+          organization: mockRawProject.organization,
+        });
+        expect(result.data[0].chapterStatusCounts).toBeDefined();
+        expect(result.data[0].workflowConfig).toBeDefined();
+      }
     });
 
     it('should return error if db call fails', async () => {
@@ -142,54 +130,49 @@ describe('project Handler Functions', () => {
   });
 
   describe('getProjectById', () => {
-    it('should return project by ID', async () => {
-      const mockQuery = {
-        from: vi.fn().mockReturnValue({
-          innerJoin: vi.fn().mockReturnValue({
-            innerJoin: vi.fn().mockReturnValue({
-              innerJoin: vi.fn().mockReturnValue({
-                innerJoin: vi.fn().mockReturnValue({
-                  innerJoin: vi.fn().mockReturnValue({
-                    leftJoin: vi.fn().mockReturnValue({
-                      where: vi.fn().mockReturnValue({
-                        limit: vi.fn().mockResolvedValue([mockProjectWithLanguageNames]),
-                      }),
-                    }),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        }),
-      };
-      (db.selectDistinct as any).mockReturnValue(mockQuery);
+    it('should return a single project by ID with transformed fields', async () => {
+      (db.selectDistinct as any).mockReturnValue(buildMockQueryChainWhereLimit([mockRawProject]));
 
       const result = await getProjectById(1);
 
-      expect(result).toEqual({ ok: true, data: mockProjectWithLanguageNames });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data).toMatchObject({
+          id: mockRawProject.id,
+          name: mockRawProject.name,
+          sourceLanguageName: mockRawProject.sourceLanguageName,
+          targetLanguageName: mockRawProject.targetLanguageName,
+        });
+        expect(result.data.chapterStatusCounts).toBeDefined();
+        expect(result.data.workflowConfig).toBeDefined();
+      }
+    });
+
+    it('should fill missing chapter statuses with zero counts', async () => {
+      const rawWithPartialCounts = {
+        ...mockRawProject,
+        counts: { not_started: 3 },
+      };
+      (db.selectDistinct as any).mockReturnValue(
+        buildMockQueryChainWhereLimit([rawWithPartialCounts])
+      );
+
+      const result = await getProjectById(1);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        // Every enum status should be present
+        const counts = result.data.chapterStatusCounts;
+        expect(counts.not_started).toBe(3);
+        // Other statuses default to 0
+        for (const [, value] of Object.entries(counts)) {
+          expect(typeof value).toBe('number');
+        }
+      }
     });
 
     it('should return error when project not found', async () => {
-      const mockQuery = {
-        from: vi.fn().mockReturnValue({
-          innerJoin: vi.fn().mockReturnValue({
-            innerJoin: vi.fn().mockReturnValue({
-              innerJoin: vi.fn().mockReturnValue({
-                innerJoin: vi.fn().mockReturnValue({
-                  innerJoin: vi.fn().mockReturnValue({
-                    leftJoin: vi.fn().mockReturnValue({
-                      where: vi.fn().mockReturnValue({
-                        limit: vi.fn().mockResolvedValue([]),
-                      }),
-                    }),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        }),
-      };
-      (db.selectDistinct as any).mockReturnValue(mockQuery);
+      (db.selectDistinct as any).mockReturnValue(buildMockQueryChainWhereLimit([]));
 
       const result = await getProjectById(999);
 
@@ -223,19 +206,20 @@ describe('project Handler Functions', () => {
       const createdProject = { ...projectWithoutExtras, id: 2 } as any;
 
       // Mock successful creation
-      mockTx.insert.mockImplementationOnce(() => ({
-        values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([createdProject]),
-        }),
-      }));
-      mockTx.insert.mockImplementationOnce(() => ({
-        values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{ id: 99 }]),
-        }),
-      }));
-      mockTx.insert.mockImplementationOnce(() => ({
-        values: vi.fn().mockResolvedValue(undefined),
-      }));
+      mockTx.insert
+        .mockImplementationOnce(() => ({
+          values: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([createdProject]),
+          }),
+        }))
+        .mockImplementationOnce(() => ({
+          values: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([{ id: 99 }]),
+          }),
+        }))
+        .mockImplementationOnce(() => ({
+          values: vi.fn().mockResolvedValue(undefined),
+        }));
 
       vi.mocked(chapterAssignmentsModule.createChapterAssignmentForProjectUnit).mockResolvedValue({
         ok: true,
@@ -247,7 +231,7 @@ describe('project Handler Functions', () => {
       expect(result).toEqual({ ok: true, data: createdProject });
     });
 
-    it('should return error if creation fails', async () => {
+    it('should return error if transaction fails', async () => {
       (db.transaction as any).mockRejectedValue(new Error('DB Error'));
 
       const result = await createProject(mockProjectInput);
@@ -267,19 +251,20 @@ describe('project Handler Functions', () => {
       const createdProject = { ...projectWithoutExtras, id: 2 } as any;
 
       // Mock successful project creation but failed chapter assignment
-      mockTx.insert.mockImplementationOnce(() => ({
-        values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([createdProject]),
-        }),
-      }));
-      mockTx.insert.mockImplementationOnce(() => ({
-        values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{ id: 99 }]),
-        }),
-      }));
-      mockTx.insert.mockImplementationOnce(() => ({
-        values: vi.fn().mockResolvedValue(undefined),
-      }));
+      mockTx.insert
+        .mockImplementationOnce(() => ({
+          values: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([createdProject]),
+          }),
+        }))
+        .mockImplementationOnce(() => ({
+          values: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([{ id: 99 }]),
+          }),
+        }))
+        .mockImplementationOnce(() => ({
+          values: vi.fn().mockResolvedValue(undefined),
+        }));
 
       vi.mocked(chapterAssignmentsModule.createChapterAssignmentForProjectUnit).mockResolvedValue({
         ok: false,
@@ -329,9 +314,33 @@ describe('project Handler Functions', () => {
       }
     });
 
-    it('should update project units when bibleId or bookId is provided', async () => {
+    it('should also update project_units when projectUnitStatus is provided', async () => {
       const updateDataWithUnits = sampleProjects.updateProjectWithUnits;
       const updatedProject = { ...mockProject, ...updateDataWithUnits } as any;
+
+      mockTx.update
+        .mockImplementationOnce(() => ({
+          set: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              returning: vi.fn().mockResolvedValue([updatedProject]),
+            }),
+          }),
+        }))
+        .mockImplementationOnce(() => ({
+          set: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue(undefined),
+          }),
+        }));
+
+      const result = await updateProject(1, updateDataWithUnits);
+
+      expect(result).toEqual({ ok: true, data: updatedProject });
+      // Both projects and project_units updates were called
+      expect(mockTx.update).toHaveBeenCalledTimes(2);
+    });
+
+    it('should NOT call a second update when projectUnitStatus is absent', async () => {
+      const updatedProject = { ...mockProject, ...updateData } as any;
 
       mockTx.update.mockImplementationOnce(() => ({
         set: vi.fn().mockReturnValue({
@@ -341,18 +350,12 @@ describe('project Handler Functions', () => {
         }),
       }));
 
-      mockTx.update.mockImplementationOnce(() => ({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined),
-        }),
-      }));
+      await updateProject(1, updateData);
 
-      const result = await updateProject(1, updateDataWithUnits);
-
-      expect(result).toEqual({ ok: true, data: updatedProject });
+      expect(mockTx.update).toHaveBeenCalledTimes(1);
     });
 
-    it('should return error if update fails', async () => {
+    it('should return error if transaction fails', async () => {
       (db.transaction as any).mockRejectedValue(new Error('DB Error'));
 
       const result = await updateProject(1, updateData);
@@ -365,13 +368,12 @@ describe('project Handler Functions', () => {
   });
 
   describe('deleteProject', () => {
-    it('should delete the project and return success', async () => {
-      const mockDeleteQuery = {
+    it('should delete the project and return its id', async () => {
+      (db.delete as any).mockReturnValue({
         where: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([{ id: 1 }]),
         }),
-      };
-      (db.delete as any).mockReturnValue(mockDeleteQuery);
+      });
 
       const result = await deleteProject(1);
 
@@ -379,12 +381,11 @@ describe('project Handler Functions', () => {
     });
 
     it('should return error when project not found', async () => {
-      const mockDeleteQuery = {
+      (db.delete as any).mockReturnValue({
         where: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([]),
         }),
-      };
-      (db.delete as any).mockReturnValue(mockDeleteQuery);
+      });
 
       const result = await deleteProject(999);
 

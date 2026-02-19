@@ -4,19 +4,43 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { insertProjectsSchema, patchProjectsSchema, selectProjectsSchema } from '@/db/schema';
+import {
+  chapterStatusEnum,
+  insertProjectsSchema,
+  patchProjectsSchema,
+  selectProjectsSchema,
+} from '@/db/schema';
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
 import { requireManagerAccess, requireProjectAccess } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as projectHandler from './projects.handlers';
 
+const chapterStatusCountsSchema = z.object(
+  chapterStatusEnum.enumValues.reduce(
+    (acc, status) => {
+      acc[status] = z.number().int().min(0);
+      return acc;
+    },
+    {} as Record<string, z.ZodNumber>
+  )
+);
+
+const workflowStepSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+});
 const projectWithLanguageNamesSchema = selectProjectsSchema
   .omit({ sourceLanguage: true, targetLanguage: true })
   .extend({
     sourceLanguageName: z.string(),
     targetLanguageName: z.string(),
     sourceName: z.string().optional(),
+    lastChapterActivity: z.union([z.date(), z.string()]).nullable(),
+    createdAt: z.union([z.date(), z.string()]).nullable(),
+    updatedAt: z.union([z.date(), z.string()]).nullable(),
+    chapterStatusCounts: chapterStatusCountsSchema,
+    workflowConfig: z.array(workflowStepSchema),
   });
 
 const createProjectWithUnitsSchema = insertProjectsSchema.omit({ status: true }).extend({
