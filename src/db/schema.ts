@@ -343,6 +343,26 @@ export const user_chapter_assignment_editor_state = pgTable(
     ),
   ]
 );
+
+export const active_chapter_editors = pgTable(
+  'active_chapter_editors',
+  {
+    id: serial('id').primaryKey(),
+    chapterAssignmentId: integer('chapter_assignment_id')
+      .notNull()
+      .references(() => chapter_assignments.id, { onDelete: 'cascade' }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    startedAt: timestamp('started_at').defaultNow().notNull(),
+    lastHeartbeat: timestamp('last_heartbeat').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('uq_active_editor_per_chapter').on(table.chapterAssignmentId, table.userId),
+    index('idx_active_editors_chapter').on(table.chapterAssignmentId),
+  ]
+);
+
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({
   zodInstance: z,
 });
@@ -372,6 +392,7 @@ export const selectChapterAssignmentStatusHistorySchema = createSelectSchema(
 export const selectUserChapterAssignmentEditorStateSchema = createSelectSchema(
   user_chapter_assignment_editor_state
 );
+export const selectActiveChapterEditorsSchema = createSelectSchema(active_chapter_editors);
 
 export const insertUsersSchema = createInsertSchema(users, {
   username: (schema) => schema.min(1).max(100),
@@ -619,6 +640,8 @@ export const insertUserChapterAssignmentEditorStateSchema = createInsertSchema(
     createdAt: true,
     updatedAt: true,
   });
+
+export const insertActiveChapterEditorsSchema = createInsertSchema(active_chapter_editors);
 
 export const patchUsersSchema = insertUsersSchema.partial();
 export const patchRolesSchema = insertRolesSchema.partial();
