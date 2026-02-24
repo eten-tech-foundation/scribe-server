@@ -7,12 +7,19 @@ import { chapter_assignments, project_units, project_users, users } from '@/db/s
 import { logger } from '@/lib/logger';
 
 export interface ProjectUserRecord {
-  id: number;
   projectId: number;
   userId: number;
   displayName: string;
   roleID: number;
-  addedAt: Date | null;
+  createdAt: Date | null;
+}
+
+function handleUniqueConstraintError(error: unknown): boolean {
+  if (error && typeof error === 'object' && 'cause' in error) {
+    const cause = (error as { cause?: { code?: string } }).cause;
+    return cause?.code === '23505';
+  }
+  return false;
 }
 
 // GET -- all users for a project
@@ -20,12 +27,11 @@ export async function getProjectUsers(projectId: number): Promise<Result<Project
   try {
     const rows = await db
       .select({
-        id: project_users.id,
         projectId: project_users.projectId,
         userId: project_users.userId,
         displayName: users.username,
         roleID: users.role,
-        addedAt: project_users.addedAt,
+        createdAt: project_users.createdAt,
       })
       .from(project_users)
       .innerJoin(users, eq(project_users.userId, users.id))
@@ -49,37 +55,34 @@ export async function addProjectUser(
   userId: number
 ): Promise<Result<ProjectUserRecord>> {
   try {
-    // Check user isn't already in the project
-    const [existing] = await db
-      .select({ id: project_users.id })
-      .from(project_users)
-      .where(and(eq(project_users.projectId, projectId), eq(project_users.userId, userId)))
-      .limit(1);
-
-    if (existing) {
-      return { ok: false, error: { message: 'User is already in this project' } };
-    }
-
-    const [inserted] = await db.insert(project_users).values({ projectId, userId }).returning();
-
+    // Check user exists before inserting
     const [user] = await db
       .select({ username: users.username, role: users.role })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
 
+    if (!user) {
+      return { ok: false, error: { message: 'User not found' } };
+    }
+
+    const [inserted] = await db.insert(project_users).values({ projectId, userId }).returning();
+
     return {
       ok: true,
       data: {
-        id: inserted.id,
         projectId: inserted.projectId,
         userId: inserted.userId,
-        displayName: user?.username ?? '',
-        roleID: user?.role ?? 0,
-        addedAt: inserted.addedAt,
+        displayName: user.username,
+        roleID: user.role,
+        createdAt: inserted.createdAt,
       },
     };
   } catch (err) {
+    // DB unique constraint handles duplicates and race conditions
+    if (handleUniqueConstraintError(err)) {
+      return { ok: false, error: { message: 'User is already in this project' } };
+    }
     logger.error({
       cause: err,
       message: 'Failed to add user to project',
@@ -90,13 +93,10 @@ export async function addProjectUser(
 }
 
 // DELETE -- remove a user from a project
-export async function removeProjectUser(
-  projectId: number,
-  userId: number
-): Promise<Result<{ removed: boolean }>> {
+export async function removeProjectUser(projectId: number, userId: number): Promise<Result<void>> {
   try {
     const [assignedContent] = await db
-      .select({ id: chapter_assignments.id })
+      .select({ userId: chapter_assignments.assignedUserId })
       .from(chapter_assignments)
       .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
       .where(
@@ -111,22 +111,19 @@ export async function removeProjectUser(
       .limit(1);
 
     if (assignedContent) {
-      return {
-        ok: false,
-        error: { message: 'User still has content assigned' },
-      };
+      return { ok: false, error: { message: 'User still has content assigned' } };
     }
 
     const deleted = await db
       .delete(project_users)
       .where(and(eq(project_users.projectId, projectId), eq(project_users.userId, userId)))
-      .returning({ id: project_users.id });
+      .returning({ userId: project_users.userId });
 
     if (deleted.length === 0) {
       return { ok: false, error: { message: 'User not found in project' } };
     }
 
-    return { ok: true, data: { removed: true } };
+    return { ok: true, data: undefined };
   } catch (err) {
     logger.error({
       cause: err,

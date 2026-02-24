@@ -13,12 +13,11 @@ server.use('/projects/:projectId/users/*', requireProjectAccess);
 server.use('/projects/:projectId/users', requireProjectAccess);
 
 const projectUserResponse = z.object({
-  id: z.number().int(),
   projectId: z.number().int(),
   userId: z.number().int(),
   displayName: z.string(),
   roleID: z.number().int(),
-  addedAt: z.date().nullable(),
+  createdAt: z.union([z.date(), z.string()]).nullable(),
 });
 
 const projectIdParam = z.object({
@@ -82,6 +81,10 @@ const addProjectUserRoute = createRoute({
       createMessageObjectSchema('Bad Request'),
       'User already in project or invalid data'
     ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      createMessageObjectSchema('Not Found'),
+      'User not found'
+    ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       createMessageObjectSchema('Unauthorized'),
       'Authentication required'
@@ -111,6 +114,10 @@ server.openapi(addProjectUserRoute, async (c) => {
     return c.json(result.data, HttpStatusCodes.CREATED);
   }
 
+  if (result.error.message === 'User not found') {
+    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
   if (result.error.message === 'User is already in this project') {
     return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
   }
@@ -130,10 +137,9 @@ const removeProjectUserRoute = createRoute({
     }),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      z.object({ removed: z.boolean() }).openapi('ProjectUserRemoved'),
-      'User successfully removed from project'
-    ),
+    [HttpStatusCodes.NO_CONTENT]: {
+      description: 'User successfully removed from project',
+    },
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
       createMessageObjectSchema('Bad Request'),
       'User still has content assigned'
@@ -167,7 +173,7 @@ server.openapi(removeProjectUserRoute, async (c) => {
   const result = await projectUsersHandler.removeProjectUser(projectId, userId);
 
   if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
+    return c.body(null, HttpStatusCodes.NO_CONTENT);
   }
 
   if (result.error.message === 'User still has content assigned') {

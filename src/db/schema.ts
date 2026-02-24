@@ -11,6 +11,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   serial,
   timestamp,
   uniqueIndex,
@@ -347,17 +348,16 @@ export const user_chapter_assignment_editor_state = pgTable(
 export const project_users = pgTable(
   'project_users',
   {
-    id: serial('id').primaryKey(),
     projectId: integer('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     userId: integer('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
-    addedAt: timestamp('added_at').defaultNow(),
+    createdAt: timestamp('created_at').defaultNow(),
   },
   (table) => [
-    uniqueIndex('uq_project_user').on(table.projectId, table.userId),
+    primaryKey({ columns: [table.projectId, table.userId] }),
     index('idx_project_users_project').on(table.projectId),
     index('idx_project_users_user').on(table.userId),
   ]
@@ -650,8 +650,7 @@ export const insertProjectUsersSchema = createInsertSchema(project_users, {
     userId: true,
   })
   .omit({
-    id: true,
-    addedAt: true,
+    createdAt: true,
   });
 
 export const patchUsersSchema = insertUsersSchema.partial();
