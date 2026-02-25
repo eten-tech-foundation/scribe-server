@@ -11,6 +11,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   serial,
   timestamp,
   uniqueIndex,
@@ -343,6 +344,25 @@ export const user_chapter_assignment_editor_state = pgTable(
     ),
   ]
 );
+
+export const project_users = pgTable(
+  'project_users',
+  {
+    projectId: integer('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.userId] }),
+    index('idx_project_users_project').on(table.projectId),
+    index('idx_project_users_user').on(table.userId),
+  ]
+);
+
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({
   zodInstance: z,
 });
@@ -372,6 +392,7 @@ export const selectChapterAssignmentStatusHistorySchema = createSelectSchema(
 export const selectUserChapterAssignmentEditorStateSchema = createSelectSchema(
   user_chapter_assignment_editor_state
 );
+export const selectProjectUsersSchema = createSelectSchema(project_users);
 
 export const insertUsersSchema = createInsertSchema(users, {
   username: (schema) => schema.min(1).max(100),
@@ -620,6 +641,18 @@ export const insertUserChapterAssignmentEditorStateSchema = createInsertSchema(
     updatedAt: true,
   });
 
+export const insertProjectUsersSchema = createInsertSchema(project_users, {
+  projectId: (schema) => schema.int(),
+  userId: (schema) => schema.int(),
+})
+  .required({
+    projectId: true,
+    userId: true,
+  })
+  .omit({
+    createdAt: true,
+  });
+
 export const patchUsersSchema = insertUsersSchema.partial();
 export const patchRolesSchema = insertRolesSchema.partial();
 export const patchOrganizationsSchema = insertOrganizationsSchema.partial();
@@ -640,3 +673,4 @@ export const patchChapterAssignmentStatusHistorySchema =
   insertChapterAssignmentStatusHistorySchema.partial();
 export const patchUserChapterAssignmentEditorStateSchema =
   insertUserChapterAssignmentEditorStateSchema.partial();
+export const patchProjectUsersSchema = insertProjectUsersSchema.partial();
