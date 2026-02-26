@@ -85,20 +85,27 @@ The backend/server for the Scribe application built with Hono and OpenAPI. This 
    AUTH0_AUDIENCE=http://localhost:9999
    ```
 
-3. **Setup database:**
+3. **Set up a local database:**
 
-   ```bash
-   # Push schema to database
-   npx drizzle-kit push
+   Install Postgres locally, create a database, and update your `.env`:
+
+   ```env
+   DATABASE_URL=postgresql://user:password@localhost:5432/scribe_dev
    ```
 
-4. **Start development server:**
+4. **Run database migrations:**
+
+   ```bash
+   npm run db:migrate
+   ```
+
+5. **Start development server:**
 
    ```bash
    npm run dev
    ```
 
-5. **View API documentation:**
+6. **View API documentation:**
    - Open [http://localhost:9999/reference](http://localhost:9999/reference) for interactive API docs
    - Open [http://localhost:9999/doc](http://localhost:9999/doc) for OpenAPI specification
 
@@ -128,6 +135,11 @@ npm run build
 
 # Production server
 npm run start
+
+# Database
+npm run db:migrate            # Apply pending migrations
+npm run db:generate <name>    # Generate a new named migration
+npm run db:studio             # Open Drizzle Studio
 ```
 
 ## Code Tour

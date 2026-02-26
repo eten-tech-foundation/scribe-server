@@ -89,7 +89,7 @@ jobs:
       - name: Run database migrations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_DEV }}
-        run: npx drizzle-kit migrate
+        run: npm run db:migrate
 
   migrate-prod:
     runs-on: ubuntu-latest
@@ -112,7 +112,7 @@ jobs:
       - name: Run database migrations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
-        run: npx drizzle-kit migrate
+        run: npm run db:migrate
 
   deploy-dev:
     runs-on: ubuntu-latest
