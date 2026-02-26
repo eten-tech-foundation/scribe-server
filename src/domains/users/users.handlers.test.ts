@@ -130,23 +130,31 @@ describe('user Handler Functions', () => {
   });
 
   describe('getUserByEmail', () => {
-    it('should return user by email in a result object', async () => {
+    it('should return user by email with roleName in a result object', async () => {
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([mockUser]) }),
+          innerJoin: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([{ user: mockUser, roleName: 'Manager' }]),
+            }),
+          }),
         }),
       });
 
       const result = await getUserByEmail(mockUser.email);
 
-      expect(result).toEqual({ ok: true, data: mockUser });
+      expect(result).toEqual({ ok: true, data: { ...mockUser, roleName: 'Manager' } });
     });
 
     it('should convert email to lowercase before querying', async () => {
-      const whereMock = vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([mockUser]) });
+      const whereMock = vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue([{ user: mockUser, roleName: 'Manager' }]),
+      });
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: whereMock,
+          innerJoin: vi.fn().mockReturnValue({
+            where: whereMock,
+          }),
         }),
       });
 
@@ -157,13 +165,18 @@ describe('user Handler Functions', () => {
     it('should return an error result when user not found', async () => {
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }),
+          innerJoin: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }),
+          }),
         }),
       });
 
       const result = await getUserByEmail('noone@example.com');
 
       expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toBe('User not found');
+      }
     });
   });
 
