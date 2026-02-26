@@ -1,24 +1,21 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { and, eq } from 'drizzle-orm';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { db } from '@/db';
 import {
   chapterStatusEnum,
   insertProjectsSchema,
   patchProjectsSchema,
-  project_users,
   selectProjectsSchema,
 } from '@/db/schema';
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
 import { PERMISSIONS } from '@/lib/permissions';
-import { ROLES } from '@/lib/roles';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
+import { resolveIsProjectMember } from './project-users/project-users.handlers';
 import { ProjectPolicy } from './project.policy';
 import * as projectHandler from './projects.handlers';
 
@@ -111,7 +108,6 @@ server.openapi(listProjectsRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  // Explicitly prevent translators from using this route.
   if (!ProjectPolicy.list(policyUser)) {
     return c.json(
       { message: 'Forbidden: You do not have permission to list all projects.' },
@@ -153,11 +149,7 @@ const createProjectRoute = createRoute({
         success: z.boolean(),
         error: z.object({
           issues: z.array(
-            z.object({
-              code: z.string(),
-              path: z.array(z.string()),
-              message: z.string(),
-            })
+            z.object({ code: z.string(), path: z.array(z.string()), message: z.string() })
           ),
           name: z.string(),
         }),
@@ -222,26 +214,15 @@ server.openapi(getProjectRoute, async (c) => {
   };
 
   const result = await projectHandler.getProjectById(id);
-
   if (!result.ok) {
-    if (result.error.message === 'Project not found') {
-      return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
-    }
-    return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+    return result.error.message === 'Project not found'
+      ? c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND)
+      : c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 
-  // Check if Translator is assigned to this project
-  let isAssignedToProject = false;
-  if (currentUser.roleName === ROLES.TRANSLATOR) {
-    const [member] = await db
-      .select()
-      .from(project_users)
-      .where(and(eq(project_users.projectId, id), eq(project_users.userId, currentUser.id)))
-      .limit(1);
-    isAssignedToProject = member !== undefined;
-  }
+  const isProjectMember = await resolveIsProjectMember(id, currentUser.id, currentUser.roleName);
 
-  if (!ProjectPolicy.read(policyUser, result.data, isAssignedToProject)) {
+  if (!ProjectPolicy.read(policyUser, result.data, isProjectMember)) {
     return c.json(
       { message: 'Forbidden: You do not have permission to view this project.' },
       HttpStatusCodes.FORBIDDEN
@@ -285,11 +266,7 @@ const updateProjectRoute = createRoute({
         success: z.boolean(),
         error: z.object({
           issues: z.array(
-            z.object({
-              code: z.string(),
-              path: z.array(z.string()),
-              message: z.string(),
-            })
+            z.object({ code: z.string(), path: z.array(z.string()), message: z.string() })
           ),
           name: z.string(),
         }),
@@ -340,7 +317,6 @@ server.openapi(updateProjectRoute, async (c) => {
     return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  // Cross-tenant protection
   if (!ProjectPolicy.update(policyUser, projectResult.data)) {
     return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
   }
@@ -399,7 +375,6 @@ server.openapi(deleteProjectRoute, async (c) => {
     return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  // Cross-tenant protection
   if (!ProjectPolicy.delete(policyUser, projectResult.data)) {
     return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
   }

@@ -1,12 +1,13 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { and, eq } from 'drizzle-orm';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { db } from '@/db';
-import { project_units, project_users } from '@/db/schema';
+import { resolveIsProjectMember } from '@/domains/projects/project-users/project-users.handlers';
+import { ProjectPolicy } from '@/domains/projects/project.policy';
+import * as projectHandler from '@/domains/projects/projects.handlers';
+import { getProjectIdByUnitId } from '@/domains/projects/projects.handlers';
 import { PERMISSIONS } from '@/lib/permissions';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
@@ -28,17 +29,7 @@ const chapterAssignmentResponse = z.object({
   updatedAt: z.date().nullable().optional(),
 });
 
-// ----------------------------------
-// --- START STANDARD CRUD ROUTES ---
-// ----------------------------------
-const createChapterAssignmentRequest = z.object({
-  projectUnitId: z.number().int(),
-  bibleId: z.number().int(),
-  bookId: z.number().int(),
-  chapterNumber: z.number().int(),
-  assignedUserId: z.number().int().optional(),
-  peerCheckerId: z.number().int().optional(),
-});
+// ─── POST /chapter-assignments ────────────────────────────────────────────────
 
 const createChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
@@ -46,7 +37,17 @@ const createChapterAssignmentRoute = createRoute({
   path: '/chapter-assignments',
   middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
   request: {
-    body: jsonContent(createChapterAssignmentRequest, 'Chapter assignment data'),
+    body: jsonContent(
+      z.object({
+        projectUnitId: z.number().int(),
+        bibleId: z.number().int(),
+        bookId: z.number().int(),
+        chapterNumber: z.number().int(),
+        assignedUserId: z.number().int().optional(),
+        peerCheckerId: z.number().int().optional(),
+      }),
+      'Chapter assignment data'
+    ),
   },
   responses: {
     [HttpStatusCodes.CREATED]: jsonContent(
@@ -74,11 +75,7 @@ const createChapterAssignmentRoute = createRoute({
         success: z.boolean(),
         error: z.object({
           issues: z.array(
-            z.object({
-              code: z.string(),
-              path: z.array(z.string()),
-              message: z.string(),
-            })
+            z.object({ code: z.string(), path: z.array(z.string()), message: z.string() })
           ),
           name: z.string(),
           message: z.string(),
@@ -105,7 +102,6 @@ server.openapi(createChapterAssignmentRoute, async (c) => {
   }
 
   const result = await chapterAssignmentsHandler.createChapterAssignment(requestData);
-
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.CREATED);
   }
@@ -113,10 +109,7 @@ server.openapi(createChapterAssignmentRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
 });
 
-const updateChapterAssignmentRequestSchema = z.object({
-  assignedUserId: z.number().int(),
-  peerCheckerId: z.number().int(),
-});
+// ─── PATCH /chapter-assignments/:chapterAssignmentId ─────────────────────────
 
 const updateChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
@@ -128,7 +121,10 @@ const updateChapterAssignmentRoute = createRoute({
       chapterAssignmentId: z.coerce.number().int().positive(),
     }),
     body: jsonContent(
-      updateChapterAssignmentRequestSchema,
+      z.object({
+        assignedUserId: z.number().int(),
+        peerCheckerId: z.number().int(),
+      }),
       'Users to assign to the chapter assignment.'
     ),
   },
@@ -168,13 +164,14 @@ server.openapi(updateChapterAssignmentRoute, async (c) => {
     chapterAssignmentId,
     requestData
   );
-
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
   }
 
   return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
 });
+
+// ─── PATCH /chapter-assignments/:chapterAssignmentId/submit ──────────────────
 
 const submitChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
@@ -221,18 +218,16 @@ server.openapi(submitChapterAssignmentRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
   const user = c.get('user')!;
 
-  // Fetch assignment to enforce record-level submission constraints
   const getResult = await chapterAssignmentsHandler.getChapterAssignment(chapterAssignmentId);
   if (!getResult.ok) {
     return c.json({ message: getResult.error.message }, HttpStatusCodes.NOT_FOUND);
   }
 
-  const assignment = getResult.data;
   const policyUser = { id: user.id, roleName: user.roleName };
   const policyAssignment = {
-    assignedUserId: assignment.assignedUserId,
-    peerCheckerId: assignment.peerCheckerId,
-    status: assignment.status,
+    assignedUserId: getResult.data.assignedUserId,
+    peerCheckerId: getResult.data.peerCheckerId,
+    status: getResult.data.status,
   };
 
   if (!ChapterAssignmentPolicy.submit(policyUser, policyAssignment)) {
@@ -243,7 +238,6 @@ server.openapi(submitChapterAssignmentRoute, async (c) => {
   }
 
   const result = await chapterAssignmentsHandler.submitChapterAssignment(chapterAssignmentId);
-
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
   }
@@ -258,6 +252,8 @@ server.openapi(submitChapterAssignmentRoute, async (c) => {
 
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
+
+// ─── GET /chapter-assignments/:chapterAssignmentId ────────────────────────────
 
 const getChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
@@ -294,49 +290,50 @@ const getChapterAssignmentRoute = createRoute({
 
 server.openapi(getChapterAssignmentRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
-  const user = c.get('user')!;
+  const currentUser = c.get('user')!;
+  const policyUser = {
+    id: currentUser.id,
+    role: currentUser.role,
+    roleName: currentUser.roleName,
+    organization: currentUser.organization,
+  };
 
   const result = await chapterAssignmentsHandler.getChapterAssignment(chapterAssignmentId);
-
   if (!result.ok) {
-    if (result.error.message === 'Chapter assignment not found') {
-      return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
-    }
-    return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+    return result.error.message === 'Chapter assignment not found'
+      ? c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND)
+      : c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 
-  const assignment = result.data;
-
-  // Resolve projectId from projectUnitId to enforce `isProjectMember`
-  const [projectUnit] = await db
-    .select({ projectId: project_units.projectId })
-    .from(project_units)
-    .where(eq(project_units.id, assignment.projectUnitId))
-    .limit(1);
-
-  let isProjectMember = false;
-  if (projectUnit) {
-    const [member] = await db
-      .select()
-      .from(project_users)
-      .where(
-        and(eq(project_users.projectId, projectUnit.projectId), eq(project_users.userId, user.id))
-      )
-      .limit(1);
-    isProjectMember = member !== undefined;
+  // Resolve the project so ProjectPolicy.read() can enforce org-scoping (manager)
+  // and project membership (translator) — replaces the removed ChapterAssignmentPolicy.view()
+  const unitResult = await getProjectIdByUnitId(result.data.projectUnitId);
+  if (!unitResult.ok) {
+    return c.json({ message: 'Chapter assignment not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  const policyUser = { id: user.id, roleName: user.roleName };
+  const projectResult = await projectHandler.getProjectById(unitResult.data.projectId);
+  if (!projectResult.ok) {
+    return c.json({ message: 'Chapter assignment not found' }, HttpStatusCodes.NOT_FOUND);
+  }
 
-  if (!ChapterAssignmentPolicy.view(policyUser, isProjectMember)) {
+  const isProjectMember = await resolveIsProjectMember(
+    unitResult.data.projectId,
+    currentUser.id,
+    currentUser.roleName
+  );
+
+  if (!ProjectPolicy.read(policyUser, projectResult.data, isProjectMember)) {
     return c.json(
       { message: 'Forbidden: You do not have permission to view this assignment.' },
       HttpStatusCodes.FORBIDDEN
     );
   }
 
-  return c.json(assignment, HttpStatusCodes.OK);
+  return c.json(result.data, HttpStatusCodes.OK);
 });
+
+// ─── DELETE /chapter-assignments/:chapterAssignmentId ────────────────────────
 
 const deleteChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
@@ -386,7 +383,6 @@ server.openapi(deleteChapterAssignmentRoute, async (c) => {
   }
 
   const result = await chapterAssignmentsHandler.deleteChapterAssignment(chapterAssignmentId);
-
   if (result.ok) {
     return c.body(null, HttpStatusCodes.NO_CONTENT);
   }
@@ -397,14 +393,3 @@ server.openapi(deleteChapterAssignmentRoute, async (c) => {
 
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
-// --------------------------------
-// --- END STANDARD CRUD ROUTES ---
-// --------------------------------
-
-// -----------------------------------
-// --- START NON-STANDARD ROUTES ---
-// -----------------------------------
-
-// -----------------------------------
-// --- END NON-STANDARD ROUTES ---
-// -----------------------------------

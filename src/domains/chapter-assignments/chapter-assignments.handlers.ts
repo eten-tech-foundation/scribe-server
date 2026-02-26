@@ -16,6 +16,8 @@ import {
 import { logger } from '@/lib/logger';
 import { convertUSFMToUSJ, generateUSFMText } from '@/lib/usfm-converter';
 
+import type { PolicyChapterAssignment } from './chapter-assignments.policy';
+
 export type ChapterAssignmentStatus = 'not_started' | 'draft' | 'peer_check' | 'community_review';
 
 const USJ_SPEC_VERSION = '0.0.1';
@@ -453,6 +455,53 @@ async function getAssignmentContent(
     };
   }
 }
+
+export async function getAssignmentForVerse(
+  projectUnitId: number,
+  bibleTextId: number
+): Promise<Result<PolicyChapterAssignment>> {
+  try {
+    const [bibleText] = await db
+      .select({ bookId: bible_texts.bookId, chapterNumber: bible_texts.chapterNumber })
+      .from(bible_texts)
+      .where(eq(bible_texts.id, bibleTextId))
+      .limit(1);
+
+    if (!bibleText) {
+      return { ok: false, error: { message: 'Invalid bibleTextId' } };
+    }
+
+    const [assignment] = await db
+      .select({
+        assignedUserId: chapter_assignments.assignedUserId,
+        peerCheckerId: chapter_assignments.peerCheckerId,
+        status: chapter_assignments.status,
+      })
+      .from(chapter_assignments)
+      .where(
+        and(
+          eq(chapter_assignments.projectUnitId, projectUnitId),
+          eq(chapter_assignments.bookId, bibleText.bookId),
+          eq(chapter_assignments.chapterNumber, bibleText.chapterNumber)
+        )
+      )
+      .limit(1);
+
+    if (!assignment) {
+      return { ok: false, error: { message: 'No chapter assignment found for this verse' } };
+    }
+
+    return { ok: true, data: assignment };
+  } catch (err) {
+    logger.error({
+      cause: err,
+      message: 'Failed to resolve chapter assignment for verse',
+      context: { projectUnitId, bibleTextId },
+    });
+    return { ok: false, error: { message: 'Failed to resolve chapter assignment for verse' } };
+  }
+}
+
 // ----------------------------
 // --- END HELPER FUNCTIONS ---
 // ----------------------------

@@ -1,20 +1,17 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { and, eq } from 'drizzle-orm';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { db } from '@/db';
-import { project_users } from '@/db/schema';
+import { resolveIsProjectMember } from '@/domains/projects/project-users/project-users.handlers';
 import { ProjectPolicy } from '@/domains/projects/project.policy';
 import * as projectHandler from '@/domains/projects/projects.handlers';
 import { PERMISSIONS } from '@/lib/permissions';
-import { ROLES } from '@/lib/roles';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
-import * as projectUnitsBibleBooksHandler from './project-books.handlers';
+import * as projectBooksHandler from './project-books.handlers';
 
 const projectBookSchema = z.object({
   bookId: z.number().int(),
@@ -61,7 +58,6 @@ const getProjectBooksRoute = createRoute({
 server.openapi(getProjectBooksRoute, async (c) => {
   const { projectId } = c.req.valid('param');
   const currentUser = c.get('user')!;
-
   const policyUser = {
     id: currentUser.id,
     role: currentUser.role,
@@ -74,22 +70,17 @@ server.openapi(getProjectBooksRoute, async (c) => {
     return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  let isAssignedToProject = false;
-  if (currentUser.roleName === ROLES.TRANSLATOR) {
-    const [member] = await db
-      .select()
-      .from(project_users)
-      .where(and(eq(project_users.projectId, projectId), eq(project_users.userId, currentUser.id)))
-      .limit(1);
-    isAssignedToProject = member !== undefined;
-  }
+  const isProjectMember = await resolveIsProjectMember(
+    projectId,
+    currentUser.id,
+    currentUser.roleName
+  );
 
-  if (!ProjectPolicy.read(policyUser, projectResult.data, isAssignedToProject)) {
+  if (!ProjectPolicy.read(policyUser, projectResult.data, isProjectMember)) {
     return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  const result = await projectUnitsBibleBooksHandler.getBooksByProjectId(projectId);
-
+  const result = await projectBooksHandler.getBooksByProjectId(projectId);
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
   }

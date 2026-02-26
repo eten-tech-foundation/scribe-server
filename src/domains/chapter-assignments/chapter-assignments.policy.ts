@@ -8,35 +8,31 @@
  * ─── Full rule set ────────────────────────────────────────────────────────────
  *
  *   Manager:
- *     view / viewProject → yes, always — org is already enforced by the data
- *                          model (assignments live inside projects which are
- *                          org-scoped). requirePermission is sufficient.
- *     manage             → yes, same reason — no extra check needed.
+ *     viewProject → access is controlled by ProjectPolicy.read() in the route,
+ *                   which already enforces org-scoping via the data model.
+ *     manage      → yes — no extra check needed beyond org isolation.
  *
  *   Translator:
- *     view / viewProject → yes, if they are in project_users for this project.
- *                          `isProjectMember` is resolved inline in the route
- *                          using the projectId already available from the URL
- *                          param or from the fetched assignment's projectUnitId.
+ *     viewProject        → yes, if they are in project_users for this project.
+ *                          Enforced by ProjectPolicy.read() in the route.
  *     edit (draft)            → only the assignedUserId
  *     edit (peer_check)       → only the peerCheckerId
  *     edit (community_review) → any project member
  *     edit (not_started)      → nobody
  *     submit (draft)       → assignedUserId → advances to peer_check
  *     submit (peer_check)  → peerCheckerId  → advances to community_review
+ *     isParticipant        → assignedUserId or peerCheckerId (status-independent)
  *
  * ─── What the route resolves before calling policy ───────────────────────────
- *   isProjectMember — one inline query on project_users, no handler helper needed:
+ *   isProjectMember — resolved via resolveIsProjectMember() from
+ *   domains/projects/project-users/project-users.handlers.ts
  *
- *     const [member] = await db
- *       .select()
- *       .from(project_users)
- *       .where(and(
- *         eq(project_users.projectId, projectId),
- *         eq(project_users.userId, currentUser.id)
- *       ))
- *       .limit(1);
- *     const isProjectMember = member !== undefined;
+ * ─── Note on "view" access ───────────────────────────────────────────────────
+ *   Routes that list or read chapter assignments gate access with
+ *   ProjectPolicy.read(), which already encodes the same rule:
+ *     - Manager    → yes if same org
+ *     - Translator → yes if in project_users
+ *   A separate ChapterAssignmentPolicy.view() would be redundant.
  */
 
 import { ROLES } from '@/lib/roles';
@@ -53,24 +49,6 @@ export interface PolicyChapterAssignment {
 }
 
 export const ChapterAssignmentPolicy = {
-  /**
-   * Can this user view this chapter assignment or a project's chapter list?
-   *
-   * Manager    : yes — org is already enforced by the data model.
-   * Translator : yes, if they are in project_users for this project.
-   */
-  view(user: PolicyUser, isProjectMember: boolean): boolean {
-    if (user.roleName === ROLES.PROJECT_MANAGER) {
-      return true;
-    }
-
-    if (user.roleName === ROLES.TRANSLATOR) {
-      return isProjectMember;
-    }
-
-    return false;
-  },
-
   /**
    * Can this user edit the content of this chapter assignment?
    *
@@ -139,5 +117,23 @@ export const ChapterAssignmentPolicy = {
     }
 
     return false;
+  },
+
+  /**
+   * Is this user a direct participant (drafter or peer checker) in this
+   * assignment, regardless of its current status?
+   *
+   * Used by the editor-state routes which are personal UI state keyed to
+   * a specific user+assignment pair. Both the drafter and the peer checker
+   * should be able to read and write their own editor state at any point.
+   *
+   * Translator only — managers never use the editor.
+   */
+  isParticipant(user: PolicyUser, assignment: PolicyChapterAssignment): boolean {
+    if (user.roleName !== ROLES.TRANSLATOR) {
+      return false;
+    }
+
+    return assignment.assignedUserId === user.id || assignment.peerCheckerId === user.id;
   },
 };

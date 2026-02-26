@@ -1,20 +1,17 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { and, eq } from 'drizzle-orm';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { db } from '@/db';
-import { project_users } from '@/db/schema';
 import { ProjectPolicy } from '@/domains/projects/project.policy';
 import * as projectHandler from '@/domains/projects/projects.handlers';
 import { PERMISSIONS } from '@/lib/permissions';
-import { ROLES } from '@/lib/roles';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as projectUsersHandler from './project-users.handlers';
+import { resolveIsProjectMember } from './project-users.handlers';
 
 const projectUserResponse = z.object({
   projectId: z.number().int(),
@@ -28,7 +25,8 @@ const projectIdParam = z.object({
   projectId: z.coerce.number().int().positive(),
 });
 
-// --- GET /projects/:projectId/users ---
+// ─── GET /projects/:projectId/users ──────────────────────────────────────────
+
 const getProjectUsersRoute = createRoute({
   tags: ['Projects - Users'],
   method: 'get',
@@ -76,22 +74,17 @@ server.openapi(getProjectUsersRoute, async (c) => {
     return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  let isAssignedToProject = false;
-  if (currentUser.roleName === ROLES.TRANSLATOR) {
-    const [member] = await db
-      .select()
-      .from(project_users)
-      .where(and(eq(project_users.projectId, projectId), eq(project_users.userId, currentUser.id)))
-      .limit(1);
-    isAssignedToProject = member !== undefined;
-  }
+  const isProjectMember = await resolveIsProjectMember(
+    projectId,
+    currentUser.id,
+    currentUser.roleName
+  );
 
-  if (!ProjectPolicy.read(policyUser, projectResult.data, isAssignedToProject)) {
+  if (!ProjectPolicy.read(policyUser, projectResult.data, isProjectMember)) {
     return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
   const result = await projectUsersHandler.getProjectUsers(projectId);
-
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
   }
@@ -99,7 +92,8 @@ server.openapi(getProjectUsersRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
-// --- POST /projects/:projectId/users ---
+// ─── POST /projects/:projectId/users ─────────────────────────────────────────
+
 const addProjectUserRoute = createRoute({
   tags: ['Projects - Users'],
   method: 'post',
@@ -156,7 +150,6 @@ server.openapi(addProjectUserRoute, async (c) => {
   }
 
   const result = await projectUsersHandler.addProjectUser(projectId, userId);
-
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.CREATED);
   }
@@ -164,7 +157,6 @@ server.openapi(addProjectUserRoute, async (c) => {
   if (result.error.message === 'User not found') {
     return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
   }
-
   if (result.error.message === 'User is already in this project') {
     return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
   }
@@ -172,7 +164,8 @@ server.openapi(addProjectUserRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
-// --- DELETE /projects/:projectId/users/:userId ---
+// ─── DELETE /projects/:projectId/users/:userId ────────────────────────────────
+
 const removeProjectUserRoute = createRoute({
   tags: ['Projects - Users'],
   method: 'delete',
@@ -230,7 +223,6 @@ server.openapi(removeProjectUserRoute, async (c) => {
   }
 
   const result = await projectUsersHandler.removeProjectUser(projectId, userId);
-
   if (result.ok) {
     return c.body(null, HttpStatusCodes.NO_CONTENT);
   }
@@ -238,7 +230,6 @@ server.openapi(removeProjectUserRoute, async (c) => {
   if (result.error.message === 'User still has content assigned') {
     return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
   }
-
   if (result.error.message === 'User not found in project') {
     return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
   }

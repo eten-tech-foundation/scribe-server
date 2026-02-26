@@ -1,28 +1,23 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { and, eq } from 'drizzle-orm';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { db } from '@/db';
-import {
-  bible_texts,
-  chapter_assignments,
-  insertTranslatedVersesSchema,
-  project_units,
-  project_users,
-  selectTranslatedVersesSchema,
-} from '@/db/schema';
+import { insertTranslatedVersesSchema, selectTranslatedVersesSchema } from '@/db/schema';
+import { getAssignmentForVerse } from '@/domains/chapter-assignments/chapter-assignments.handlers';
 import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-assignments.policy';
+import { resolveIsProjectMember } from '@/domains/projects/project-users/project-users.handlers';
 import { ProjectPolicy } from '@/domains/projects/project.policy';
 import * as projectHandler from '@/domains/projects/projects.handlers';
+import { getProjectIdByUnitId } from '@/domains/projects/projects.handlers';
 import { PERMISSIONS } from '@/lib/permissions';
-import { ROLES } from '@/lib/roles';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as translatedVersesHandler from './translated-verses.handlers';
+
+// ─── GET /translated-verses/:id ───────────────────────────────────────────────
 
 const getTranslatedVerseRoute = createRoute({
   tags: ['Translated Verses'],
@@ -71,58 +66,45 @@ server.openapi(getTranslatedVerseRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  const result = await translatedVersesHandler.getTranslatedVerseById(id);
-
-  if (!result.ok) {
-    if (result.error.message === 'Translated verse not found') {
-      return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
-    }
-    return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  const verseResult = await translatedVersesHandler.getTranslatedVerseById(id);
+  if (!verseResult.ok) {
+    return verseResult.error.message === 'Translated verse not found'
+      ? c.json({ message: verseResult.error.message }, HttpStatusCodes.NOT_FOUND)
+      : c.json({ message: verseResult.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 
-  // Authorize using ProjectPolicy.read
-  const [projectUnit] = await db
-    .select({ projectId: project_units.projectId })
-    .from(project_units)
-    .where(eq(project_units.id, result.data.projectUnitId))
-    .limit(1);
-
-  if (!projectUnit) {
+  const unitResult = await getProjectIdByUnitId(verseResult.data.projectUnitId);
+  if (!unitResult.ok) {
     return c.json({ message: 'Translated verse not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  const projectResult = await projectHandler.getProjectById(projectUnit.projectId);
+  const projectResult = await projectHandler.getProjectById(unitResult.data.projectId);
   if (!projectResult.ok) {
     return c.json({ message: 'Translated verse not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  let isAssignedToProject = false;
-  if (currentUser.roleName === ROLES.TRANSLATOR) {
-    const [member] = await db
-      .select()
-      .from(project_users)
-      .where(
-        and(
-          eq(project_users.projectId, projectUnit.projectId),
-          eq(project_users.userId, currentUser.id)
-        )
-      )
-      .limit(1);
-    isAssignedToProject = member !== undefined;
-  }
+  const isProjectMember = await resolveIsProjectMember(
+    unitResult.data.projectId,
+    currentUser.id,
+    currentUser.roleName
+  );
 
-  if (!ProjectPolicy.read(policyUser, projectResult.data, isAssignedToProject)) {
+  if (!ProjectPolicy.read(policyUser, projectResult.data, isProjectMember)) {
     return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
   }
 
-  return c.json(result.data, HttpStatusCodes.OK);
+  return c.json(verseResult.data, HttpStatusCodes.OK);
 });
+
+// ─── POST /translated-verses ──────────────────────────────────────────────────
 
 const upsertTranslatedVerseRoute = createRoute({
   tags: ['Translated Verses'],
   method: 'post',
   path: '/translated-verses',
-  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  // CONTENT_DRAFT is held only by translators — correct coarse gate.
+  // (Was PROJECT_VIEW which managers also hold — see audit notes.)
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_DRAFT)] as const,
   request: {
     body: jsonContent(insertTranslatedVersesSchema, 'The translated verse to create or update'),
   },
@@ -148,11 +130,7 @@ const upsertTranslatedVerseRoute = createRoute({
         success: z.boolean(),
         error: z.object({
           issues: z.array(
-            z.object({
-              code: z.string(),
-              path: z.array(z.string()),
-              message: z.string(),
-            })
+            z.object({ code: z.string(), path: z.array(z.string()), message: z.string() })
           ),
           name: z.string(),
         }),
@@ -165,8 +143,7 @@ const upsertTranslatedVerseRoute = createRoute({
     ),
   },
   summary: 'Create or update a translated verse',
-  description:
-    'Creates a new translated verse or updates existing one if it already exists for the same project unit and bible text',
+  description: 'Creates a new translated verse or updates an existing one. Translator only.',
 });
 
 server.openapi(upsertTranslatedVerseRoute, async (c) => {
@@ -178,77 +155,35 @@ server.openapi(upsertTranslatedVerseRoute, async (c) => {
     translatedVerseData.assignedUserId = currentUser.id;
   }
 
-  // ─── Enforce ChapterAssignmentPolicy.edit ───
-  const [bibleText] = await db
-    .select({ bookId: bible_texts.bookId, chapterNumber: bible_texts.chapterNumber })
-    .from(bible_texts)
-    .where(eq(bible_texts.id, translatedVerseData.bibleTextId))
-    .limit(1);
-
-  if (!bibleText) {
-    return c.json({ message: 'Invalid bibleTextId' }, HttpStatusCodes.BAD_REQUEST);
+  const assignmentResult = await getAssignmentForVerse(
+    translatedVerseData.projectUnitId,
+    translatedVerseData.bibleTextId
+  );
+  if (!assignmentResult.ok) {
+    return c.json({ message: assignmentResult.error.message }, HttpStatusCodes.BAD_REQUEST);
   }
 
-  const [assignment] = await db
-    .select({
-      assignedUserId: chapter_assignments.assignedUserId,
-      peerCheckerId: chapter_assignments.peerCheckerId,
-      status: chapter_assignments.status,
-    })
-    .from(chapter_assignments)
-    .where(
-      and(
-        eq(chapter_assignments.projectUnitId, translatedVerseData.projectUnitId),
-        eq(chapter_assignments.bookId, bibleText.bookId),
-        eq(chapter_assignments.chapterNumber, bibleText.chapterNumber)
-      )
-    )
-    .limit(1);
+  const unitResult = await getProjectIdByUnitId(translatedVerseData.projectUnitId);
+  const isProjectMember = unitResult.ok
+    ? await resolveIsProjectMember(unitResult.data.projectId, currentUser.id, currentUser.roleName)
+    : false;
 
-  if (!assignment) {
-    return c.json(
-      { message: 'No chapter assignment found for this verse' },
-      HttpStatusCodes.BAD_REQUEST
-    );
-  }
-
-  const [projectUnit] = await db
-    .select({ projectId: project_units.projectId })
-    .from(project_units)
-    .where(eq(project_units.id, translatedVerseData.projectUnitId))
-    .limit(1);
-
-  let isProjectMember = false;
-  if (projectUnit) {
-    const [member] = await db
-      .select()
-      .from(project_users)
-      .where(
-        and(
-          eq(project_users.projectId, projectUnit.projectId),
-          eq(project_users.userId, currentUser.id)
-        )
-      )
-      .limit(1);
-    isProjectMember = member !== undefined;
-  }
-
-  if (!ChapterAssignmentPolicy.edit(policyUser, assignment, isProjectMember)) {
+  if (!ChapterAssignmentPolicy.edit(policyUser, assignmentResult.data, isProjectMember)) {
     return c.json(
       { message: 'Forbidden: You do not have permission to edit this verse right now.' },
       HttpStatusCodes.FORBIDDEN
     );
   }
-  // ────────────────────────────────────────────
 
   const result = await translatedVersesHandler.upsertTranslatedVerse(translatedVerseData);
-
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
   }
 
   return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
 });
+
+// ─── GET /translated-verses ───────────────────────────────────────────────────
 
 const listTranslatedVersesRoute = createRoute({
   tags: ['Translated Verses'],
@@ -291,7 +226,6 @@ const listTranslatedVersesRoute = createRoute({
       'The list of translated verses (optionally filtered)'
     ),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      // <--- THIS WAS MISSING
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'Project not found'
     ),
@@ -322,37 +256,23 @@ server.openapi(listTranslatedVersesRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  const [projectUnit] = await db
-    .select({ projectId: project_units.projectId })
-    .from(project_units)
-    .where(eq(project_units.id, projectUnitId))
-    .limit(1);
-
-  if (!projectUnit) {
-    return c.json({ message: 'Project unit not found' }, HttpStatusCodes.NOT_FOUND);
+  const unitResult = await getProjectIdByUnitId(projectUnitId);
+  if (!unitResult.ok) {
+    return c.json({ message: unitResult.error.message }, HttpStatusCodes.NOT_FOUND);
   }
 
-  const projectResult = await projectHandler.getProjectById(projectUnit.projectId);
+  const projectResult = await projectHandler.getProjectById(unitResult.data.projectId);
   if (!projectResult.ok) {
     return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  let isAssignedToProject = false;
-  if (currentUser.roleName === ROLES.TRANSLATOR) {
-    const [member] = await db
-      .select()
-      .from(project_users)
-      .where(
-        and(
-          eq(project_users.projectId, projectUnit.projectId),
-          eq(project_users.userId, currentUser.id)
-        )
-      )
-      .limit(1);
-    isAssignedToProject = member !== undefined;
-  }
+  const isProjectMember = await resolveIsProjectMember(
+    unitResult.data.projectId,
+    currentUser.id,
+    currentUser.roleName
+  );
 
-  if (!ProjectPolicy.read(policyUser, projectResult.data, isAssignedToProject)) {
+  if (!ProjectPolicy.read(policyUser, projectResult.data, isProjectMember)) {
     return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
   }
 
@@ -361,9 +281,9 @@ server.openapi(listTranslatedVersesRoute, async (c) => {
     bookId,
     chapterNumber,
   });
-
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
   }
+
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
