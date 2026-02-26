@@ -16,7 +16,7 @@ import {
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
 import { PERMISSIONS } from '@/lib/permissions';
 import { ROLES } from '@/lib/roles';
-import { requirePermission } from '@/middlewares/role-auth';
+import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import { ProjectPolicy } from './project.policy';
@@ -79,7 +79,7 @@ const listProjectsRoute = createRoute({
   tags: ['Projects'],
   method: 'get',
   path: '/projects',
-  middleware: [requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       projectWithLanguageNamesSchema.array().openapi('Projects'),
@@ -130,7 +130,7 @@ const createProjectRoute = createRoute({
   tags: ['Projects'],
   method: 'post',
   path: '/projects',
-  middleware: [requirePermission(PERMISSIONS.PROJECT_CREATE)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_CREATE)] as const,
   request: {
     body: jsonContent(createProjectWithUnitsSchema, 'The project to create'),
   },
@@ -187,7 +187,7 @@ const getProjectRoute = createRoute({
   tags: ['Projects'],
   method: 'get',
   path: '/projects/{id}',
-  middleware: [requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
   request: { params: idParam },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(projectWithLanguageNamesSchema, 'The project'),
@@ -257,7 +257,7 @@ const updateProjectRoute = createRoute({
   tags: ['Projects'],
   method: 'patch',
   path: '/projects/{id}',
-  middleware: [requirePermission(PERMISSIONS.PROJECT_UPDATE)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_UPDATE)] as const,
   request: {
     params: idParam,
     body: jsonContent(updateProjectWithUnitsSchema, 'The project updates'),
@@ -359,7 +359,7 @@ const deleteProjectRoute = createRoute({
   tags: ['Projects'],
   method: 'delete',
   path: '/projects/{id}',
-  middleware: [requirePermission(PERMISSIONS.PROJECT_DELETE)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_DELETE)] as const,
   request: { params: idParam },
   responses: {
     [HttpStatusCodes.NO_CONTENT]: { description: 'Project deleted' },

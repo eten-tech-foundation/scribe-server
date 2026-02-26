@@ -9,7 +9,7 @@ import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
 import { PERMISSIONS } from '@/lib/permissions';
 import { ROLES } from '@/lib/roles';
 import { createUserWithInvitation } from '@/lib/services/auth/auth0.service';
-import { requirePermission } from '@/middlewares/role-auth';
+import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import { UserPolicy } from './user.policy';
@@ -21,7 +21,7 @@ const listUsersRoute = createRoute({
   tags: ['Users'],
   method: 'get',
   path: '/users',
-  middleware: [requirePermission(PERMISSIONS.USER_VIEW)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.USER_VIEW)] as const,
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       selectUsersSchema.array().openapi('Users'),
@@ -73,7 +73,7 @@ const createUserRoute = createRoute({
   tags: ['Users'],
   method: 'post',
   path: '/users',
-  middleware: [requirePermission(PERMISSIONS.USER_CREATE)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.USER_CREATE)] as const,
   request: {
     body: jsonContent(insertUsersSchema, 'The user to create'),
   },
@@ -140,7 +140,7 @@ const createUserWithInvitationRoute = createRoute({
   tags: ['Users'],
   method: 'post',
   path: '/users/invite',
-  middleware: [requirePermission(PERMISSIONS.USER_CREATE)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.USER_CREATE)] as const,
   request: {
     body: jsonContent(insertUsersSchema, 'The user to create and invite'),
   },
@@ -210,7 +210,7 @@ const getUserByEmailRoute = createRoute({
   tags: ['Users'],
   method: 'get',
   path: '/users/email/{email}',
-  middleware: [requirePermission(PERMISSIONS.USER_VIEW)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.USER_VIEW)] as const,
   request: {
     params: z.object({
       email: z
@@ -272,7 +272,7 @@ const getUserRoute = createRoute({
   tags: ['Users'],
   method: 'get',
   path: '/users/{id}',
-  middleware: [requirePermission(PERMISSIONS.USER_VIEW)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.USER_VIEW)] as const,
   request: {
     params: z.object({
       id: z.coerce.number().openapi({
@@ -328,7 +328,7 @@ const updateUserRoute = createRoute({
   tags: ['Users'],
   method: 'patch',
   path: '/users/{id}',
-  middleware: [requirePermission(PERMISSIONS.USER_UPDATE)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.USER_UPDATE)] as const,
   request: {
     params: z.object({
       id: z.coerce.number().openapi({
@@ -432,7 +432,7 @@ const deleteUserRoute = createRoute({
   tags: ['Users'],
   method: 'delete',
   path: '/users/{id}',
-  middleware: [requirePermission(PERMISSIONS.USER_DELETE)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.USER_DELETE)] as const,
   request: {
     params: z.object({
       id: z.coerce.number().openapi({

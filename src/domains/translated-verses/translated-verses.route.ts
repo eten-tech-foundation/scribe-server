@@ -19,7 +19,7 @@ import { ProjectPolicy } from '@/domains/projects/project.policy';
 import * as projectHandler from '@/domains/projects/projects.handlers';
 import { PERMISSIONS } from '@/lib/permissions';
 import { ROLES } from '@/lib/roles';
-import { requirePermission } from '@/middlewares/role-auth';
+import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as translatedVersesHandler from './translated-verses.handlers';
@@ -28,7 +28,7 @@ const getTranslatedVerseRoute = createRoute({
   tags: ['Translated Verses'],
   method: 'get',
   path: '/translated-verses/{id}',
-  middleware: [requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
   request: {
     params: z.object({
       id: z.coerce.number().openapi({
@@ -122,7 +122,7 @@ const upsertTranslatedVerseRoute = createRoute({
   tags: ['Translated Verses'],
   method: 'post',
   path: '/translated-verses',
-  middleware: [requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
   request: {
     body: jsonContent(insertTranslatedVersesSchema, 'The translated verse to create or update'),
   },
@@ -254,7 +254,7 @@ const listTranslatedVersesRoute = createRoute({
   tags: ['Translated Verses'],
   method: 'get',
   path: '/translated-verses',
-  middleware: [requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
   request: {
     query: z.object({
       projectUnitId: z.coerce

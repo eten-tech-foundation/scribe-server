@@ -8,7 +8,7 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 import { db } from '@/db';
 import { project_units, project_users } from '@/db/schema';
 import { PERMISSIONS } from '@/lib/permissions';
-import { requirePermission } from '@/middlewares/role-auth';
+import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as chapterAssignmentsHandler from './chapter-assignments.handlers';
@@ -44,7 +44,7 @@ const createChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'post',
   path: '/chapter-assignments',
-  middleware: [requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
   request: {
     body: jsonContent(createChapterAssignmentRequest, 'Chapter assignment data'),
   },
@@ -122,7 +122,7 @@ const updateChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'patch',
   path: '/chapter-assignments/{chapterAssignmentId}',
-  middleware: [requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
   request: {
     params: z.object({
       chapterAssignmentId: z.coerce.number().int().positive(),
@@ -180,7 +180,7 @@ const submitChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'patch',
   path: '/chapter-assignments/{chapterAssignmentId}/submit',
-  middleware: [requirePermission(PERMISSIONS.CONTENT_DRAFT)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_DRAFT)] as const,
   request: {
     params: z.object({
       chapterAssignmentId: z.coerce.number().int().positive(),
@@ -263,7 +263,7 @@ const getChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'get',
   path: '/chapter-assignments/{chapterAssignmentId}',
-  middleware: [requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
   request: {
     params: z.object({
       chapterAssignmentId: z.coerce.number().int().positive(),
@@ -342,7 +342,7 @@ const deleteChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'delete',
   path: '/chapter-assignments/{chapterAssignmentId}',
-  middleware: [requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
   request: {
     params: z.object({
       chapterAssignmentId: z.coerce.number().int().positive(),

@@ -15,6 +15,7 @@
     "build": "tsc && tsc-alias",
     "build:webjob": "npm run build && node scripts/setup-webjob.js",
     "deploy:prepare": "npm run build:webjob && cd wwwroot && zip -r ../deploy.zip . && cd ..",
+    "seed:rbac": "npx tsx src/db/seeds/rbac.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"

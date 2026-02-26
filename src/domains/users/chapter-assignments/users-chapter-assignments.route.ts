@@ -8,7 +8,7 @@ import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-a
 import { UserPolicy } from '@/domains/users/user.policy';
 import * as userHandler from '@/domains/users/users.handlers';
 import { PERMISSIONS } from '@/lib/permissions';
-import { requirePermission } from '@/middlewares/role-auth';
+import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as usersChapterAssignmentsHandler from './users-chapter-assignments.handlers';
@@ -40,7 +40,7 @@ const getChapterAssignmentsByUserIdRoute = createRoute({
   tags: ['Users - Chapter Assignments'],
   method: 'get',
   path: '/users/{userId}/chapter-assignments',
-  middleware: [requirePermission(PERMISSIONS.USER_VIEW)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.USER_VIEW)] as const,
   request: {
     params: z.object({
       userId: z.coerce.number().int().positive(),
@@ -110,7 +110,7 @@ const assignUsersToChaptersRoute = createRoute({
   tags: ['Users - Chapter Assignments'],
   method: 'patch',
   path: '/users/{userId}/chapter-assignments',
-  middleware: [requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
   request: {
     params: z.object({
       userId: z.coerce.number().int().positive(),

@@ -11,7 +11,7 @@ import { ProjectPolicy } from '@/domains/projects/project.policy';
 import * as projectHandler from '@/domains/projects/projects.handlers';
 import { PERMISSIONS } from '@/lib/permissions';
 import { ROLES } from '@/lib/roles';
-import { requirePermission } from '@/middlewares/role-auth';
+import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as projectUsersHandler from './project-users.handlers';
@@ -33,7 +33,7 @@ const getProjectUsersRoute = createRoute({
   tags: ['Projects - Users'],
   method: 'get',
   path: '/projects/{projectId}/users',
-  middleware: [requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
   request: { params: projectIdParam },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
@@ -104,7 +104,7 @@ const addProjectUserRoute = createRoute({
   tags: ['Projects - Users'],
   method: 'post',
   path: '/projects/{projectId}/users',
-  middleware: [requirePermission(PERMISSIONS.PROJECT_UPDATE)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_UPDATE)] as const,
   request: {
     params: projectIdParam,
     body: jsonContent(z.object({ userId: z.number().int() }), 'User to add to the project'),
@@ -177,7 +177,7 @@ const removeProjectUserRoute = createRoute({
   tags: ['Projects - Users'],
   method: 'delete',
   path: '/projects/{projectId}/users/{userId}',
-  middleware: [requirePermission(PERMISSIONS.PROJECT_UPDATE)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_UPDATE)] as const,
   request: {
     params: z.object({
       projectId: z.coerce.number().int().positive(),

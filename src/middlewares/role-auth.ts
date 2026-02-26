@@ -1,4 +1,4 @@
-import type { Context, MiddlewareHandler } from 'hono';
+import type { Context, Next } from 'hono';
 
 import { HTTPException } from 'hono/http-exception';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
@@ -17,7 +17,11 @@ export function emailMatch(sourceEmail: string, targetEmail: string): boolean {
   return normalizeEmail(sourceEmail) === normalizeEmail(targetEmail);
 }
 
-async function getAuthenticatedUser(c: Context<AppBindings>) {
+/**
+ * 1. Authentication Middleware
+ * Validates the token, fetches the user, checks status, and stores in context.
+ */
+export async function authenticateUser(c: Context<AppBindings>, next: Next) {
   const userEmail = c.get('loggedInUserEmail');
   if (!userEmail) {
     throw new HTTPException(HttpStatusCodes.UNAUTHORIZED, {
@@ -41,12 +45,24 @@ async function getAuthenticatedUser(c: Context<AppBindings>) {
     });
   }
 
-  return user;
+  // Store user in context for downstream middlewares/handlers
+  c.set('user', user);
+  await next();
 }
 
-export function requirePermission(permission: Permission): MiddlewareHandler<AppBindings> {
-  return async (c, next) => {
-    const user = await getAuthenticatedUser(c);
+/**
+ * 2. Authorization Middleware
+ * Relies on authenticateUser running first. Checks if the user's role has the permission.
+ */
+export function requirePermission(permission: Permission) {
+  return async (c: Context<AppBindings>, next: Next) => {
+    const user = c.get('user');
+
+    if (!user) {
+      throw new HTTPException(HttpStatusCodes.UNAUTHORIZED, {
+        message: 'User not authenticated',
+      });
+    }
 
     const granted = await roleHasPermission(user.role, permission);
 
@@ -56,7 +72,6 @@ export function requirePermission(permission: Permission): MiddlewareHandler<App
       });
     }
 
-    c.set('user', user);
     await next();
   };
 }

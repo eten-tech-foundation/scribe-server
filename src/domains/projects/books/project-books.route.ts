@@ -13,7 +13,7 @@ import { ProjectPolicy } from '@/domains/projects/project.policy';
 import * as projectHandler from '@/domains/projects/projects.handlers';
 import { PERMISSIONS } from '@/lib/permissions';
 import { ROLES } from '@/lib/roles';
-import { requirePermission } from '@/middlewares/role-auth';
+import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 // ----------------------------------
@@ -35,7 +35,7 @@ const getProjectChapterAssignmentsRoute = createRoute({
   tags: ['Projects - Chapter Assignments'],
   method: 'get',
   path: '/projects/{projectId}/chapter-assignments',
-  middleware: [requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
   request: {
     params: z.object({
       projectId: z.coerce.number().int().positive(),
@@ -109,7 +109,7 @@ const deleteProjectChapterAssignmentsRoute = createRoute({
   tags: ['Projects - Chapter Assignments'],
   method: 'delete',
   path: '/projects/{projectId}/chapter-assignments',
-  middleware: [requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
   request: {
     params: z.object({
       projectId: z.coerce.number().int().positive(),
@@ -200,7 +200,7 @@ const getChapterAssignmentProgressForProjectRoute = createRoute({
   tags: ['Projects - Chapter Assignments'],
   method: 'get',
   path: '/projects/{projectId}/chapter-assignments/progress',
-  middleware: [requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
   request: {
     params: z.object({
       projectId: z.coerce.number().int().positive(),
@@ -280,7 +280,7 @@ const assignAllProjectChapterAssignmentsToUserRoute = createRoute({
   tags: ['Projects - Chapter Assignments'],
   method: 'patch',
   path: '/projects/{projectId}/chapter-assignments/assign-all',
-  middleware: [requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
   request: {
     params: z.object({
       projectId: z.coerce.number().int().positive(),
