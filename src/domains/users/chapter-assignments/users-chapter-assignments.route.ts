@@ -4,7 +4,11 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { requireManagerAccess, requireUserAccess } from '@/middlewares/role-auth';
+import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-assignments.policy';
+import { UserPolicy } from '@/domains/users/user.policy';
+import * as userHandler from '@/domains/users/users.handlers';
+import { PERMISSIONS } from '@/lib/permissions';
+import { requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as usersChapterAssignmentsHandler from './users-chapter-assignments.handlers';
@@ -36,6 +40,7 @@ const getChapterAssignmentsByUserIdRoute = createRoute({
   tags: ['Users - Chapter Assignments'],
   method: 'get',
   path: '/users/{userId}/chapter-assignments',
+  middleware: [requirePermission(PERMISSIONS.USER_VIEW)] as const,
   request: {
     params: z.object({
       userId: z.coerce.number().int().positive(),
@@ -54,20 +59,36 @@ const getChapterAssignmentsByUserIdRoute = createRoute({
       createMessageObjectSchema('Forbidden'),
       'Access denied'
     ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
+      'User not found'
+    ),
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
       'Internal server error'
     ),
   },
   summary: 'Get chapter assignments by user ID',
-  description:
-    'Returns all chapter assignments for a user, separated by their role (assigned translator and peer checker)',
+  description: 'Returns all chapter assignments for a user. Translators can only fetch their own.',
 });
-
-server.use('/users/:userId/chapter-assignments', requireUserAccess);
 
 server.openapi(getChapterAssignmentsByUserIdRoute, async (c) => {
   const { userId } = c.req.valid('param');
+  const currentUser = c.get('user')!;
+  const policyUser = {
+    id: currentUser.id,
+    roleName: currentUser.roleName,
+    organization: currentUser.organization,
+  };
+
+  const targetUserResult = await userHandler.getUserById(userId);
+  if (!targetUserResult.ok) {
+    return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  if (!UserPolicy.view(policyUser, targetUserResult.data)) {
+    return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
+  }
 
   const result = await usersChapterAssignmentsHandler.getAllChapterAssignmentsByUserId(userId);
 
@@ -89,6 +110,7 @@ const assignUsersToChaptersRoute = createRoute({
   tags: ['Users - Chapter Assignments'],
   method: 'patch',
   path: '/users/{userId}/chapter-assignments',
+  middleware: [requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
   request: {
     params: z.object({
       userId: z.coerce.number().int().positive(),
@@ -117,7 +139,7 @@ const assignUsersToChaptersRoute = createRoute({
     ),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-      'Chapter assignments not found'
+      'User or chapter assignments not found'
     ),
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
@@ -125,14 +147,29 @@ const assignUsersToChaptersRoute = createRoute({
     ),
   },
   summary: 'Assign user to specific chapters',
-  description: 'Assigns a user to specific chapter assignments.',
+  description: 'Assigns a user to specific chapter assignments. Manager only.',
 });
-
-server.use('/users/:userId/chapter-assignments', requireManagerAccess);
 
 server.openapi(assignUsersToChaptersRoute, async (c) => {
   const assignedUserId = c.req.valid('param').userId;
   const assignmentData = c.req.valid('json');
+  const currentUser = c.get('user')!;
+  const policyUser = {
+    id: currentUser.id,
+    roleName: currentUser.roleName,
+    organization: currentUser.organization,
+  };
+
+  // Base permission check for ChapterAssignment
+  if (!ChapterAssignmentPolicy.manage(policyUser)) {
+    return c.json({ message: 'Forbidden: Insufficient permissions' }, HttpStatusCodes.FORBIDDEN);
+  }
+
+  // Cross-tenant check: Can this manager actually act on this user?
+  const targetUserResult = await userHandler.getUserById(assignedUserId);
+  if (!targetUserResult.ok || !UserPolicy.view(policyUser, targetUserResult.data)) {
+    return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
+  }
 
   const result = await usersChapterAssignmentsHandler.assignUserToChapters(
     assignedUserId,

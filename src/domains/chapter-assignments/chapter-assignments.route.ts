@@ -1,13 +1,18 @@
 import { createRoute, z } from '@hono/zod-openapi';
+import { and, eq } from 'drizzle-orm';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { requireProjectAccess, requireUserAccess } from '@/middlewares/role-auth';
+import { db } from '@/db';
+import { project_units, project_users } from '@/db/schema';
+import { PERMISSIONS } from '@/lib/permissions';
+import { requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as chapterAssignmentsHandler from './chapter-assignments.handlers';
+import { ChapterAssignmentPolicy } from './chapter-assignments.policy';
 
 const chapterAssignmentResponse = z.object({
   id: z.number().int().optional(),
@@ -35,14 +40,11 @@ const createChapterAssignmentRequest = z.object({
   peerCheckerId: z.number().int().optional(),
 });
 
-server.use('/chapter-assignments/*/submit', requireUserAccess);
-server.use('/chapter-assignments', requireProjectAccess);
-server.use('/chapter-assignments/:id', requireProjectAccess);
-
 const createChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'post',
   path: '/chapter-assignments',
+  middleware: [requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
   request: {
     body: jsonContent(createChapterAssignmentRequest, 'Chapter assignment data'),
   },
@@ -92,6 +94,15 @@ const createChapterAssignmentRoute = createRoute({
 
 server.openapi(createChapterAssignmentRoute, async (c) => {
   const requestData = c.req.valid('json');
+  const user = c.get('user')!;
+  const policyUser = { id: user.id, roleName: user.roleName };
+
+  if (!ChapterAssignmentPolicy.manage(policyUser)) {
+    return c.json(
+      { message: 'Forbidden: You do not have permission to manage assignments.' },
+      HttpStatusCodes.FORBIDDEN
+    );
+  }
 
   const result = await chapterAssignmentsHandler.createChapterAssignment(requestData);
 
@@ -111,6 +122,7 @@ const updateChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'patch',
   path: '/chapter-assignments/{chapterAssignmentId}',
+  middleware: [requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
   request: {
     params: z.object({
       chapterAssignmentId: z.coerce.number().int().positive(),
@@ -142,6 +154,15 @@ const updateChapterAssignmentRoute = createRoute({
 server.openapi(updateChapterAssignmentRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
   const requestData = c.req.valid('json');
+  const user = c.get('user')!;
+  const policyUser = { id: user.id, roleName: user.roleName };
+
+  if (!ChapterAssignmentPolicy.manage(policyUser)) {
+    return c.json(
+      { message: 'Forbidden: You do not have permission to update assignments.' },
+      HttpStatusCodes.FORBIDDEN
+    );
+  }
 
   const result = await chapterAssignmentsHandler.updateChapterAssignment(
     chapterAssignmentId,
@@ -159,6 +180,7 @@ const submitChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'patch',
   path: '/chapter-assignments/{chapterAssignmentId}/submit',
+  middleware: [requirePermission(PERMISSIONS.CONTENT_DRAFT)] as const,
   request: {
     params: z.object({
       chapterAssignmentId: z.coerce.number().int().positive(),
@@ -197,6 +219,28 @@ const submitChapterAssignmentRoute = createRoute({
 
 server.openapi(submitChapterAssignmentRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
+  const user = c.get('user')!;
+
+  // Fetch assignment to enforce record-level submission constraints
+  const getResult = await chapterAssignmentsHandler.getChapterAssignment(chapterAssignmentId);
+  if (!getResult.ok) {
+    return c.json({ message: getResult.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  const assignment = getResult.data;
+  const policyUser = { id: user.id, roleName: user.roleName };
+  const policyAssignment = {
+    assignedUserId: assignment.assignedUserId,
+    peerCheckerId: assignment.peerCheckerId,
+    status: assignment.status,
+  };
+
+  if (!ChapterAssignmentPolicy.submit(policyUser, policyAssignment)) {
+    return c.json(
+      { message: 'Forbidden: You do not have permission to submit this assignment right now.' },
+      HttpStatusCodes.FORBIDDEN
+    );
+  }
 
   const result = await chapterAssignmentsHandler.submitChapterAssignment(chapterAssignmentId);
 
@@ -219,6 +263,7 @@ const getChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'get',
   path: '/chapter-assignments/{chapterAssignmentId}',
+  middleware: [requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
   request: {
     params: z.object({
       chapterAssignmentId: z.coerce.number().int().positive(),
@@ -249,24 +294,55 @@ const getChapterAssignmentRoute = createRoute({
 
 server.openapi(getChapterAssignmentRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
+  const user = c.get('user')!;
 
   const result = await chapterAssignmentsHandler.getChapterAssignment(chapterAssignmentId);
 
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
+  if (!result.ok) {
+    if (result.error.message === 'Chapter assignment not found') {
+      return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+    }
+    return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 
-  if (result.error.message === 'Chapter assignment not found') {
-    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
+  const assignment = result.data;
+
+  // Resolve projectId from projectUnitId to enforce `isProjectMember`
+  const [projectUnit] = await db
+    .select({ projectId: project_units.projectId })
+    .from(project_units)
+    .where(eq(project_units.id, assignment.projectUnitId))
+    .limit(1);
+
+  let isProjectMember = false;
+  if (projectUnit) {
+    const [member] = await db
+      .select()
+      .from(project_users)
+      .where(
+        and(eq(project_users.projectId, projectUnit.projectId), eq(project_users.userId, user.id))
+      )
+      .limit(1);
+    isProjectMember = member !== undefined;
   }
 
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  const policyUser = { id: user.id, roleName: user.roleName };
+
+  if (!ChapterAssignmentPolicy.view(policyUser, isProjectMember)) {
+    return c.json(
+      { message: 'Forbidden: You do not have permission to view this assignment.' },
+      HttpStatusCodes.FORBIDDEN
+    );
+  }
+
+  return c.json(assignment, HttpStatusCodes.OK);
 });
 
 const deleteChapterAssignmentRoute = createRoute({
   tags: ['Chapter Assignments'],
   method: 'delete',
   path: '/chapter-assignments/{chapterAssignmentId}',
+  middleware: [requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
   request: {
     params: z.object({
       chapterAssignmentId: z.coerce.number().int().positive(),
@@ -299,6 +375,15 @@ const deleteChapterAssignmentRoute = createRoute({
 
 server.openapi(deleteChapterAssignmentRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
+  const user = c.get('user')!;
+  const policyUser = { id: user.id, roleName: user.roleName };
+
+  if (!ChapterAssignmentPolicy.manage(policyUser)) {
+    return c.json(
+      { message: 'Forbidden: You do not have permission to delete assignments.' },
+      HttpStatusCodes.FORBIDDEN
+    );
+  }
 
   const result = await chapterAssignmentsHandler.deleteChapterAssignment(chapterAssignmentId);
 

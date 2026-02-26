@@ -8,7 +8,7 @@ import {
   editorStateResourcesSchema,
   insertUserChapterAssignmentEditorStateSchema,
 } from '@/db/schema';
-import { requireUserAccess } from '@/middlewares/role-auth';
+// import { requireUserAccess } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as editorStateHandler from './user-chapter-assignment-editor-state.handlers';
@@ -57,7 +57,7 @@ const getEditorStateRoute = createRoute({
     'Returns the saved editor state (last opened resources) for the current user and specified chapter assignment. Returns null if no state has been saved yet.',
 });
 
-server.use('/chapter-assignments/:chapterAssignmentId/editor-state', requireUserAccess);
+// server.use('/chapter-assignments/:chapterAssignmentId/editor-state', requireUserAccess);
 
 server.openapi(getEditorStateRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');

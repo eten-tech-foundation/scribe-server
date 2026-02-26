@@ -1,24 +1,41 @@
 import { createRoute, z } from '@hono/zod-openapi';
+import { and, eq } from 'drizzle-orm';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { requireProjectAccess } from '@/middlewares/role-auth';
+import { db } from '@/db';
+import { project_users } from '@/db/schema';
+import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-assignments.policy';
+import * as projectChapterAssignmentsHandler from '@/domains/projects/chapter-assignments/project-chapter-assignments.handlers';
+import { ProjectPolicy } from '@/domains/projects/project.policy';
+import * as projectHandler from '@/domains/projects/projects.handlers';
+import { PERMISSIONS } from '@/lib/permissions';
+import { ROLES } from '@/lib/roles';
+import { requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
-import * as projectUnitsBibleBooksHandler from './project-books.handlers';
-
-const projectBookSchema = z.object({
+// ----------------------------------
+// --- START STANDARD CRUD ROUTES ---
+// ----------------------------------
+export const chapterAssignmentResponse = z.object({
+  id: z.number().int().optional(),
+  projectUnitId: z.number().int(),
+  bibleId: z.number().int(),
   bookId: z.number().int(),
-  code: z.string(),
-  engDisplayName: z.string(),
+  chapterNumber: z.number().int(),
+  assignedUserId: z.number().int().nullable().optional(),
+  submittedTime: z.date().nullable().optional(),
+  createdAt: z.date().nullable().optional(),
+  updatedAt: z.date().nullable().optional(),
 });
 
-const getProjectBooksRoute = createRoute({
-  tags: ['Projects - Bible Books'],
+const getProjectChapterAssignmentsRoute = createRoute({
+  tags: ['Projects - Chapter Assignments'],
   method: 'get',
-  path: '/projects/{projectId}/books',
+  path: '/projects/{projectId}/chapter-assignments',
+  middleware: [requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
   request: {
     params: z.object({
       projectId: z.coerce.number().int().positive(),
@@ -26,8 +43,8 @@ const getProjectBooksRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      projectBookSchema.array().openapi('ProjectBooks'),
-      'The list of bible books associated with the project'
+      chapterAssignmentResponse.array().openapi('Project Chapter Assignments'),
+      'The list of chapter assignments for the project'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       createMessageObjectSchema('Unauthorized'),
@@ -46,16 +63,40 @@ const getProjectBooksRoute = createRoute({
       'Internal server error'
     ),
   },
-  summary: 'Get all bible books for a project',
-  description: 'Returns a list of all bible books associated with a specific project',
+  summary: 'Get project chapter assignments',
+  description: 'Returns a list of chapter assignments for the project',
 });
 
-server.use('/projects/:projectId/books', requireProjectAccess);
-
-server.openapi(getProjectBooksRoute, async (c) => {
+server.openapi(getProjectChapterAssignmentsRoute, async (c) => {
   const { projectId } = c.req.valid('param');
+  const currentUser = c.get('user')!;
+  const policyUser = {
+    id: currentUser.id,
+    role: currentUser.role,
+    roleName: currentUser.roleName,
+    organization: currentUser.organization,
+  };
 
-  const result = await projectUnitsBibleBooksHandler.getBooksByProjectId(projectId);
+  const projectResult = await projectHandler.getProjectById(projectId);
+  if (!projectResult.ok) {
+    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  let isAssignedToProject = false;
+  if (currentUser.roleName === ROLES.TRANSLATOR) {
+    const [member] = await db
+      .select()
+      .from(project_users)
+      .where(and(eq(project_users.projectId, projectId), eq(project_users.userId, currentUser.id)))
+      .limit(1);
+    isAssignedToProject = member !== undefined;
+  }
+
+  if (!ProjectPolicy.read(policyUser, projectResult.data, isAssignedToProject)) {
+    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  const result = await projectChapterAssignmentsHandler.getProjectChapterAssignments(projectId);
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
@@ -63,3 +104,253 @@ server.openapi(getProjectBooksRoute, async (c) => {
 
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
+
+const deleteProjectChapterAssignmentsRoute = createRoute({
+  tags: ['Projects - Chapter Assignments'],
+  method: 'delete',
+  path: '/projects/{projectId}/chapter-assignments',
+  middleware: [requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
+  request: {
+    params: z.object({
+      projectId: z.coerce.number().int().positive(),
+    }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.object({ deletedCount: z.number().int() }).openapi('DeleteResult'),
+      'Successfully deleted chapter assignments'
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'Manager access required'
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
+      'Project not found'
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
+  },
+  summary: 'Delete all chapter assignments for a project',
+  description: 'Deletes all chapter assignments associated with a specific project. Manager only.',
+});
+
+server.openapi(deleteProjectChapterAssignmentsRoute, async (c) => {
+  const { projectId } = c.req.valid('param');
+  const currentUser = c.get('user')!;
+  const policyUser = {
+    id: currentUser.id,
+    roleName: currentUser.roleName,
+    organization: currentUser.organization,
+  };
+
+  if (!ChapterAssignmentPolicy.manage(policyUser)) {
+    return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
+  }
+
+  // Cross-tenant check: ensure manager owns this project
+  const projectResult = await projectHandler.getProjectById(projectId);
+  if (!projectResult.ok || projectResult.data.organization !== policyUser.organization) {
+    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  const result =
+    await projectChapterAssignmentsHandler.deleteChapterAssignmentsByProject(projectId);
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+});
+// ---------------------------
+// --- END STANDARD ROUTES ---
+// ---------------------------
+
+// --------------------------------------
+// --- START NON-STANDARD CRUD ROUTES ---
+// --------------------------------------
+const userResponse = z.object({
+  id: z.number().int(),
+  displayName: z.string(),
+});
+
+const chapterAssignmentProgressResponse = z.object({
+  assignmentId: z.number(),
+  projectUnitId: z.number(),
+  status: z.string(),
+  bookNameEng: z.string(),
+  chapterNumber: z.number(),
+  assignedUser: z.nullable(userResponse),
+  peerChecker: z.nullable(userResponse),
+  totalVerses: z.number().int(),
+  completedVerses: z.number().int(),
+  submittedTime: z.date().nullable(),
+  createdAt: z.date().nullable(),
+  updatedAt: z.date().nullable(),
+});
+
+const getChapterAssignmentProgressForProjectRoute = createRoute({
+  tags: ['Projects - Chapter Assignments'],
+  method: 'get',
+  path: '/projects/{projectId}/chapter-assignments/progress',
+  middleware: [requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  request: {
+    params: z.object({
+      projectId: z.coerce.number().int().positive(),
+    }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      chapterAssignmentProgressResponse.array().openapi('ChapterAssignmentProgress'),
+      'Chapter assignment progress for the project'
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'Project access required'
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
+      'Project not found'
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
+  },
+  summary: 'Get chapter assignment progress',
+  description: 'Returns chapter assignment with progress completion statistics for a project',
+});
+
+server.openapi(getChapterAssignmentProgressForProjectRoute, async (c) => {
+  const { projectId } = c.req.valid('param');
+  const currentUser = c.get('user')!;
+  const policyUser = {
+    id: currentUser.id,
+    role: currentUser.role,
+    roleName: currentUser.roleName,
+    organization: currentUser.organization,
+  };
+
+  const projectResult = await projectHandler.getProjectById(projectId);
+  if (!projectResult.ok) {
+    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  let isAssignedToProject = false;
+  if (currentUser.roleName === ROLES.TRANSLATOR) {
+    const [member] = await db
+      .select()
+      .from(project_users)
+      .where(and(eq(project_users.projectId, projectId), eq(project_users.userId, currentUser.id)))
+      .limit(1);
+    isAssignedToProject = member !== undefined;
+  }
+
+  if (!ProjectPolicy.read(policyUser, projectResult.data, isAssignedToProject)) {
+    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  const result =
+    await projectChapterAssignmentsHandler.getChapterAssignmentProgressByProject(projectId);
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+});
+
+// --- assign all chapter assignments for a project to the requested user ---
+const assignAllProjectChapterAssignmentsToUserRequest = z.object({
+  assignedUserId: z.number().int(),
+});
+
+const assignAllProjectChapterAssignmentsToUserRoute = createRoute({
+  tags: ['Projects - Chapter Assignments'],
+  method: 'patch',
+  path: '/projects/{projectId}/chapter-assignments/assign-all',
+  middleware: [requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
+  request: {
+    params: z.object({
+      projectId: z.coerce.number().int().positive(),
+    }),
+    body: jsonContent(
+      assignAllProjectChapterAssignmentsToUserRequest,
+      'Id of User to assign to all chapters.'
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      chapterAssignmentResponse.array().openapi('ProjectChapterAssignAll'),
+      'Successfully assigned users to chapters'
+    ),
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+      createMessageObjectSchema('Bad Request'),
+      'Invalid request data'
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'Manager access required'
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
+      'Project not found'
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
+  },
+  summary: 'Assign user to all chapters for a project',
+  description: 'Assign user to all chapters for a project. Manager only.',
+});
+
+server.openapi(assignAllProjectChapterAssignmentsToUserRoute, async (c) => {
+  const { projectId } = c.req.valid('param');
+  const assignmentData = c.req.valid('json');
+  const currentUser = c.get('user')!;
+  const policyUser = {
+    id: currentUser.id,
+    roleName: currentUser.roleName,
+    organization: currentUser.organization,
+  };
+
+  if (!ChapterAssignmentPolicy.manage(policyUser)) {
+    return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
+  }
+
+  // Cross-tenant check: ensure manager owns this project
+  const projectResult = await projectHandler.getProjectById(projectId);
+  if (!projectResult.ok || projectResult.data.organization !== policyUser.organization) {
+    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  const result = await projectChapterAssignmentsHandler.assignAllProjectChapterAssignmentsToUser(
+    projectId,
+    assignmentData
+  );
+
+  if (result.ok) {
+    return c.json(result.data, HttpStatusCodes.OK);
+  }
+
+  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+});
+// -------------------------------
+// --- END NON-STANDARD ROUTES ---
+// -------------------------------
