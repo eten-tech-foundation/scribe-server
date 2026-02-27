@@ -11,8 +11,8 @@ import {
   chapter_assignment_assigned_user_history,
   chapter_assignment_status_history,
   chapter_assignments,
-  organizations,
   project_units,
+  projects,
   translated_verses,
   users,
 } from '@/db/schema';
@@ -328,17 +328,14 @@ async function isAssignedUserInProjectOrganization(
   projectId: number
 ): Promise<boolean> {
   try {
-    const [user] = await db
+    const [match] = await db
       .select({ id: users.id })
       .from(users)
-      .innerJoin(organizations, eq(users.organization, organizations.id))
-      .where(eq(users.id, assignedUserId));
+      .innerJoin(projects, eq(users.organization, projects.organization))
+      .where(and(eq(users.id, assignedUserId), eq(projects.id, projectId)))
+      .limit(1);
 
-    if (!user) {
-      return false;
-    }
-
-    return true;
+    return !!match;
   } catch (err) {
     logger.error({
       message: 'Failed to check if user is in project organization',

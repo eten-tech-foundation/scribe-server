@@ -276,7 +276,7 @@ const assignAllProjectChapterAssignmentsToUserRoute = createRoute({
     ),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
       createMessageObjectSchema('Bad Request'),
-      'Invalid request data'
+      'Invalid request data or assigned user is not in project organization'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       createMessageObjectSchema('Unauthorized'),
@@ -314,9 +314,6 @@ server.openapi(assignAllProjectChapterAssignmentsToUserRoute, async (c) => {
     return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  // manage() now encapsulates both the role check (PROJECT_MANAGER only) and
-  // the org-boundary check (manager.org === project.org) in a single call,
-  // replacing the old two-step pattern of separate policy + org comparison.
   if (!ChapterAssignmentPolicy.manage(policyUser, projectResult.data.organization)) {
     return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
   }
@@ -325,8 +322,13 @@ server.openapi(assignAllProjectChapterAssignmentsToUserRoute, async (c) => {
     projectId,
     assignmentData
   );
+
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
+  }
+
+  if (result.error.message === 'Assigned user is not in project organization') {
+    return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
   }
 
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
