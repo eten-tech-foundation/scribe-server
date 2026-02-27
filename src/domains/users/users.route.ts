@@ -4,7 +4,7 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { insertUsersSchema, patchUsersSchema, selectUsersSchema } from '@/db/schema';
+import { insertUsersSchema, patchUsersClientSchema, selectUsersSchema } from '@/db/schema';
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
 import { PERMISSIONS } from '@/lib/permissions';
 import { ROLES } from '@/lib/roles';
@@ -105,7 +105,7 @@ const createUserRoute = createRoute({
     ),
   },
   summary: 'Create a new user',
-  description: 'Creates a new user with the provided data',
+  description: 'Creates a new user with the provided data. Project Manager only.',
 });
 
 server.openapi(createUserRoute, async (c) => {
@@ -124,7 +124,7 @@ server.openapi(createUserRoute, async (c) => {
     );
   }
 
-  userData.organization = userData.organization ?? currentUser.organization;
+  userData.organization = currentUser.organization;
 
   const result = await userHandler.createUser(userData);
   if (result.ok) {
@@ -336,7 +336,7 @@ const updateUserRoute = createRoute({
         example: 1,
       }),
     }),
-    body: jsonContent(patchUsersSchema, 'The user updates'),
+    body: jsonContent(patchUsersClientSchema, 'The user updates'),
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(selectUsersSchema, 'The updated user'),
@@ -413,8 +413,8 @@ server.openapi(updateUserRoute, async (c) => {
   }
 
   if (currentUser.roleName === ROLES.TRANSLATOR) {
-    delete updates.role;
-    delete updates.organization;
+    delete (updates as Record<string, unknown>).role;
+    delete (updates as Record<string, unknown>).organization;
   }
 
   const result = await userHandler.updateUser(id, updates);

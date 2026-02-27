@@ -719,3 +719,13 @@ export const patchUserChapterAssignmentEditorStateSchema =
 export const patchProjectUsersSchema = insertProjectUsersSchema.partial();
 export const patchPermissionsSchema = insertPermissionsSchema.partial();
 export const patchRolePermissionsSchema = insertRolePermissionsSchema.partial();
+
+export const patchProjectsClientSchema = patchProjectsSchema.omit({
+  organization: true,
+  createdBy: true,
+});
+
+export const patchUsersClientSchema = patchUsersSchema.omit({
+  organization: true,
+  role: true,
+});

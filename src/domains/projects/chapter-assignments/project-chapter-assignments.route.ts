@@ -156,19 +156,24 @@ const deleteProjectChapterAssignmentsRoute = createRoute({
 server.openapi(deleteProjectChapterAssignmentsRoute, async (c) => {
   const { projectId } = c.req.valid('param');
   const currentUser = c.get('user')!;
+  // organization is part of policyUser so manage() can compare it against the
+  // project's organization and reject cross-tenant requests.
   const policyUser = {
     id: currentUser.id,
     roleName: currentUser.roleName,
     organization: currentUser.organization,
   };
 
-  if (!ChapterAssignmentPolicy.manage(policyUser)) {
-    return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
+  const projectResult = await projectHandler.getProjectById(projectId);
+  if (!projectResult.ok) {
+    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  const projectResult = await projectHandler.getProjectById(projectId);
-  if (!projectResult.ok || projectResult.data.organization !== policyUser.organization) {
-    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+  // Pass projectResult.data.organization as the target org.
+  // manage() will return false if the manager's org !== project's org,
+  // so the old explicit organization comparison below is now handled inside the policy.
+  if (!ChapterAssignmentPolicy.manage(policyUser, projectResult.data.organization)) {
+    return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
   }
 
   const result =
@@ -304,13 +309,16 @@ server.openapi(assignAllProjectChapterAssignmentsToUserRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  if (!ChapterAssignmentPolicy.manage(policyUser)) {
-    return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
+  const projectResult = await projectHandler.getProjectById(projectId);
+  if (!projectResult.ok) {
+    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  const projectResult = await projectHandler.getProjectById(projectId);
-  if (!projectResult.ok || projectResult.data.organization !== policyUser.organization) {
-    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+  // manage() now encapsulates both the role check (PROJECT_MANAGER only) and
+  // the org-boundary check (manager.org === project.org) in a single call,
+  // replacing the old two-step pattern of separate policy + org comparison.
+  if (!ChapterAssignmentPolicy.manage(policyUser, projectResult.data.organization)) {
+    return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
   }
 
   const result = await projectChapterAssignmentsHandler.assignAllProjectChapterAssignmentsToUser(

@@ -102,8 +102,6 @@ const upsertTranslatedVerseRoute = createRoute({
   tags: ['Translated Verses'],
   method: 'post',
   path: '/translated-verses',
-  // CONTENT_DRAFT is held only by translators — correct coarse gate.
-  // (Was PROJECT_VIEW which managers also hold — see audit notes.)
   middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_DRAFT)] as const,
   request: {
     body: jsonContent(insertTranslatedVersesSchema, 'The translated verse to create or update'),
@@ -149,12 +147,20 @@ const upsertTranslatedVerseRoute = createRoute({
 server.openapi(upsertTranslatedVerseRoute, async (c) => {
   const translatedVerseData = c.req.valid('json');
   const currentUser = c.get('user')!;
-  const policyUser = { id: currentUser.id, roleName: currentUser.roleName };
+  // organization is required by edit() for the org-boundary check.
+  const policyUser = {
+    id: currentUser.id,
+    roleName: currentUser.roleName,
+    organization: currentUser.organization,
+  };
 
   if (!translatedVerseData.assignedUserId) {
     translatedVerseData.assignedUserId = currentUser.id;
   }
 
+  // getAssignmentForVerse now also joins project_units → projects and returns
+  // organizationId on the PolicyChapterAssignment, so edit() can verify the
+  // translator belongs to the same tenant as the assignment.
   const assignmentResult = await getAssignmentForVerse(
     translatedVerseData.projectUnitId,
     translatedVerseData.bibleTextId
@@ -168,6 +174,8 @@ server.openapi(upsertTranslatedVerseRoute, async (c) => {
     ? await resolveIsProjectMember(unitResult.data.projectId, currentUser.id, currentUser.roleName)
     : false;
 
+  // policyAssignment now includes organizationId sourced directly from the
+  // handler query — no extra project lookup needed here.
   if (!ChapterAssignmentPolicy.edit(policyUser, assignmentResult.data, isProjectMember)) {
     return c.json(
       { message: 'Forbidden: You do not have permission to edit this verse right now.' },

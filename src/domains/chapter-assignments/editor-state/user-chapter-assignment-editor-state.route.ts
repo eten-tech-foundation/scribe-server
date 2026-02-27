@@ -34,7 +34,6 @@ const getEditorStateRoute = createRoute({
   tags: ['Chapter Assignments - Editor State'],
   method: 'get',
   path: '/chapter-assignments/{chapterAssignmentId}/editor-state',
-  // CONTENT_DRAFT: translator-only feature; managers never use the editor
   middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_DRAFT)] as const,
   request: {
     params: chapterAssignmentIdParam,
@@ -69,7 +68,12 @@ const getEditorStateRoute = createRoute({
 server.openapi(getEditorStateRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
   const currentUser = c.get('user')!;
-  const policyUser = { id: currentUser.id, roleName: currentUser.roleName };
+  // organization required by isParticipant() for the org-boundary check.
+  const policyUser = {
+    id: currentUser.id,
+    roleName: currentUser.roleName,
+    organization: currentUser.organization,
+  };
 
   const assignmentResult =
     await chapterAssignmentsHandler.getChapterAssignment(chapterAssignmentId);
@@ -83,6 +87,9 @@ server.openapi(getEditorStateRoute, async (c) => {
     assignedUserId: assignmentResult.data.assignedUserId,
     peerCheckerId: assignmentResult.data.peerCheckerId,
     status: assignmentResult.data.status,
+    // isParticipant() now checks org to prevent a translator from one org
+    // accessing editor state belonging to another org's assignment.
+    organizationId: assignmentResult.data.organizationId,
   };
 
   if (!ChapterAssignmentPolicy.isParticipant(policyUser, policyAssignment)) {
@@ -103,7 +110,6 @@ const saveEditorStateRoute = createRoute({
   tags: ['Chapter Assignments - Editor State'],
   method: 'put',
   path: '/chapter-assignments/{chapterAssignmentId}/editor-state',
-  // CONTENT_DRAFT: translator-only feature; managers never use the editor
   middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_DRAFT)] as const,
   request: {
     params: chapterAssignmentIdParam,
@@ -158,7 +164,11 @@ server.openapi(saveEditorStateRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
   const editorStateData = c.req.valid('json');
   const currentUser = c.get('user')!;
-  const policyUser = { id: currentUser.id, roleName: currentUser.roleName };
+  const policyUser = {
+    id: currentUser.id,
+    roleName: currentUser.roleName,
+    organization: currentUser.organization,
+  };
 
   const assignmentResult =
     await chapterAssignmentsHandler.getChapterAssignment(chapterAssignmentId);
@@ -172,6 +182,8 @@ server.openapi(saveEditorStateRoute, async (c) => {
     assignedUserId: assignmentResult.data.assignedUserId,
     peerCheckerId: assignmentResult.data.peerCheckerId,
     status: assignmentResult.data.status,
+    // Same org-boundary requirement as the GET above.
+    organizationId: assignmentResult.data.organizationId,
   };
 
   if (!ChapterAssignmentPolicy.isParticipant(policyUser, policyAssignment)) {

@@ -4,6 +4,7 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
+import * as chapterAssignmentsHandler from '@/domains/chapter-assignments/chapter-assignments.handlers';
 import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-assignments.policy';
 import { UserPolicy } from '@/domains/users/user.policy';
 import * as userHandler from '@/domains/users/users.handlers';
@@ -160,15 +161,28 @@ server.openapi(assignUsersToChaptersRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  // Base permission check for ChapterAssignment
-  if (!ChapterAssignmentPolicy.manage(policyUser)) {
-    return c.json({ message: 'Forbidden: Insufficient permissions' }, HttpStatusCodes.FORBIDDEN);
-  }
-
-  // Cross-tenant check: Can this manager actually act on this user?
+  // Cross-tenant check: can this manager act on the target user at all?
   const targetUserResult = await userHandler.getUserById(assignedUserId);
   if (!targetUserResult.ok || !UserPolicy.view(policyUser, targetUserResult.data)) {
     return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  // manage() now requires the target organization as its second argument.
+  // We resolve it by fetching the first assignment in the list — all assignments
+  // in a single request should belong to the same project/org, so sampling the
+  // first one is sufficient and avoids N extra queries.
+  //
+  // getChapterAssignment joins project_units → projects and surfaces organizationId,
+  // so no separate project lookup is necessary.
+  const firstAssignmentResult = await chapterAssignmentsHandler.getChapterAssignment(
+    assignmentData.chapterAssignmentIds[0]
+  );
+  if (!firstAssignmentResult.ok) {
+    return c.json({ message: 'Chapter assignment not found' }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  if (!ChapterAssignmentPolicy.manage(policyUser, firstAssignmentResult.data.organizationId)) {
+    return c.json({ message: 'Forbidden: Insufficient permissions' }, HttpStatusCodes.FORBIDDEN);
   }
 
   const result = await usersChapterAssignmentsHandler.assignUserToChapters(

@@ -66,6 +66,10 @@ const createChapterAssignmentRoute = createRoute({
       createMessageObjectSchema('Forbidden'),
       'You do not have permission to create chapter assignments for this project.'
     ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
+      'Project unit or project not found'
+    ),
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
       'Internal server error'
@@ -92,9 +96,24 @@ const createChapterAssignmentRoute = createRoute({
 server.openapi(createChapterAssignmentRoute, async (c) => {
   const requestData = c.req.valid('json');
   const user = c.get('user')!;
-  const policyUser = { id: user.id, roleName: user.roleName };
+  // organization is required by manage() for the tenant-boundary check.
+  const policyUser = { id: user.id, roleName: user.roleName, organization: user.organization };
 
-  if (!ChapterAssignmentPolicy.manage(policyUser)) {
+  // manage() now needs the target org so it can enforce tenant isolation.
+  // We resolve it from the projectUnitId before calling the policy.
+  const unitResult = await getProjectIdByUnitId(requestData.projectUnitId);
+  if (!unitResult.ok) {
+    return c.json({ message: 'Project unit not found' }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  const projectResult = await projectHandler.getProjectById(unitResult.data.projectId);
+  if (!projectResult.ok) {
+    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  // Pass the project's organization as the second arg so manage() can verify
+  // that the acting manager belongs to the same tenant.
+  if (!ChapterAssignmentPolicy.manage(policyUser, projectResult.data.organization)) {
     return c.json(
       { message: 'Forbidden: You do not have permission to manage assignments.' },
       HttpStatusCodes.FORBIDDEN
@@ -142,6 +161,10 @@ const updateChapterAssignmentRoute = createRoute({
       createMessageObjectSchema('Forbidden'),
       'You do not have permission to update this chapter assignment.'
     ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
+      'Chapter assignment not found'
+    ),
   },
   summary: 'Update a chapter assignment',
   description: 'Updates a chapter assignment.',
@@ -151,9 +174,18 @@ server.openapi(updateChapterAssignmentRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
   const requestData = c.req.valid('json');
   const user = c.get('user')!;
-  const policyUser = { id: user.id, roleName: user.roleName };
+  const policyUser = { id: user.id, roleName: user.roleName, organization: user.organization };
 
-  if (!ChapterAssignmentPolicy.manage(policyUser)) {
+  // Fetch the assignment first so we have its organizationId for the policy
+  // check. getChapterAssignment now joins project_units → projects and exposes
+  // organizationId, so no separate project lookup is needed.
+  const assignmentResult =
+    await chapterAssignmentsHandler.getChapterAssignment(chapterAssignmentId);
+  if (!assignmentResult.ok) {
+    return c.json({ message: assignmentResult.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  if (!ChapterAssignmentPolicy.manage(policyUser, assignmentResult.data.organizationId)) {
     return c.json(
       { message: 'Forbidden: You do not have permission to update assignments.' },
       HttpStatusCodes.FORBIDDEN
@@ -217,17 +249,21 @@ const submitChapterAssignmentRoute = createRoute({
 server.openapi(submitChapterAssignmentRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
   const user = c.get('user')!;
+  const policyUser = { id: user.id, roleName: user.roleName, organization: user.organization };
 
+  // getChapterAssignment now returns organizationId so submit() can enforce
+  // the org-boundary check introduced in the updated policy.
   const getResult = await chapterAssignmentsHandler.getChapterAssignment(chapterAssignmentId);
   if (!getResult.ok) {
     return c.json({ message: getResult.error.message }, HttpStatusCodes.NOT_FOUND);
   }
 
-  const policyUser = { id: user.id, roleName: user.roleName };
   const policyAssignment = {
     assignedUserId: getResult.data.assignedUserId,
     peerCheckerId: getResult.data.peerCheckerId,
     status: getResult.data.status,
+    // Required by the updated submit() method to reject cross-tenant attempts.
+    organizationId: getResult.data.organizationId,
   };
 
   if (!ChapterAssignmentPolicy.submit(policyUser, policyAssignment)) {
@@ -298,6 +334,8 @@ server.openapi(getChapterAssignmentRoute, async (c) => {
     organization: currentUser.organization,
   };
 
+  // getChapterAssignment already joins through to projects, so we have the
+  // projectUnitId and can derive projectId without a second lookup.
   const result = await chapterAssignmentsHandler.getChapterAssignment(chapterAssignmentId);
   if (!result.ok) {
     return result.error.message === 'Chapter assignment not found'
@@ -373,9 +411,18 @@ const deleteChapterAssignmentRoute = createRoute({
 server.openapi(deleteChapterAssignmentRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
   const user = c.get('user')!;
-  const policyUser = { id: user.id, roleName: user.roleName };
+  const policyUser = { id: user.id, roleName: user.roleName, organization: user.organization };
 
-  if (!ChapterAssignmentPolicy.manage(policyUser)) {
+  // Fetch the assignment to obtain its organizationId before calling manage().
+  // This prevents a manager from deleting assignments in a different tenant by
+  // guessing IDs.
+  const assignmentResult =
+    await chapterAssignmentsHandler.getChapterAssignment(chapterAssignmentId);
+  if (!assignmentResult.ok) {
+    return c.json({ message: assignmentResult.error.message }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  if (!ChapterAssignmentPolicy.manage(policyUser, assignmentResult.data.organizationId)) {
     return c.json(
       { message: 'Forbidden: You do not have permission to delete assignments.' },
       HttpStatusCodes.FORBIDDEN

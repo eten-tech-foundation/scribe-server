@@ -7,7 +7,7 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 import {
   chapterStatusEnum,
   insertProjectsSchema,
-  patchProjectsSchema,
+  patchProjectsClientSchema,
   selectProjectsSchema,
 } from '@/db/schema';
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
@@ -57,7 +57,7 @@ const createProjectWithUnitsSchema = insertProjectsSchema.extend({
   projectUnitStatus: z.enum(['not_started', 'in_progress', 'completed']).default('not_started'),
 });
 
-const updateProjectWithUnitsSchema = patchProjectsSchema.extend({
+const updateProjectWithUnitsSchema = patchProjectsClientSchema.extend({
   bibleId: z.number().int().optional(),
   bookId: z.array(z.number().int()).optional(),
   projectUnitStatus: z.enum(['not_started', 'in_progress', 'completed']).optional(),
@@ -166,7 +166,7 @@ server.openapi(createProjectRoute, async (c) => {
   const currentUser = c.get('user')!;
 
   projectData.createdBy = currentUser.id;
-  projectData.organization = projectData.organization ?? currentUser.organization;
+  projectData.organization = currentUser.organization;
 
   const result = await projectHandler.createProject(projectData);
   if (result.ok) return c.json(result.data, HttpStatusCodes.CREATED);
