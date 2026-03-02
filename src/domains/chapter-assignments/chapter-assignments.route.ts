@@ -258,15 +258,20 @@ server.openapi(submitChapterAssignmentRoute, async (c) => {
     return c.json({ message: getResult.error.message }, HttpStatusCodes.NOT_FOUND);
   }
 
+  // Resolve isProjectMember for translator community_review case
+  const unitResult = await getProjectIdByUnitId(getResult.data.projectUnitId);
+  const isProjectMember = unitResult.ok
+    ? await resolveIsProjectMember(unitResult.data.projectId, user.id, user.roleName)
+    : false;
+
   const policyAssignment = {
     assignedUserId: getResult.data.assignedUserId,
     peerCheckerId: getResult.data.peerCheckerId,
     status: getResult.data.status,
-    // Required by the updated submit() method to reject cross-tenant attempts.
     organizationId: getResult.data.organizationId,
   };
 
-  if (!ChapterAssignmentPolicy.submit(policyUser, policyAssignment)) {
+  if (!ChapterAssignmentPolicy.submit(policyUser, policyAssignment, isProjectMember)) {
     return c.json(
       { message: 'Forbidden: You do not have permission to submit this assignment right now.' },
       HttpStatusCodes.FORBIDDEN

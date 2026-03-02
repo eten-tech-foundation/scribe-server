@@ -29,6 +29,11 @@ export const ChapterAssignmentPolicy = {
       return false;
     }
 
+    if (user.roleName === ROLES.PROJECT_MANAGER) {
+      return assignment.status === 'community_review';
+    }
+
+    // future roles can be prevented access using this
     if (user.roleName !== ROLES.TRANSLATOR) {
       return false;
     }
@@ -60,10 +65,14 @@ export const ChapterAssignmentPolicy = {
   /**
    * Can this user submit (advance the status of) this assignment?
    */
-  submit(user: PolicyUser, assignment: PolicyChapterAssignment): boolean {
+  submit(user: PolicyUser, assignment: PolicyChapterAssignment, isProjectMember: boolean): boolean {
     // 1. Strict Organization Boundary Check
     if (user.organization !== assignment.organizationId) {
       return false;
+    }
+
+    if (user.roleName === ROLES.PROJECT_MANAGER) {
+      return assignment.status === 'community_review';
     }
 
     if (user.roleName !== ROLES.TRANSLATOR) {
@@ -76,6 +85,10 @@ export const ChapterAssignmentPolicy = {
 
     if (assignment.status === 'peer_check') {
       return assignment.peerCheckerId === user.id;
+    }
+
+    if (assignment.status === 'community_review') {
+      return isProjectMember;
     }
 
     return false;
