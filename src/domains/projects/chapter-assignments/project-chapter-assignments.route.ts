@@ -184,13 +184,8 @@ server.openapi(deleteProjectChapterAssignmentsRoute, async (c) => {
 
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
-// ---------------------------
-// --- END STANDARD ROUTES ---
-// ---------------------------
 
-// --------------------------------------
-// --- START NON-STANDARD CRUD ROUTES ---
-// --------------------------------------
+// ─── GET /projects/:projectId/chapter-assignments/progress ───────────────────
 
 const getChapterAssignmentProgressForProjectRoute = createRoute({
   tags: ['Projects - Chapter Assignments'],
