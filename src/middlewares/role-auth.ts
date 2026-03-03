@@ -6,8 +6,8 @@ import * as HttpStatusCodes from 'stoker/http-status-codes';
 import type { Permission } from '@/lib/permissions';
 import type { AppBindings } from '@/lib/types';
 
-import { roleHasPermission } from '@/domains/permissions/permissions.service';
 import { getUserByEmail } from '@/domains/users/users.handlers';
+import { roleHasPermission } from '@/lib/services/permissions/permissions.service';
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();

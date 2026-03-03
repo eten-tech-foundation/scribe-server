@@ -102,7 +102,7 @@ const upsertTranslatedVerseRoute = createRoute({
   tags: ['Translated Verses'],
   method: 'post',
   path: '/translated-verses',
-  middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_DRAFT)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_UPDATE)] as const,
   request: {
     body: jsonContent(insertTranslatedVersesSchema, 'The translated verse to create or update'),
   },

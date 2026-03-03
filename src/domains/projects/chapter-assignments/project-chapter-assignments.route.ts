@@ -156,8 +156,6 @@ const deleteProjectChapterAssignmentsRoute = createRoute({
 server.openapi(deleteProjectChapterAssignmentsRoute, async (c) => {
   const { projectId } = c.req.valid('param');
   const currentUser = c.get('user')!;
-  // organization is part of policyUser so manage() can compare it against the
-  // project's organization and reject cross-tenant requests.
   const policyUser = {
     id: currentUser.id,
     roleName: currentUser.roleName,
@@ -169,10 +167,8 @@ server.openapi(deleteProjectChapterAssignmentsRoute, async (c) => {
     return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  // Pass projectResult.data.organization as the target org.
-  // manage() will return false if the manager's org !== project's org,
-  // so the old explicit organization comparison below is now handled inside the policy.
-  if (!ChapterAssignmentPolicy.manage(policyUser, projectResult.data.organization)) {
+  // Using the new org-level bulk action check
+  if (!ChapterAssignmentPolicy.deleteAll(policyUser, projectResult.data.organization)) {
     return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
   }
 
@@ -314,7 +310,8 @@ server.openapi(assignAllProjectChapterAssignmentsToUserRoute, async (c) => {
     return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  if (!ChapterAssignmentPolicy.manage(policyUser, projectResult.data.organization)) {
+  // Using the new org-level bulk action check
+  if (!ChapterAssignmentPolicy.assignAll(policyUser, projectResult.data.organization)) {
     return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
   }
 

@@ -34,7 +34,7 @@ const getEditorStateRoute = createRoute({
   tags: ['Chapter Assignments - Editor State'],
   method: 'get',
   path: '/chapter-assignments/{chapterAssignmentId}/editor-state',
-  middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_DRAFT)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_UPDATE)] as const,
   request: {
     params: chapterAssignmentIdParam,
   },
@@ -68,7 +68,6 @@ const getEditorStateRoute = createRoute({
 server.openapi(getEditorStateRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
   const currentUser = c.get('user')!;
-  // organization required by isParticipant() for the org-boundary check.
   const policyUser = {
     id: currentUser.id,
     roleName: currentUser.roleName,
@@ -83,16 +82,7 @@ server.openapi(getEditorStateRoute, async (c) => {
       : c.json({ message: assignmentResult.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 
-  const policyAssignment = {
-    assignedUserId: assignmentResult.data.assignedUserId,
-    peerCheckerId: assignmentResult.data.peerCheckerId,
-    status: assignmentResult.data.status,
-    // isParticipant() now checks org to prevent a translator from one org
-    // accessing editor state belonging to another org's assignment.
-    organizationId: assignmentResult.data.organizationId,
-  };
-
-  if (!ChapterAssignmentPolicy.isParticipant(policyUser, policyAssignment)) {
+  if (!ChapterAssignmentPolicy.isParticipant(policyUser, assignmentResult.data)) {
     return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
   }
 
@@ -110,7 +100,7 @@ const saveEditorStateRoute = createRoute({
   tags: ['Chapter Assignments - Editor State'],
   method: 'put',
   path: '/chapter-assignments/{chapterAssignmentId}/editor-state',
-  middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_DRAFT)] as const,
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_UPDATE)] as const,
   request: {
     params: chapterAssignmentIdParam,
     body: jsonContent(
@@ -178,15 +168,7 @@ server.openapi(saveEditorStateRoute, async (c) => {
       : c.json({ message: assignmentResult.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 
-  const policyAssignment = {
-    assignedUserId: assignmentResult.data.assignedUserId,
-    peerCheckerId: assignmentResult.data.peerCheckerId,
-    status: assignmentResult.data.status,
-    // Same org-boundary requirement as the GET above.
-    organizationId: assignmentResult.data.organizationId,
-  };
-
-  if (!ChapterAssignmentPolicy.isParticipant(policyUser, policyAssignment)) {
+  if (!ChapterAssignmentPolicy.isParticipant(policyUser, assignmentResult.data)) {
     return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
   }
 

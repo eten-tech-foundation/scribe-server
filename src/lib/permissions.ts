@@ -12,22 +12,6 @@
  * Constraints (self_only, assigned_only, post_peer_check) are NOT stored here
  * or in the DB. They are evaluated as code in Policy files per resource.
  *
- * Master permission table:
- *
- *                         | Project Manager | Translator
- * ────────────────────────┼─────────────────┼───────────
- * project:view           | ✓               | ✓
- * project:create          | ✓               |
- * project:update          | ✓               |
- * project:delete          | ✓               |
- * content:assign          | ✓               |
- * content:draft           |                 | ✓
- * content:peer_check      |                 | ✓
- * content:edit            |                 | ✓
- * user:view               | ✓               | ✓
- * user:create             | ✓               |
- * user:update             | ✓               | ✓
- * user:delete             | ✓               |
  */
 export const PERMISSIONS = {
   // ── Projects ────────────────────────────────────────────────────────
@@ -38,9 +22,7 @@ export const PERMISSIONS = {
 
   // ── Content ─────────────────────────────────────────────────────────
   CONTENT_ASSIGN: 'content:assign',
-  CONTENT_DRAFT: 'content:draft',
-  CONTENT_PEER_CHECK: 'content:peer_check',
-  CONTENT_EDIT: 'content:edit',
+  CONTENT_UPDATE: 'content:update',
 
   // ── Users ───────────────────────────────────────────────────────────
   USER_VIEW: 'user:view',

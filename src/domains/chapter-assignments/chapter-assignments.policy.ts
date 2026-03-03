@@ -15,9 +15,9 @@ interface PolicyUser {
 
 export interface PolicyChapterAssignment {
   organizationId: number;
-  assignedUserId: number | null;
-  peerCheckerId: number | null;
-  status: string;
+  assignedUserId?: number | null;
+  peerCheckerId?: number | null;
+  status?: string | null;
 }
 
 export const ChapterAssignmentPolicy = {
@@ -54,12 +54,79 @@ export const ChapterAssignmentPolicy = {
   },
 
   /**
-   * Can this user manage (create / update / delete / bulk-assign) assignments?
-   * Manager    : yes, ONLY if the assignment belongs to their organization.
-   * Translator : never.
+   * Can this user view a list of all chapter assignments in this org?
    */
-  manage(user: PolicyUser, targetOrganizationId: number): boolean {
+  viewAll(user: PolicyUser, targetOrganizationId: number): boolean {
+    return user.organization === targetOrganizationId;
+  },
+
+  /**
+   * Can this user view this specific chapter assignment?
+   */
+  view(user: PolicyUser, assignment: PolicyChapterAssignment): boolean {
+    return user.organization === assignment.organizationId;
+  },
+
+  /**
+   * Can this user create a chapter assignment?
+   */
+  create(user: PolicyUser, targetOrganizationId: number): boolean {
     return user.roleName === ROLES.PROJECT_MANAGER && user.organization === targetOrganizationId;
+  },
+
+  /**
+   * Can this user update this chapter assignment (e.g., metadata, non-content)?
+   */
+  update(user: PolicyUser, assignment: PolicyChapterAssignment): boolean {
+    return (
+      user.roleName === ROLES.PROJECT_MANAGER && user.organization === assignment.organizationId
+    );
+  },
+
+  /**
+   * Can this user delete this chapter assignment?
+   */
+  delete(user: PolicyUser, assignment: PolicyChapterAssignment): boolean {
+    return (
+      user.roleName === ROLES.PROJECT_MANAGER && user.organization === assignment.organizationId
+    );
+  },
+
+  /**
+   * Can this user delete all chapter assignments for a project/org?
+   */
+  deleteAll(user: PolicyUser, targetOrganizationId: number): boolean {
+    return user.roleName === ROLES.PROJECT_MANAGER && user.organization === targetOrganizationId;
+  },
+
+  /**
+   * Can this user assign all chapter assignments for a project/org?
+   */
+  assignAll(user: PolicyUser, targetOrganizationId: number): boolean {
+    return user.roleName === ROLES.PROJECT_MANAGER && user.organization === targetOrganizationId;
+  },
+
+  /**
+   * Base assignment logic (Internal abstraction)
+   */
+  _assign(user: PolicyUser, assignment: PolicyChapterAssignment): boolean {
+    return (
+      user.roleName === ROLES.PROJECT_MANAGER && user.organization === assignment.organizationId
+    );
+  },
+
+  /**
+   * Can this user assign a drafter to this assignment?
+   */
+  assignDrafter(user: PolicyUser, assignment: PolicyChapterAssignment): boolean {
+    return this._assign(user, assignment);
+  },
+
+  /**
+   * Can this user assign a peer checker to this assignment?
+   */
+  assignPeerChecker(user: PolicyUser, assignment: PolicyChapterAssignment): boolean {
+    return this._assign(user, assignment);
   },
 
   /**
@@ -79,19 +146,20 @@ export const ChapterAssignmentPolicy = {
       return false;
     }
 
-    if (assignment.status === 'draft') {
-      return assignment.assignedUserId === user.id;
-    }
+    // Refactored to use switch statement for expressive intent and consistency
+    switch (assignment.status) {
+      case 'draft':
+        return assignment.assignedUserId === user.id;
 
-    if (assignment.status === 'peer_check') {
-      return assignment.peerCheckerId === user.id;
-    }
+      case 'peer_check':
+        return assignment.peerCheckerId === user.id;
 
-    if (assignment.status === 'community_review') {
-      return isProjectMember;
-    }
+      case 'community_review':
+        return isProjectMember;
 
-    return false;
+      default:
+        return false;
+    }
   },
 
   /**

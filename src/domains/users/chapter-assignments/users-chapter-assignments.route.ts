@@ -161,19 +161,11 @@ server.openapi(assignUsersToChaptersRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  // Cross-tenant check: can this manager act on the target user at all?
   const targetUserResult = await userHandler.getUserById(assignedUserId);
   if (!targetUserResult.ok || !UserPolicy.view(policyUser, targetUserResult.data)) {
     return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  // manage() now requires the target organization as its second argument.
-  // We resolve it by fetching the first assignment in the list — all assignments
-  // in a single request should belong to the same project/org, so sampling the
-  // first one is sufficient and avoids N extra queries.
-  //
-  // getChapterAssignment joins project_units → projects and surfaces organizationId,
-  // so no separate project lookup is necessary.
   const firstAssignmentResult = await chapterAssignmentsHandler.getChapterAssignment(
     assignmentData.chapterAssignmentIds[0]
   );
@@ -181,7 +173,7 @@ server.openapi(assignUsersToChaptersRoute, async (c) => {
     return c.json({ message: 'Chapter assignment not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  if (!ChapterAssignmentPolicy.manage(policyUser, firstAssignmentResult.data.organizationId)) {
+  if (!ChapterAssignmentPolicy.assignDrafter(policyUser, firstAssignmentResult.data)) {
     return c.json({ message: 'Forbidden: Insufficient permissions' }, HttpStatusCodes.FORBIDDEN);
   }
 
