@@ -36,6 +36,10 @@ const userResponse = z.object({
 const chapterAssignmentProgressResponse = z.object({
   assignmentId: z.number(),
   projectUnitId: z.number(),
+  bibleId: z.number(),
+  bookId: z.number(),
+  bookCode: z.string(),
+  sourceLangCode: z.string(),
   status: z.string(),
   bookNameEng: z.string(),
   chapterNumber: z.number(),
@@ -187,29 +191,6 @@ server.openapi(deleteProjectChapterAssignmentsRoute, async (c) => {
 // --------------------------------------
 // --- START NON-STANDARD CRUD ROUTES ---
 // --------------------------------------
-const userResponse = z.object({
-  id: z.number().int(),
-  displayName: z.string(),
-});
-
-const chapterAssignmentProgressResponse = z.object({
-  assignmentId: z.number(),
-  projectUnitId: z.number(),
-  bibleId: z.number(),
-  bookId: z.number(),
-  bookCode: z.string(),
-  sourceLangCode: z.string(),
-  status: z.string(),
-  bookNameEng: z.string(),
-  chapterNumber: z.number(),
-  assignedUser: z.nullable(userResponse),
-  peerChecker: z.nullable(userResponse),
-  totalVerses: z.number().int(),
-  completedVerses: z.number().int(),
-  submittedTime: z.date().nullable(),
-  createdAt: z.date().nullable(),
-  updatedAt: z.date().nullable(),
-});
 
 const getChapterAssignmentProgressForProjectRoute = createRoute({
   tags: ['Projects - Chapter Assignments'],

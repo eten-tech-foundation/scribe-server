@@ -5,6 +5,8 @@ import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { chapterStatusEnum, selectProjectsSchema } from '@/db/schema';
+import {PERMISSIONS} from "@/lib/permissions";
+import { authenticateUser,requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as userProjectsHandler from './user.projects.handlers';
@@ -41,6 +43,7 @@ const getUserProjectsRoute = createRoute({
   tags: ['Projects'],
   method: 'get',
   path: '/users/{userId}/projects',
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
   request: {
     params: z.object({
       userId: z.coerce.number().openapi({

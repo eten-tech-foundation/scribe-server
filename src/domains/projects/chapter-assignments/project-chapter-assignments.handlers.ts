@@ -13,7 +13,6 @@ import {
   chapter_assignment_status_history,
   chapter_assignments,
   languages,
-  organizations,
   project_units,
   projects,
   translated_verses,
