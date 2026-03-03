@@ -282,3 +282,23 @@ export async function deleteProject(id: number): Promise<Result<{ id: number }>>
     return { ok: false, error: { message: 'Failed to delete project' } };
   }
 }
+
+export async function getProjectIdByUnitId(
+  projectUnitId: number
+): Promise<Result<{ projectId: number }>> {
+  try {
+    const [unit] = await db
+      .select({ projectId: project_units.projectId })
+      .from(project_units)
+      .where(eq(project_units.id, projectUnitId))
+      .limit(1);
+
+    if (!unit) {
+      return { ok: false, error: { message: 'Project unit not found' } };
+    }
+
+    return { ok: true, data: { projectId: unit.projectId } };
+  } catch {
+    return { ok: false, error: { message: 'Failed to resolve project unit' } };
+  }
+}

@@ -363,6 +363,35 @@ export const project_users = pgTable(
   ]
 );
 
+export const permissions = pgTable('permissions', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 100 }).notNull().unique(),
+  description: varchar('description', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const role_permissions = pgTable(
+  'role_permissions',
+  {
+    roleId: integer('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'cascade' }),
+    permissionId: integer('permission_id')
+      .notNull()
+      .references(() => permissions.id, { onDelete: 'cascade' }),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    primaryKey({ columns: [table.roleId, table.permissionId] }),
+    index('idx_role_permissions_role').on(table.roleId),
+  ]
+);
+
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({
   zodInstance: z,
 });
@@ -393,6 +422,8 @@ export const selectUserChapterAssignmentEditorStateSchema = createSelectSchema(
   user_chapter_assignment_editor_state
 );
 export const selectProjectUsersSchema = createSelectSchema(project_users);
+export const selectPermissionsSchema = createSelectSchema(permissions);
+export const selectRolePermissionsSchema = createSelectSchema(role_permissions);
 
 export const insertUsersSchema = createInsertSchema(users, {
   username: (schema) => schema.min(1).max(100),
@@ -653,6 +684,18 @@ export const insertProjectUsersSchema = createInsertSchema(project_users, {
     createdAt: true,
   });
 
+export const insertPermissionsSchema = createInsertSchema(permissions, {
+  name: (schema) => schema.min(1).max(100),
+  description: (schema) => schema.max(255).optional(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertRolePermissionsSchema = createInsertSchema(role_permissions, {
+  roleId: (schema) => schema.int(),
+  permissionId: (schema) => schema.int(),
+})
+  .required({ roleId: true, permissionId: true })
+  .omit({ updatedAt: true });
+
 export const patchUsersSchema = insertUsersSchema.partial();
 export const patchRolesSchema = insertRolesSchema.partial();
 export const patchOrganizationsSchema = insertOrganizationsSchema.partial();
@@ -674,3 +717,15 @@ export const patchChapterAssignmentStatusHistorySchema =
 export const patchUserChapterAssignmentEditorStateSchema =
   insertUserChapterAssignmentEditorStateSchema.partial();
 export const patchProjectUsersSchema = insertProjectUsersSchema.partial();
+export const patchPermissionsSchema = insertPermissionsSchema.partial();
+export const patchRolePermissionsSchema = insertRolePermissionsSchema.partial();
+
+export const patchProjectsClientSchema = patchProjectsSchema.omit({
+  organization: true,
+  createdBy: true,
+});
+
+export const patchUsersClientSchema = patchUsersSchema.omit({
+  organization: true,
+  role: true,
+});
