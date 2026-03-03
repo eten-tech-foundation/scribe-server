@@ -13,35 +13,42 @@
       "idx": 1,
       "version": "7",
       "when": 1768974830575,
-      "tag": "0001_dashing_shriek",
+      "tag": "0001_add_peer_checker",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "7",
       "when": 1769080528201,
-      "tag": "0002_clumsy_nekra",
+      "tag": "0002_add_indexing_chapter_assignment",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "7",
       "when": 1769700451777,
-      "tag": "0003_yellow_millenium_guard",
+      "tag": "0003_add_chapter_assignment_history_tracking",
       "breakpoints": true
     },
     {
       "idx": 4,
       "version": "7",
       "when": 1771417052193,
-      "tag": "0004_flowery_stark_industries",
+      "tag": "0004_add_project_status",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "7",
       "when": 1771907027167,
-      "tag": "0005_hard_zarek",
+      "tag": "0005_add_project_user",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772105091545,
+      "tag": "0006_add_permissions",
       "breakpoints": true
     }
   ]

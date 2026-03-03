@@ -4,13 +4,14 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { requireManagerAccess, requireProjectAccess } from '@/middlewares/role-auth';
+import { ProjectPolicy } from '@/domains/projects/project.policy';
+import * as projectHandler from '@/domains/projects/projects.handlers';
+import { PERMISSIONS } from '@/lib/permissions';
+import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as projectUsersHandler from './project-users.handlers';
-
-server.use('/projects/:projectId/users/*', requireProjectAccess);
-server.use('/projects/:projectId/users', requireProjectAccess);
+import { resolveIsProjectMember } from './project-users.handlers';
 
 const projectUserResponse = z.object({
   projectId: z.number().int(),
@@ -24,11 +25,13 @@ const projectIdParam = z.object({
   projectId: z.coerce.number().int().positive(),
 });
 
-// --- GET /projects/:projectId/users ---
+// ─── GET /projects/:projectId/users ──────────────────────────────────────────
+
 const getProjectUsersRoute = createRoute({
   tags: ['Projects - Users'],
   method: 'get',
   path: '/projects/{projectId}/users',
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
   request: { params: projectIdParam },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
@@ -43,6 +46,10 @@ const getProjectUsersRoute = createRoute({
       createMessageObjectSchema('Forbidden'),
       'Project access required'
     ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
+      'Project not found'
+    ),
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
       'Internal server error'
@@ -54,8 +61,30 @@ const getProjectUsersRoute = createRoute({
 
 server.openapi(getProjectUsersRoute, async (c) => {
   const { projectId } = c.req.valid('param');
-  const result = await projectUsersHandler.getProjectUsers(projectId);
+  const currentUser = c.get('user')!;
+  const policyUser = {
+    id: currentUser.id,
+    role: currentUser.role,
+    roleName: currentUser.roleName,
+    organization: currentUser.organization,
+  };
 
+  const projectResult = await projectHandler.getProjectById(projectId);
+  if (!projectResult.ok) {
+    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  const isProjectMember = await resolveIsProjectMember(
+    projectId,
+    currentUser.id,
+    currentUser.roleName
+  );
+
+  if (!ProjectPolicy.read(policyUser, projectResult.data, isProjectMember)) {
+    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  const result = await projectUsersHandler.getProjectUsers(projectId);
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
   }
@@ -63,11 +92,13 @@ server.openapi(getProjectUsersRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
-// --- POST /projects/:projectId/users ---
+// ─── POST /projects/:projectId/users ─────────────────────────────────────────
+
 const addProjectUserRoute = createRoute({
   tags: ['Projects - Users'],
   method: 'post',
   path: '/projects/{projectId}/users',
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_UPDATE)] as const,
   request: {
     params: projectIdParam,
     body: jsonContent(z.object({ userId: z.number().int() }), 'User to add to the project'),
@@ -83,7 +114,7 @@ const addProjectUserRoute = createRoute({
     ),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema('Not Found'),
-      'User not found'
+      'Project or User not found'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       createMessageObjectSchema('Unauthorized'),
@@ -99,17 +130,26 @@ const addProjectUserRoute = createRoute({
     ),
   },
   summary: 'Add user to project',
-  description: 'Adds a user to the project',
+  description: 'Adds a user to the project. Manager only.',
 });
-
-server.use('/projects/:projectId/users', requireManagerAccess);
 
 server.openapi(addProjectUserRoute, async (c) => {
   const { projectId } = c.req.valid('param');
   const { userId } = c.req.valid('json');
+  const currentUser = c.get('user')!;
+  const policyUser = {
+    id: currentUser.id,
+    role: currentUser.role,
+    roleName: currentUser.roleName,
+    organization: currentUser.organization,
+  };
+
+  const projectResult = await projectHandler.getProjectById(projectId);
+  if (!projectResult.ok || !ProjectPolicy.update(policyUser, projectResult.data)) {
+    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+  }
 
   const result = await projectUsersHandler.addProjectUser(projectId, userId);
-
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.CREATED);
   }
@@ -117,7 +157,6 @@ server.openapi(addProjectUserRoute, async (c) => {
   if (result.error.message === 'User not found') {
     return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
   }
-
   if (result.error.message === 'User is already in this project') {
     return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
   }
@@ -125,11 +164,13 @@ server.openapi(addProjectUserRoute, async (c) => {
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
-// --- DELETE /projects/:projectId/users/:userId ---
+// ─── DELETE /projects/:projectId/users/:userId ────────────────────────────────
+
 const removeProjectUserRoute = createRoute({
   tags: ['Projects - Users'],
   method: 'delete',
   path: '/projects/{projectId}/users/{userId}',
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_UPDATE)] as const,
   request: {
     params: z.object({
       projectId: z.coerce.number().int().positive(),
@@ -154,7 +195,7 @@ const removeProjectUserRoute = createRoute({
     ),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-      'User not found in project'
+      'Project or User not found'
     ),
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
@@ -162,16 +203,26 @@ const removeProjectUserRoute = createRoute({
     ),
   },
   summary: 'Remove user from project',
-  description: 'Removes a user from the project. Fails if the user still has assigned content.',
+  description:
+    'Removes a user from the project. Fails if the user still has assigned content. Manager only.',
 });
-
-server.use('/projects/:projectId/users/:userId', requireManagerAccess);
 
 server.openapi(removeProjectUserRoute, async (c) => {
   const { projectId, userId } = c.req.valid('param');
+  const currentUser = c.get('user')!;
+  const policyUser = {
+    id: currentUser.id,
+    role: currentUser.role,
+    roleName: currentUser.roleName,
+    organization: currentUser.organization,
+  };
+
+  const projectResult = await projectHandler.getProjectById(projectId);
+  if (!projectResult.ok || !ProjectPolicy.update(policyUser, projectResult.data)) {
+    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+  }
 
   const result = await projectUsersHandler.removeProjectUser(projectId, userId);
-
   if (result.ok) {
     return c.body(null, HttpStatusCodes.NO_CONTENT);
   }
@@ -179,7 +230,6 @@ server.openapi(removeProjectUserRoute, async (c) => {
   if (result.error.message === 'User still has content assigned') {
     return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
   }
-
   if (result.error.message === 'User not found in project') {
     return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
   }

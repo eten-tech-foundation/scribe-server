@@ -5,6 +5,7 @@ import type { Result } from '@/lib/types';
 import { db } from '@/db';
 import { chapter_assignments, project_units, project_users, users } from '@/db/schema';
 import { logger } from '@/lib/logger';
+import { ROLES } from '@/lib/roles';
 
 export interface ProjectUserRecord {
   projectId: number;
@@ -132,4 +133,22 @@ export async function removeProjectUser(projectId: number, userId: number): Prom
     });
     return { ok: false, error: { message: 'Failed to remove user from project' } };
   }
+}
+
+export async function resolveIsProjectMember(
+  projectId: number,
+  userId: number,
+  roleName: string
+): Promise<boolean> {
+  if (roleName !== ROLES.TRANSLATOR) {
+    return false;
+  }
+
+  const [member] = await db
+    .select({ projectId: project_users.projectId })
+    .from(project_users)
+    .where(and(eq(project_users.projectId, projectId), eq(project_users.userId, userId)))
+    .limit(1);
+
+  return member !== undefined;
 }

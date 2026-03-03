@@ -67,33 +67,28 @@ src/
    DATABASE_URL=postgresql://user:password@localhost:5432/dbname
    ```
 
-3. **Push database schema:**
+3. **Set up a local database:**
 
-   To push schema changes directly to the database:
+   Install Postgres locally, create a database, and update your `.env`:
 
-   ```bash
-     npx drizzle-kit push
+   ```env
+   DATABASE_URL=postgresql://user:password@localhost:5432/scribe_dev
    ```
 
-   To generate migration files:
+4. **Run database migrations:**
 
    ```bash
-     npx drizzle-kit generate
+   npm run db:migrate
    ```
 
-   To apply generated migrations:
-
-   ```bash
-     npx drizzle-kit migrate
-   ```
-
-4. **Start development server:**
+5. **Start development server:**
 
    ```bash
    npm run dev
    ```
 
-5. **Run tests:**
+6. **Run tests:**
+
    ```bash
    npm run test
    ```
@@ -226,7 +221,7 @@ export default server;
 To add a new feature (e.g., "Users"), follow these steps using the tasks implementation as your guide:
 
 1. **Database Schema**: Add your table to `src/db/schema.ts` following the `tasks` table pattern
-2. **Database Migration**: Run `npx drizzle-kit push` to apply schema changes
+2. **Database Migration**: Generate a named migration with `npm run db:generate <descriptive_name>` then apply it with `npm run db:migrate`
 3. **Handler Functions**: Create `src/handlers/[feature].handler.ts` following `task.handler.ts` patterns
 4. **Route Definitions**: Create `src/routes/[feature].route.ts` following `task.route.ts` patterns
 5. **Application Import**: Add your route import to `src/app.ts`
@@ -336,13 +331,35 @@ npm run test --coverage
 
 ## Database Changes
 
-### Schema Changes
+Migrations are managed with Drizzle Kit and live in `src/db/migrations/`.
 
-1. Update `src/db/schema.ts` with new tables or columns
-2. Push schema changes: `npx drizzle-kit push`
-3. For production, generate proper migrations: `npx drizzle-kit generate`
+### Creating a migration
 
-### Environment Variables
+Always generate migrations with a descriptive name. **Never rename migration files manually after generation** — this breaks the `_journal.json` tracking file and prevents migrations from running correctly.
+
+```bash
+npm run db:generate <descriptive_name>
+
+# Example
+npm run db:generate add_chapter_assignment_history_tracking
+# Generates: src/db/migrations/000X_add_chapter_assignment_history_tracking.sql
+```
+
+This automatically updates `_journal.json` with the correct tag.
+
+### Applying migrations
+
+```bash
+npm run db:migrate
+```
+
+### Viewing your database
+
+```bash
+npm run db:studio
+```
+
+### Environment variables
 
 Database configuration is handled through environment variables in `src/env.ts`:
 
@@ -351,6 +368,13 @@ DATABASE_URL=postgresql://user:password@localhost:5432/dbname
 ```
 
 The app validates all required environment variables on startup and will fail if any are missing.
+
+### ⚠️ Rules
+
+- Always use `npm run db:generate <name>` — never rename `.sql` files after generation
+- Never edit an existing migration file — create a new one instead
+- Every schema change must have a corresponding migration file committed alongside it
+- Always run and verify migrations locally before pushing
 
 ## Code Style
 

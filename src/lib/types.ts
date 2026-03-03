@@ -33,6 +33,7 @@ export interface User {
   id: number;
   email: string;
   role: number;
+  roleName: string;
   organization: number;
   status: 'invited' | 'verified' | 'inactive';
   [key: string]: any;
