@@ -18,6 +18,7 @@ import '@/domains/translated-verses/translated-verses.route';
 import '@/domains/usfm/usfm.route';
 import '@/domains/chapter-assignments/editor-state/user-chapter-assignment-editor-state.route';
 import '@/domains/projects/project-users/project-users.route';
+import '@/domains/users/user-projects/user.projects.route';
 configureOpenAPI(server);
 
 export default server;
