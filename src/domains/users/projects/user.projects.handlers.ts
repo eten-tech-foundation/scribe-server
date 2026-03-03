@@ -38,7 +38,7 @@ export interface ProjectWithLanguageNames {
   lastChapterActivity: Date | null;
   chapterStatusCounts: ChapterStatusCounts;
   workflowConfig: WorkflowStep[];
-};
+}
 
 const sourceLanguages = alias(languages, 'sourceLanguages');
 const targetLanguages = alias(languages, 'targetLanguages');

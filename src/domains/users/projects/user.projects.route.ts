@@ -5,8 +5,8 @@ import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { chapterStatusEnum, selectProjectsSchema } from '@/db/schema';
-import {PERMISSIONS} from "@/lib/permissions";
-import { authenticateUser,requirePermission } from '@/middlewares/role-auth';
+import { PERMISSIONS } from '@/lib/permissions';
+import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as userProjectsHandler from './user.projects.handlers';
@@ -73,7 +73,6 @@ const getUserProjectsRoute = createRoute({
   summary: 'Get projects for a user',
   description: 'Returns all projects the specified user is a member of',
 });
-
 
 server.openapi(getUserProjectsRoute, async (c) => {
   const { userId } = c.req.valid('param');
