@@ -6,7 +6,7 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { chapterStatusEnum, selectProjectsSchema } from '@/db/schema';
 import { PERMISSIONS } from '@/lib/permissions';
-import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
+import { authenticateUser, requirePermission, requireSelf } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as userProjectsHandler from './user.projects.handlers';
@@ -31,7 +31,7 @@ const projectWithLanguageNamesSchema = selectProjectsSchema
   .extend({
     sourceLanguageName: z.string(),
     targetLanguageName: z.string(),
-    sourceName: z.string().optional(),
+    sourceName: z.string(),
     lastChapterActivity: z.union([z.date(), z.string()]).nullable(),
     createdAt: z.union([z.date(), z.string()]).nullable(),
     updatedAt: z.union([z.date(), z.string()]).nullable(),
@@ -43,17 +43,25 @@ const getUserProjectsRoute = createRoute({
   tags: ['Projects'],
   method: 'get',
   path: '/users/{userId}/projects',
-  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  middleware: [
+    authenticateUser,
+    requirePermission(PERMISSIONS.PROJECT_VIEW),
+    requireSelf(),
+  ] as const,
   request: {
     params: z.object({
-      userId: z.coerce.number().openapi({
-        param: {
-          name: 'userId',
-          in: 'path',
-          required: true,
-        },
-        example: 1,
-      }),
+      userId: z.coerce
+        .number()
+        .int()
+        .positive()
+        .openapi({
+          param: {
+            name: 'userId',
+            in: 'path',
+            required: true,
+          },
+          example: 1,
+        }),
     }),
   },
   responses: {

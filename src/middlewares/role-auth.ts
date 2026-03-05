@@ -75,3 +75,31 @@ export function requirePermission(permission: Permission) {
     await next();
   };
 }
+
+/**
+ * 3. Self-Access Middleware
+ * Ensures the authenticated user can only access their own resources.
+ * Relies on authenticateUser running first.
+ * Expects the route to have a `userId` path param.
+ */
+export function requireSelf() {
+  return async (c: Context<AppBindings>, next: Next) => {
+    const user = c.get('user');
+
+    if (!user) {
+      throw new HTTPException(HttpStatusCodes.UNAUTHORIZED, {
+        message: 'User not authenticated',
+      });
+    }
+
+    const { userId } = c.req.param();
+
+    if (!userId || user.id !== Number(userId)) {
+      throw new HTTPException(HttpStatusCodes.FORBIDDEN, {
+        message: 'You can only access your own resources',
+      });
+    }
+
+    await next();
+  };
+}

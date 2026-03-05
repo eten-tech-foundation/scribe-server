@@ -14,6 +14,7 @@ import {
   project_users,
   projects,
 } from '@/db/schema';
+import { logger } from '@/lib/logger';
 
 export type ChapterStatusCounts = Record<string, number>;
 
@@ -160,7 +161,12 @@ export async function getProjectsByUserId(
     const rawProjects = await baseJoinQuery(userId);
     const projectList = rawProjects.map(mapProjectDataToProjectWithLanguages);
     return { ok: true, data: projectList };
-  } catch {
+  } catch (err) {
+    logger.error({
+      cause: err,
+      message: 'Failed to fetch user projects',
+      context: { userId },
+    });
     return { ok: false, error: { message: 'Failed to fetch user projects' } };
   }
 }
