@@ -7,10 +7,12 @@ import type { Result } from '@/lib/types';
 import { db } from '@/db';
 import {
   bible_texts,
+  bibles,
   books,
   chapter_assignment_assigned_user_history,
   chapter_assignment_status_history,
   chapter_assignments,
+  languages,
   project_units,
   projects,
   translated_verses,
@@ -99,6 +101,10 @@ export async function deleteChapterAssignmentsByProject(
 export interface ChapterAssignmentProgress {
   assignmentId: number;
   projectUnitId: number;
+  bibleId: number;
+  bookId: number;
+  bookCode: string;
+  sourceLangCode: string;
   status: string;
   bookNameEng: string;
   chapterNumber: number;
@@ -128,6 +134,8 @@ export async function getChapterAssignmentProgressByProject(
         projectUnitId: chapter_assignments.projectUnitId,
         bibleId: chapter_assignments.bibleId,
         bookId: chapter_assignments.bookId,
+        bookCode: books.code,
+        sourceLangCode: languages.langCodeIso6393,
         chapterNumber: chapter_assignments.chapterNumber,
         status: chapter_assignments.status,
         bookNameEng: books.eng_display_name,
@@ -144,6 +152,8 @@ export async function getChapterAssignmentProgressByProject(
       .from(chapter_assignments)
       .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
       .innerJoin(books, eq(chapter_assignments.bookId, books.id))
+      .innerJoin(bibles, eq(bibles.id, chapter_assignments.bibleId))
+      .innerJoin(languages, eq(languages.id, bibles.languageId))
       .leftJoin(assignedUser, eq(chapter_assignments.assignedUserId, assignedUser.id))
       .leftJoin(peerChecker, eq(chapter_assignments.peerCheckerId, peerChecker.id))
       .innerJoin(
@@ -172,6 +182,8 @@ export async function getChapterAssignmentProgressByProject(
         chapter_assignments.createdAt,
         chapter_assignments.updatedAt,
         books.eng_display_name,
+        books.code,
+        languages.langCodeIso6393,
         assignedUser.id,
         peerChecker.id
       )
@@ -184,6 +196,10 @@ export async function getChapterAssignmentProgressByProject(
         status: row.status,
         bookNameEng: row.bookNameEng,
         chapterNumber: row.chapterNumber,
+        bibleId: row.bibleId,
+        bookId: row.bookId,
+        bookCode: row.bookCode,
+        sourceLangCode: row.sourceLangCode ?? '',
         assignedUser: row.assignedUserId
           ? {
               id: row.assignedUserId,
