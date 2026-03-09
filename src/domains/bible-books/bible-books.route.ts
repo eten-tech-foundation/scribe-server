@@ -7,7 +7,7 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 import { selectBibleBooksSchema } from '@/db/schema';
 import { server } from '@/server/server';
 
-import * as bibleBookHandler from './bible-books.handlers';
+import * as bibleBooksService from './bible-books.service';
 
 const bibleBookWithDetailsSchema = selectBibleBooksSchema.extend({
   book: z.object({
@@ -28,12 +28,7 @@ const getBibleBooksByBibleRoute = createRoute({
   request: {
     params: z.object({
       bibleId: z.coerce.number().openapi({
-        param: {
-          name: 'bibleId',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
+        param: { name: 'bibleId', in: 'path', required: true, allowReserved: false },
         example: 1,
       }),
     }),
@@ -58,19 +53,13 @@ const getBibleBooksByBibleRoute = createRoute({
 
 server.openapi(getBibleBooksByBibleRoute, async (c) => {
   const { bibleId } = c.req.valid('param');
-
-  const result = await bibleBookHandler.getBibleBooksByBibleId(bibleId);
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
+  const result = await bibleBooksService.getBibleBooksByBibleId(bibleId);
+  if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
   if (
-    result.error.message.includes('not found') ||
-    result.error.message.includes('No Bible Books found')
+    result.error.message === 'Bible Book not found' ||
+    result.error.message === 'No Bible Books found for this bible'
   ) {
     return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
   }
-
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
