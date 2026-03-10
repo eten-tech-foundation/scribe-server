@@ -5,8 +5,8 @@ import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import * as activeEditorsHandler from '@/domains/chapter-assignments/presence/chapter-assignments-presence.handlers';
+import { authenticateUser } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
-
 const chapterAssignmentIdParam = z.object({
   chapterAssignmentId: z.coerce
     .number()
@@ -36,6 +36,7 @@ const registerPresenceRoute = createRoute({
   tags: ['Chapter Assignments - Presence'],
   method: 'post',
   path: '/heartbeat/{chapterAssignmentId}/presence',
+  middleware: [authenticateUser] as const,
   request: {
     params: chapterAssignmentIdParam,
   },
@@ -59,6 +60,7 @@ const removePresenceRoute = createRoute({
   tags: ['Chapter Assignments - Presence'],
   method: 'delete',
   path: '/heartbeat/{chapterAssignmentId}/presence',
+  middleware: [authenticateUser] as const,
   request: {
     params: chapterAssignmentIdParam,
   },
