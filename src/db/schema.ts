@@ -11,6 +11,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   serial,
   timestamp,
   uniqueIndex,
@@ -23,6 +24,10 @@ export const projectStatusEnum = pgEnum('project_status', [
   'not_started',
   'in_progress',
   'completed',
+]);
+export const projectAssignmentStatusEnum = pgEnum('project_assignment_status', [
+  'active',
+  'not_assigned',
 ]);
 export const chapterStatusEnum = pgEnum('chapter_status', [
   'not_started',
@@ -95,6 +100,7 @@ export const projects = pgTable('projects', {
     .notNull()
     .references(() => organizations.id),
   isActive: boolean('is_active').default(true),
+  status: projectAssignmentStatusEnum('status').notNull().default('not_assigned'),
   createdBy: integer('created_by').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
@@ -339,6 +345,54 @@ export const user_chapter_assignment_editor_state = pgTable(
   ]
 );
 
+export const project_users = pgTable(
+  'project_users',
+  {
+    projectId: integer('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.userId] }),
+    index('idx_project_users_project').on(table.projectId),
+    index('idx_project_users_user').on(table.userId),
+  ]
+);
+
+export const permissions = pgTable('permissions', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 100 }).notNull().unique(),
+  description: varchar('description', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const role_permissions = pgTable(
+  'role_permissions',
+  {
+    roleId: integer('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'cascade' }),
+    permissionId: integer('permission_id')
+      .notNull()
+      .references(() => permissions.id, { onDelete: 'cascade' }),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    primaryKey({ columns: [table.roleId, table.permissionId] }),
+    index('idx_role_permissions_role').on(table.roleId),
+  ]
+);
+
+
 export const active_chapter_editors = pgTable(
   'active_chapter_editors',
   {
@@ -387,6 +441,9 @@ export const selectChapterAssignmentStatusHistorySchema = createSelectSchema(
 export const selectUserChapterAssignmentEditorStateSchema = createSelectSchema(
   user_chapter_assignment_editor_state
 );
+export const selectProjectUsersSchema = createSelectSchema(project_users);
+export const selectPermissionsSchema = createSelectSchema(permissions);
+export const selectRolePermissionsSchema = createSelectSchema(role_permissions);
 export const selectActiveChapterEditorsSchema = createSelectSchema(active_chapter_editors);
 
 export const insertUsersSchema = createInsertSchema(users, {
@@ -439,6 +496,7 @@ export const insertProjectsSchema = createInsertSchema(projects, {
   targetLanguage: (schema) => schema.int(),
   organization: (schema) => schema.int(),
   isActive: (schema) => schema.default(true),
+  status: z.enum(['active', 'not_assigned']).default('not_assigned'),
 })
   .required({
     name: true,
@@ -635,6 +693,30 @@ export const insertUserChapterAssignmentEditorStateSchema = createInsertSchema(
     updatedAt: true,
   });
 
+export const insertProjectUsersSchema = createInsertSchema(project_users, {
+  projectId: (schema) => schema.int(),
+  userId: (schema) => schema.int(),
+})
+  .required({
+    projectId: true,
+    userId: true,
+  })
+  .omit({
+    createdAt: true,
+  });
+
+export const insertPermissionsSchema = createInsertSchema(permissions, {
+  name: (schema) => schema.min(1).max(100),
+  description: (schema) => schema.max(255).optional(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertRolePermissionsSchema = createInsertSchema(role_permissions, {
+  roleId: (schema) => schema.int(),
+  permissionId: (schema) => schema.int(),
+})
+  .required({ roleId: true, permissionId: true })
+  .omit({ updatedAt: true });
+
 export const insertActiveChapterEditorsSchema = createInsertSchema(active_chapter_editors);
 
 export const patchUsersSchema = insertUsersSchema.partial();
@@ -657,3 +739,16 @@ export const patchChapterAssignmentStatusHistorySchema =
   insertChapterAssignmentStatusHistorySchema.partial();
 export const patchUserChapterAssignmentEditorStateSchema =
   insertUserChapterAssignmentEditorStateSchema.partial();
+export const patchProjectUsersSchema = insertProjectUsersSchema.partial();
+export const patchPermissionsSchema = insertPermissionsSchema.partial();
+export const patchRolePermissionsSchema = insertRolePermissionsSchema.partial();
+
+export const patchProjectsClientSchema = patchProjectsSchema.omit({
+  organization: true,
+  createdBy: true,
+});
+
+export const patchUsersClientSchema = patchUsersSchema.omit({
+  organization: true,
+  role: true,
+});

@@ -11,10 +11,14 @@ import {
   chapter_assignment_snapshots,
   chapter_assignment_status_history,
   chapter_assignments,
+  project_units,
+  projects,
   translated_verses,
 } from '@/db/schema';
 import { logger } from '@/lib/logger';
 import { convertUSFMToUSJ, generateUSFMText } from '@/lib/usfm-converter';
+
+import type { PolicyChapterAssignment } from './chapter-assignments.policy';
 
 export type ChapterAssignmentStatus = 'not_started' | 'draft' | 'peer_check' | 'community_review';
 
@@ -32,6 +36,10 @@ export interface ChapterAssignmentRecord {
   submittedTime: Date | null;
   createdAt: Date | null;
   updatedAt: Date | null;
+}
+
+export interface ChapterAssignmentRecordWithOrg extends ChapterAssignmentRecord {
+  organizationId: number;
 }
 
 export interface CreateChapterAssignmentRequestData {
@@ -197,11 +205,30 @@ export async function updateChapterAssignment(
   }
 }
 
-export async function getChapterAssignment(id: number): Promise<Result<ChapterAssignmentRecord>> {
+export async function getChapterAssignment(
+  id: number
+): Promise<Result<ChapterAssignmentRecordWithOrg>> {
   try {
     const [assignment] = await db
-      .select()
+      .select({
+        id: chapter_assignments.id,
+        projectUnitId: chapter_assignments.projectUnitId,
+        bibleId: chapter_assignments.bibleId,
+        bookId: chapter_assignments.bookId,
+        chapterNumber: chapter_assignments.chapterNumber,
+        assignedUserId: chapter_assignments.assignedUserId,
+        peerCheckerId: chapter_assignments.peerCheckerId,
+        status: chapter_assignments.status,
+        submittedTime: chapter_assignments.submittedTime,
+        createdAt: chapter_assignments.createdAt,
+        updatedAt: chapter_assignments.updatedAt,
+        // Resolved via project_units → projects so routes can call policy
+        // methods without an extra round-trip.
+        organizationId: projects.organization,
+      })
       .from(chapter_assignments)
+      .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
+      .innerJoin(projects, eq(project_units.projectId, projects.id))
       .where(eq(chapter_assignments.id, id))
       .limit(1);
 
@@ -453,6 +480,57 @@ async function getAssignmentContent(
     };
   }
 }
+
+export async function getAssignmentForVerse(
+  projectUnitId: number,
+  bibleTextId: number
+): Promise<Result<PolicyChapterAssignment>> {
+  try {
+    const [bibleText] = await db
+      .select({ bookId: bible_texts.bookId, chapterNumber: bible_texts.chapterNumber })
+      .from(bible_texts)
+      .where(eq(bible_texts.id, bibleTextId))
+      .limit(1);
+
+    if (!bibleText) {
+      return { ok: false, error: { message: 'Invalid bibleTextId' } };
+    }
+
+    const [assignment] = await db
+      .select({
+        assignedUserId: chapter_assignments.assignedUserId,
+        peerCheckerId: chapter_assignments.peerCheckerId,
+        status: chapter_assignments.status,
+        // Needed by PolicyChapterAssignment for org-boundary enforcement.
+        organizationId: projects.organization,
+      })
+      .from(chapter_assignments)
+      .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
+      .innerJoin(projects, eq(project_units.projectId, projects.id))
+      .where(
+        and(
+          eq(chapter_assignments.projectUnitId, projectUnitId),
+          eq(chapter_assignments.bookId, bibleText.bookId),
+          eq(chapter_assignments.chapterNumber, bibleText.chapterNumber)
+        )
+      )
+      .limit(1);
+
+    if (!assignment) {
+      return { ok: false, error: { message: 'No chapter assignment found for this verse' } };
+    }
+
+    return { ok: true, data: assignment };
+  } catch (err) {
+    logger.error({
+      cause: err,
+      message: 'Failed to resolve chapter assignment for verse',
+      context: { projectUnitId, bibleTextId },
+    });
+    return { ok: false, error: { message: 'Failed to resolve chapter assignment for verse' } };
+  }
+}
+
 // ----------------------------
 // --- END HELPER FUNCTIONS ---
 // ----------------------------

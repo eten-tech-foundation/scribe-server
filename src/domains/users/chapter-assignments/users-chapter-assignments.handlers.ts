@@ -246,9 +246,33 @@ export async function assignUserToChapters(
           status: chapter_assignments.status,
           assignedUserId: chapter_assignments.assignedUserId,
           peerCheckerId: chapter_assignments.peerCheckerId,
+          projectUnitId: chapter_assignments.projectUnitId,
         })
         .from(chapter_assignments)
         .where(inArray(chapter_assignments.id, chapterAssignmentIds));
+
+      const projectUnitIds = [...new Set(currentAssignments.map((a) => a.projectUnitId))];
+
+      if (projectUnitIds.length > 0) {
+        const projectsToUpdate = await tx
+          .select({
+            projectId: project_units.projectId,
+            projectStatus: projects.status,
+          })
+          .from(project_units)
+          .innerJoin(projects, eq(project_units.projectId, projects.id))
+          .where(
+            and(inArray(project_units.id, projectUnitIds), eq(projects.status, 'not_assigned'))
+          );
+
+        const projectIdsToActivate = projectsToUpdate.map((p) => p.projectId);
+        if (projectIdsToActivate.length > 0) {
+          await tx
+            .update(projects)
+            .set({ status: 'active' })
+            .where(inArray(projects.id, projectIdsToActivate));
+        }
+      }
 
       const updated = await tx
         .update(chapter_assignments)

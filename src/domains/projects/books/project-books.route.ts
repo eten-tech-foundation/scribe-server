@@ -4,10 +4,14 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { requireProjectAccess } from '@/middlewares/role-auth';
+import { resolveIsProjectMember } from '@/domains/projects/project-users/project-users.handlers';
+import { ProjectPolicy } from '@/domains/projects/project.policy';
+import * as projectHandler from '@/domains/projects/projects.handlers';
+import { PERMISSIONS } from '@/lib/permissions';
+import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
-import * as projectUnitsBibleBooksHandler from './project-books.handlers';
+import * as projectBooksHandler from './project-books.handlers';
 
 const projectBookSchema = z.object({
   bookId: z.number().int(),
@@ -19,6 +23,7 @@ const getProjectBooksRoute = createRoute({
   tags: ['Projects - Bible Books'],
   method: 'get',
   path: '/projects/{projectId}/books',
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
   request: {
     params: z.object({
       projectId: z.coerce.number().int().positive(),
@@ -50,13 +55,32 @@ const getProjectBooksRoute = createRoute({
   description: 'Returns a list of all bible books associated with a specific project',
 });
 
-server.use('/projects/:projectId/books', requireProjectAccess);
-
 server.openapi(getProjectBooksRoute, async (c) => {
   const { projectId } = c.req.valid('param');
+  const currentUser = c.get('user')!;
+  const policyUser = {
+    id: currentUser.id,
+    role: currentUser.role,
+    roleName: currentUser.roleName,
+    organization: currentUser.organization,
+  };
 
-  const result = await projectUnitsBibleBooksHandler.getBooksByProjectId(projectId);
+  const projectResult = await projectHandler.getProjectById(projectId);
+  if (!projectResult.ok) {
+    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+  }
 
+  const isProjectMember = await resolveIsProjectMember(
+    projectId,
+    currentUser.id,
+    currentUser.roleName
+  );
+
+  if (!ProjectPolicy.read(policyUser, projectResult.data, isProjectMember)) {
+    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  const result = await projectBooksHandler.getBooksByProjectId(projectId);
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
   }

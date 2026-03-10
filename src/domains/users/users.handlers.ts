@@ -6,11 +6,12 @@ import type { insertUsersSchema, patchUsersSchema, selectUsersSchema } from '@/d
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
-import { users } from '@/db/schema';
+import { roles, users } from '@/db/schema';
 
 export type User = z.infer<typeof selectUsersSchema>;
 export type CreateUserInput = z.infer<typeof insertUsersSchema>;
 export type UpdateUserInput = z.infer<typeof patchUsersSchema>;
+export type SelectUser = z.infer<typeof selectUsersSchema>;
 
 function handleUniqueConstraintError(error: unknown, defaultMessage: string): Result<never> {
   if (error && typeof error === 'object' && 'cause' in error) {
@@ -49,11 +50,24 @@ export async function getUserById(id: number): Promise<Result<User>> {
   return user ? { ok: true, data: user } : { ok: false, error: { message: 'User not found' } };
 }
 
-export async function getUserByEmail(email: string): Promise<Result<User>> {
+export async function getUserByEmail(
+  email: string
+): Promise<Result<SelectUser & { roleName: string }>> {
   const lowercaseEmail = email.toLowerCase();
-  const [user] = await db.select().from(users).where(eq(users.email, lowercaseEmail)).limit(1);
 
-  return user ? { ok: true, data: user } : { ok: false, error: { message: 'User not found' } };
+  const [result] = await db
+    .select({
+      user: users,
+      roleName: roles.name,
+    })
+    .from(users)
+    .innerJoin(roles, eq(users.role, roles.id))
+    .where(eq(users.email, lowercaseEmail))
+    .limit(1);
+
+  return result
+    ? { ok: true, data: { ...result.user, roleName: result.roleName } }
+    : { ok: false, error: { message: 'User not found' } };
 }
 
 export async function getUserByUsername(username: string): Promise<Result<User>> {
