@@ -50,6 +50,13 @@
       "when": 1772105091545,
       "tag": "0006_add_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1773140724576,
+      "tag": "0007_active_editors",
+      "breakpoints": true
     }
   ]
 }

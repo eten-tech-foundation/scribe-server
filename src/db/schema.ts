@@ -392,7 +392,6 @@ export const role_permissions = pgTable(
   ]
 );
 
-
 export const active_chapter_editors = pgTable(
   'active_chapter_editors',
   {

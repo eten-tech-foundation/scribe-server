@@ -4,7 +4,7 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import * as activeEditorsHandler from '@/domains/chapter-assignments/presence/presence.handlers';
+import * as activeEditorsHandler from '@/domains/chapter-assignments/presence/chapter-assignments-presence.handlers';
 import { server } from '@/server/server';
 
 const chapterAssignmentIdParam = z.object({
