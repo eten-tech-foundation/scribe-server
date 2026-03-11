@@ -5,7 +5,8 @@ import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import * as activeEditorsHandler from '@/domains/chapter-assignments/presence/chapter-assignments-presence.handlers';
-import { authenticateUser } from '@/middlewares/role-auth';
+import { PERMISSIONS } from '@/lib/permissions';
+import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 const chapterAssignmentIdParam = z.object({
   chapterAssignmentId: z.coerce
@@ -35,8 +36,8 @@ const presenceResponseSchema = z.object({
 const registerPresenceRoute = createRoute({
   tags: ['Chapter Assignments - Presence'],
   method: 'post',
-  path: '/heartbeat/{chapterAssignmentId}/presence',
-  middleware: [authenticateUser] as const,
+  path: '/chapter-assignments/{chapterAssignmentId}/presence',
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_UPDATE)] as const,
   request: {
     params: chapterAssignmentIdParam,
   },
@@ -59,8 +60,8 @@ const registerPresenceRoute = createRoute({
 const removePresenceRoute = createRoute({
   tags: ['Chapter Assignments - Presence'],
   method: 'delete',
-  path: '/heartbeat/{chapterAssignmentId}/presence',
-  middleware: [authenticateUser] as const,
+  path: '/chapter-assignments/{chapterAssignmentId}/presence',
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_UPDATE)] as const,
   request: {
     params: chapterAssignmentIdParam,
   },
@@ -84,11 +85,7 @@ const removePresenceRoute = createRoute({
 
 server.openapi(registerPresenceRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
-  const currentUser = c.get('user');
-
-  if (!currentUser) {
-    return c.json({ message: 'Unauthorized' }, HttpStatusCodes.UNAUTHORIZED);
-  }
+  const currentUser = c.get('user')!;
 
   const result = await activeEditorsHandler.registerPresenceAndCheck(
     currentUser.id,
@@ -104,10 +101,7 @@ server.openapi(registerPresenceRoute, async (c) => {
 
 server.openapi(removePresenceRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
-  const currentUser = c.get('user');
-  if (!currentUser) {
-    return c.json({ message: 'Unauthorized' }, HttpStatusCodes.UNAUTHORIZED);
-  }
+  const currentUser = c.get('user')!;
 
   const result = await activeEditorsHandler.removePresence(currentUser.id, chapterAssignmentId);
 

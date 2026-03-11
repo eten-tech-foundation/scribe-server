@@ -1,5 +1,5 @@
 {
-  "id": "63ddca1d-1a46-445d-8ec3-983e5ad2b6d7",
+  "id": "19b43aff-7fe7-40e7-9ab0-5b99b03403dc",
   "prevId": "8df6dad5-44c6-433c-a68e-867eb56ecc19",
   "version": "7",
   "dialect": "postgresql",
@@ -8,12 +8,6 @@
       "name": "active_chapter_editors",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
         "chapter_assignment_id": {
           "name": "chapter_assignment_id",
           "type": "integer",
@@ -42,27 +36,6 @@
         }
       },
       "indexes": {
-        "uq_active_editor_per_chapter": {
-          "name": "uq_active_editor_per_chapter",
-          "columns": [
-            {
-              "expression": "chapter_assignment_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "idx_active_editors_chapter": {
           "name": "idx_active_editors_chapter",
           "columns": [
@@ -99,7 +72,12 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "active_chapter_editors_chapter_assignment_id_user_id_pk": {
+          "name": "active_chapter_editors_chapter_assignment_id_user_id_pk",
+          "columns": ["chapter_assignment_id", "user_id"]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},

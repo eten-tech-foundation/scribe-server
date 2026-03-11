@@ -4,6 +4,7 @@ import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import { active_chapter_editors, users } from '@/db/schema';
+import { STALE_THRESHOLD_MINUTES } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 
 function resolveDisplayName(
@@ -11,11 +12,9 @@ function resolveDisplayName(
   firstName: string | null,
   lastName: string | null
 ): string {
-  const names = [firstName, lastName].filter((n) => n && n.trim().length > 0);
+  const names = [firstName, lastName].filter((n): n is string => !!n && n.trim().length > 0);
   return names.length > 0 ? names.join(' ') : username;
 }
-
-const STALE_THRESHOLD_MINUTES = 2;
 
 export interface PresenceResult {
   isFirstEditor: boolean;
@@ -26,8 +25,8 @@ export async function registerPresenceAndCheck(
   userId: number,
   chapterAssignmentId: number
 ): Promise<Result<PresenceResult>> {
-  return await db.transaction(async (tx) => {
-    try {
+  try {
+    return await db.transaction(async (tx) => {
       const now = new Date();
       const staleTime = new Date(now.getTime() - STALE_THRESHOLD_MINUTES * 60 * 1000);
 
@@ -70,11 +69,10 @@ export async function registerPresenceAndCheck(
         .limit(1);
 
       if (!firstEditor) {
-        return { ok: true, data: { isFirstEditor: true, firstEditorName: null } };
+        throw new Error('No editor record found after upsert — this should not happen');
       }
 
       const isFirst = firstEditor.userId === userId;
-
       const displayName = resolveDisplayName(
         firstEditor.username,
         firstEditor.firstName,
@@ -88,33 +86,32 @@ export async function registerPresenceAndCheck(
           firstEditorName: isFirst ? null : displayName,
         },
       };
-    } catch (err) {
-      logger.error({
-        cause: err,
-        message: 'Failed to register presence',
-        context: { userId, chapterAssignmentId },
-      });
-      return { ok: false, error: { message: 'Failed to sync presence' } };
-    }
-  });
+    });
+  } catch (err) {
+    logger.error({
+      cause: err,
+      message: 'Failed to register presence',
+      context: { userId, chapterAssignmentId },
+    });
+    return { ok: false, error: { message: 'Failed to sync presence' } };
+  }
 }
 
 export async function removePresence(
   userId: number,
   chapterAssignmentId: number
-): Promise<Result<boolean>> {
+): Promise<Result<null>> {
   try {
-    const [deletedRecord] = await db
+    await db
       .delete(active_chapter_editors)
       .where(
         and(
           eq(active_chapter_editors.userId, userId),
           eq(active_chapter_editors.chapterAssignmentId, chapterAssignmentId)
         )
-      )
-      .returning({ id: active_chapter_editors.id });
+      );
 
-    return { ok: true, data: !!deletedRecord };
+    return { ok: true, data: null };
   } catch (err) {
     logger.error({
       cause: err,

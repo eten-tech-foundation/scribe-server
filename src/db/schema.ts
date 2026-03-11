@@ -395,7 +395,6 @@ export const role_permissions = pgTable(
 export const active_chapter_editors = pgTable(
   'active_chapter_editors',
   {
-    id: serial('id').primaryKey(),
     chapterAssignmentId: integer('chapter_assignment_id')
       .notNull()
       .references(() => chapter_assignments.id, { onDelete: 'cascade' }),
@@ -406,7 +405,7 @@ export const active_chapter_editors = pgTable(
     lastHeartbeat: timestamp('last_heartbeat').defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex('uq_active_editor_per_chapter').on(table.chapterAssignmentId, table.userId),
+    primaryKey({ columns: [table.chapterAssignmentId, table.userId] }),
     index('idx_active_editors_chapter').on(table.chapterAssignmentId),
   ]
 );
@@ -716,8 +715,18 @@ export const insertRolePermissionsSchema = createInsertSchema(role_permissions, 
   .required({ roleId: true, permissionId: true })
   .omit({ updatedAt: true });
 
-export const insertActiveChapterEditorsSchema = createInsertSchema(active_chapter_editors);
-
+export const insertActiveChapterEditorsSchema = createInsertSchema(active_chapter_editors, {
+  chapterAssignmentId: (schema) => schema.int(),
+  userId: (schema) => schema.int(),
+})
+  .required({
+    chapterAssignmentId: true,
+    userId: true,
+  })
+  .omit({
+    startedAt: true,
+    lastHeartbeat: true,
+  });
 export const patchUsersSchema = insertUsersSchema.partial();
 export const patchRolesSchema = insertRolesSchema.partial();
 export const patchOrganizationsSchema = insertOrganizationsSchema.partial();
