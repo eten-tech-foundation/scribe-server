@@ -7,7 +7,7 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 import { selectBooksSchema } from '@/db/schema';
 import { server } from '@/server/server';
 
-import * as bookHandler from './books.handlers';
+import * as booksService from './books.service';
 
 const listBooksRoute = createRoute({
   tags: ['Books'],
@@ -28,12 +28,8 @@ const listBooksRoute = createRoute({
 });
 
 server.openapi(listBooksRoute, async (c) => {
-  const result = await bookHandler.getAllBooks();
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
+  const result = await booksService.getAllBooks();
+  if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
@@ -56,12 +52,8 @@ const getOldTestamentBooksRoute = createRoute({
 });
 
 server.openapi(getOldTestamentBooksRoute, async (c) => {
-  const result = await bookHandler.getOldTestamentBooks();
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
+  const result = await booksService.getOldTestamentBooks();
+  if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
@@ -84,12 +76,8 @@ const getNewTestamentBooksRoute = createRoute({
 });
 
 server.openapi(getNewTestamentBooksRoute, async (c) => {
-  const result = await bookHandler.getNewTestamentBooks();
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
+  const result = await booksService.getNewTestamentBooks();
+  if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
@@ -100,12 +88,7 @@ const getBookRoute = createRoute({
   request: {
     params: z.object({
       id: z.coerce.number().openapi({
-        param: {
-          name: 'id',
-          in: 'path',
-          required: true,
-          allowReserved: false,
-        },
+        param: { name: 'id', in: 'path', required: true, allowReserved: false },
         example: 1,
       }),
     }),
@@ -127,17 +110,11 @@ const getBookRoute = createRoute({
 
 server.openapi(getBookRoute, async (c) => {
   const { id } = c.req.valid('param');
-
-  const result = await bookHandler.getBookById(id);
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
-  if (result.error.message.includes('not found')) {
+  const result = await booksService.getBookById(id);
+  if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
+  if (result.error.message === 'Book not found') {
     return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
   }
-
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
@@ -152,12 +129,7 @@ const getBookByCodeRoute = createRoute({
         .min(1, 'Book code is required')
         .max(50, 'Book code cannot exceed 50 characters')
         .openapi({
-          param: {
-            name: 'code',
-            in: 'path',
-            required: true,
-            allowReserved: false,
-          },
+          param: { name: 'code', in: 'path', required: true, allowReserved: false },
           example: 'GEN',
         }),
     }),
@@ -179,16 +151,10 @@ const getBookByCodeRoute = createRoute({
 
 server.openapi(getBookByCodeRoute, async (c) => {
   const { code } = c.req.valid('param');
-
-  const result = await bookHandler.getBookByCode(code);
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
-  if (result.error.message.includes('not found')) {
+  const result = await booksService.getBookByCode(code);
+  if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
+  if (result.error.message === 'Book not found') {
     return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
   }
-
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });

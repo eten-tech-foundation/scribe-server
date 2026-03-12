@@ -1,14 +1,11 @@
-import type { z } from '@hono/zod-openapi';
-
 import { eq, inArray, sql } from 'drizzle-orm';
 
-import type { selectBooksSchema } from '@/db/schema';
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import { books } from '@/db/schema';
 
-export type Book = z.infer<typeof selectBooksSchema>;
+import type { Book } from './books.types';
 
 // Old Testament books codes (39 books)
 const OLD_TESTAMENT_CODES = [
@@ -84,7 +81,7 @@ const NEW_TESTAMENT_CODES = [
   'REV',
 ];
 
-export async function getAllBooks(): Promise<Result<Book[]>> {
+export async function getAll(): Promise<Result<Book[]>> {
   try {
     const bookList = await db.select().from(books);
     return { ok: true, data: bookList };
@@ -93,20 +90,19 @@ export async function getAllBooks(): Promise<Result<Book[]>> {
   }
 }
 
-export async function getBookById(id: number): Promise<Result<Book>> {
+export async function getById(id: number): Promise<Result<Book>> {
   try {
     const [book] = await db.select().from(books).where(eq(books.id, id)).limit(1);
-
     if (!book) {
       return { ok: false, error: { message: 'Book not found' } };
     }
-
     return { ok: true, data: book };
   } catch {
     return { ok: false, error: { message: 'Failed to fetch book' } };
   }
 }
-export async function getBookByCode(code: string): Promise<Result<Book>> {
+
+export async function getByCode(code: string): Promise<Result<Book>> {
   try {
     const normalizedCode = code.trim().toLowerCase();
     const [book] = await db
@@ -114,18 +110,16 @@ export async function getBookByCode(code: string): Promise<Result<Book>> {
       .from(books)
       .where(sql`${books.code} = ${normalizedCode}`)
       .limit(1);
-
     if (!book) {
       return { ok: false, error: { message: 'Book not found' } };
     }
-
     return { ok: true, data: book };
   } catch {
     return { ok: false, error: { message: 'Failed to fetch book' } };
   }
 }
 
-export async function getOldTestamentBooks(): Promise<Result<Book[]>> {
+export async function getOldTestament(): Promise<Result<Book[]>> {
   try {
     const bookList = await db.select().from(books).where(inArray(books.code, OLD_TESTAMENT_CODES));
     return { ok: true, data: bookList };
@@ -134,7 +128,7 @@ export async function getOldTestamentBooks(): Promise<Result<Book[]>> {
   }
 }
 
-export async function getNewTestamentBooks(): Promise<Result<Book[]>> {
+export async function getNewTestament(): Promise<Result<Book[]>> {
   try {
     const bookList = await db.select().from(books).where(inArray(books.code, NEW_TESTAMENT_CODES));
     return { ok: true, data: bookList };

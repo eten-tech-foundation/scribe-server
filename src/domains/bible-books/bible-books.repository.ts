@@ -1,37 +1,16 @@
-import type { z } from '@hono/zod-openapi';
-
 import { and, eq } from 'drizzle-orm';
 
-import type { selectBibleBooksSchema } from '@/db/schema';
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import { bible_books, bibles, books } from '@/db/schema';
 
-export type BibleBook = z.infer<typeof selectBibleBooksSchema>;
-
-export interface BibleBookWithDetails extends BibleBook {
-  book: {
-    id: number;
-    code: string;
-    eng_display_name: string;
-  };
-  bible: {
-    id: number;
-    name: string;
-  };
-}
-
-export interface CreateBibleBookInput {
-  bibleId: number;
-  bookId: number;
-}
-
-export interface UpdateBibleBookInput {
-  bibleId: number;
-  bookId: number;
-  updatedAt?: Date;
-}
+import type {
+  BibleBook,
+  BibleBookWithDetails,
+  CreateBibleBookInput,
+  UpdateBibleBookInput,
+} from './bible-books.types';
 
 const bibleBookSelect = {
   bibleId: bible_books.bibleId,
@@ -49,9 +28,7 @@ const bibleBookSelect = {
   },
 };
 
-export async function getBibleBooksByBibleId(
-  bibleId: number
-): Promise<Result<BibleBookWithDetails[]>> {
+export async function getByBibleId(bibleId: number): Promise<Result<BibleBookWithDetails[]>> {
   try {
     const bibleBookList = await db
       .select(bibleBookSelect)
@@ -68,7 +45,7 @@ export async function getBibleBooksByBibleId(
   }
 }
 
-export async function getBibleBookByBibleIdAndBookId(
+export async function getByBibleIdAndBookId(
   bibleId: number,
   bookId: number
 ): Promise<Result<BibleBookWithDetails>> {
@@ -91,14 +68,12 @@ export async function getBibleBookByBibleIdAndBookId(
   }
 }
 
-export async function createBibleBook(input: CreateBibleBookInput): Promise<Result<BibleBook>> {
+export async function create(input: CreateBibleBookInput): Promise<Result<BibleBook>> {
   try {
     const [bibleBook] = await db.insert(bible_books).values(input).returning();
-
     if (!bibleBook) {
       return { ok: false, error: { message: 'Unable to create bible book' } };
     }
-
     return { ok: true, data: bibleBook };
   } catch (error) {
     if (error instanceof Error && error.message.includes('UNIQUE constraint failed')) {
@@ -107,12 +82,11 @@ export async function createBibleBook(input: CreateBibleBookInput): Promise<Resu
     if (error instanceof Error && error.message.includes('FOREIGN KEY constraint failed')) {
       return { ok: false, error: { message: 'Invalid bible or book reference' } };
     }
-
     return { ok: false, error: { message: 'Failed to create bible book' } };
   }
 }
 
-export async function updateBibleBook(
+export async function update(
   bibleId: number,
   bookId: number,
   input: UpdateBibleBookInput
@@ -136,12 +110,11 @@ export async function updateBibleBook(
     if (error instanceof Error && error.message.includes('FOREIGN KEY constraint failed')) {
       return { ok: false, error: { message: 'Invalid bible or book reference' } };
     }
-
     return { ok: false, error: { message: 'Failed to update bible book' } };
   }
 }
 
-export async function deleteBibleBook(
+export async function remove(
   bibleId: number,
   bookId: number
 ): Promise<Result<{ bibleId: number; bookId: number }>> {
