@@ -8,6 +8,7 @@ import * as activeEditorsHandler from '@/domains/chapter-assignments/presence/ch
 import { PERMISSIONS } from '@/lib/permissions';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
+
 const chapterAssignmentIdParam = z.object({
   chapterAssignmentId: z.coerce
     .number()
