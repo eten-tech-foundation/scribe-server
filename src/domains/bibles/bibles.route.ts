@@ -5,7 +5,7 @@ import { jsonContent, jsonContentRequired } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { insertBiblesSchema, patchBiblesSchema } from '@/db/schema';
-import { ErrorHttpStatus } from '@/lib/types';
+import { getHttpStatus } from '@/lib/types';
 import { server } from '@/server/server';
 
 import * as bibleService from './bibles.service';
@@ -40,7 +40,7 @@ const listBiblesRoute = createRoute({
 server.openapi(listBiblesRoute, async (c) => {
   const result = await bibleService.getAllBibles();
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json({ message: result.error.message }, ErrorHttpStatus[result.error.code] as never);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
 
 // ─── GET /bibles/:id ──────────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ server.openapi(getBibleByIdRoute, async (c) => {
   const { id } = c.req.valid('param');
   const result = await bibleService.getBibleById(id);
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json({ message: result.error.message }, ErrorHttpStatus[result.error.code] as never);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
 
 // ─── GET /bibles/language/:languageId ────────────────────────────────────────
@@ -107,7 +107,7 @@ server.openapi(getBiblesByLanguageIdRoute, async (c) => {
   const { languageId } = c.req.valid('param');
   const result = await bibleService.getBiblesByLanguageId(languageId);
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json({ message: result.error.message }, ErrorHttpStatus[result.error.code] as never);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
 
 // ─── POST /bibles ─────────────────────────────────────────────────────────────
@@ -144,7 +144,7 @@ const createBibleRoute = createRoute({
 server.openapi(createBibleRoute, async (c) => {
   const result = await bibleService.createBible(c.req.valid('json'));
   if (result.ok) return c.json(result.data, HttpStatusCodes.CREATED);
-  return c.json({ message: result.error.message }, ErrorHttpStatus[result.error.code] as never);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
 
 // ─── PATCH /bibles/:id ────────────────────────────────────────────────────────
@@ -184,7 +184,7 @@ server.openapi(updateBibleRoute, async (c) => {
   const { id } = c.req.valid('param');
   const result = await bibleService.updateBible(id, c.req.valid('json'));
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json({ message: result.error.message }, ErrorHttpStatus[result.error.code] as never);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
 
 // ─── DELETE /bibles/:id ───────────────────────────────────────────────────────
@@ -217,5 +217,5 @@ server.openapi(deleteBibleRoute, async (c) => {
   const { id } = c.req.valid('param');
   const result = await bibleService.deleteBible(id);
   if (result.ok) return c.body(null, HttpStatusCodes.NO_CONTENT);
-  return c.json({ message: result.error.message }, ErrorHttpStatus[result.error.code] as never);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });

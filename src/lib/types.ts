@@ -183,6 +183,10 @@ export const err = (
   error: { message: ErrorMessages[code], code, context },
 });
 
+// Falls back to 500 for legacy handlers that don't use err() yet.
+export const getHttpStatus = (error: AppError): number =>
+  ErrorHttpStatus[error.code ?? ErrorCode.INTERNAL_ERROR];
+
 // ─── Email service ────────────────────────────────────────────────────────────
 
 export interface InvitationEmailData {
