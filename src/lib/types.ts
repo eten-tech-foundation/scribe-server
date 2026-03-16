@@ -165,7 +165,7 @@ export const ErrorHttpStatus: Record<ErrorCode, number> = {
 
 export interface AppError {
   message: string;
-  code: ErrorCode;
+  code?: ErrorCode;
   context?: Record<string, unknown>;
 }
 
