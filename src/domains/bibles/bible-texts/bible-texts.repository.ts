@@ -4,19 +4,15 @@ import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import { bible_texts } from '@/db/schema';
+import { err, ErrorCode, ok } from '@/lib/types';
 
-export interface BibleText {
-  id: number;
-  chapterNumber: number;
-  verseNumber: number;
-  text: string;
-}
+import type { BibleTextResponse } from './bible-texts.types';
 
-export async function getBibleTextsByChapter(
+export async function getByChapter(
   bibleId: number,
   bookId: number,
   chapterNumber: number
-): Promise<Result<BibleText[]>> {
+): Promise<Result<BibleTextResponse[]>> {
   try {
     const texts = await db
       .select({
@@ -35,12 +31,10 @@ export async function getBibleTextsByChapter(
       )
       .orderBy(bible_texts.verseNumber);
 
-    if (texts.length === 0) {
-      return { ok: false, error: { message: 'Bible texts not found for the specified chapter' } };
-    }
-
-    return { ok: true, data: texts };
+    if (texts.length === 0)
+      return err('Bible texts not found for the specified chapter', ErrorCode.NOT_FOUND);
+    return ok(texts);
   } catch {
-    return { ok: false, error: { message: 'Failed to fetch bible texts' } };
+    return err('Failed to fetch bible texts', ErrorCode.INTERNAL_ERROR);
   }
 }
