@@ -4,7 +4,7 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { ErrorCode, ErrorHttpStatus } from '@/lib/types';
+import { ErrorHttpStatus } from '@/lib/types';
 import { server } from '@/server/server';
 
 import * as bibleTextsService from './bible-texts.service';
@@ -73,8 +73,5 @@ server.openapi(getBibleTextsByChapterRoute, async (c) => {
   const { bibleId, bookId, chapterNumber } = c.req.valid('param');
   const result = await bibleTextsService.getBibleTextsByChapter(bibleId, bookId, chapterNumber);
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json(
-    { message: result.error.message },
-    ErrorHttpStatus[result.error.code ?? ErrorCode.INTERNAL_ERROR] as never
-  );
+  return c.json({ message: result.error.message }, ErrorHttpStatus[result.error.code] as never);
 });

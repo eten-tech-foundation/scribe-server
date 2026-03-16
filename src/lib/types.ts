@@ -89,7 +89,7 @@ export const ErrorCode = {
   EMAIL_CONFLICT: 'EMAIL_CONFLICT',
   DUPLICATE: 'DUPLICATE',
   USER_ALREADY_IN_PROJECT: 'USER_ALREADY_IN_PROJECT',
-  // Business rule violations (→ 400 in routes)
+  // Business rule violations
   INVALID_STATUS_TRANSITION: 'INVALID_STATUS_TRANSITION',
   USER_NOT_IN_ORGANIZATION: 'USER_NOT_IN_ORGANIZATION',
   USER_HAS_ASSIGNED_CONTENT: 'USER_HAS_ASSIGNED_CONTENT',
@@ -103,29 +103,38 @@ export const ErrorCode = {
 // eslint-disable-next-line ts/no-redeclare
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
-export interface AppError {
-  message: string;
-  code?: ErrorCode;
-  context?: Record<string, unknown>;
-}
+// ─── Error messages — single source of truth ─────────────────────────────────
 
-// ─── Result type + factories ──────────────────────────────────────────────────
+export const ErrorMessages: Record<ErrorCode, string> = {
+  INTERNAL_ERROR: 'An unexpected error occurred',
+  NOT_FOUND: 'Resource not found',
+  VALIDATION_ERROR: 'Validation failed',
+  CONFLICT: 'Resource already exists',
+  UNAUTHORIZED: 'Authentication required',
+  FORBIDDEN: 'You do not have permission to perform this action',
+  PROJECT_NOT_FOUND: 'Project not found',
+  PROJECT_UNIT_NOT_FOUND: 'Project unit not found',
+  USER_NOT_FOUND: 'User not found',
+  CHAPTER_ASSIGNMENT_NOT_FOUND: 'Chapter assignment not found',
+  BIBLE_NOT_FOUND: 'Bible not found',
+  BOOK_NOT_FOUND: 'Book not found',
+  BIBLE_BOOK_NOT_FOUND: 'Bible book not found',
+  TRANSLATED_VERSE_NOT_FOUND: 'Translated verse not found',
+  USERNAME_CONFLICT: 'Username is already taken',
+  EMAIL_CONFLICT: 'Email is already in use',
+  DUPLICATE: 'Resource already exists',
+  USER_ALREADY_IN_PROJECT: 'User is already assigned to this project',
+  INVALID_STATUS_TRANSITION: 'Invalid status transition',
+  USER_NOT_IN_ORGANIZATION: 'User does not belong to this organization',
+  USER_HAS_ASSIGNED_CONTENT: 'User has content assigned and cannot be removed',
+  CHAPTER_LIMIT_EXCEEDED: 'Chapter assignment limit exceeded',
+  INVALID_REFERENCE: 'Invalid reference',
+  AUTH0_ERROR: 'Authentication service error',
+  EMAIL_SERVICE_ERROR: 'Email service error',
+};
 
-export type Result<T, E = AppError> = { ok: true; data: T } | { ok: false; error: E };
+// ─── HTTP status map ──────────────────────────────────────────────────────────
 
-// Factory helpers — keep handler return sites terse and consistent.
-// Usage:  return ok(data)
-//         return err('Not found', ErrorCode.NOT_FOUND)
-//         return err('Failed', ErrorCode.INTERNAL_ERROR, { cause: e })
-export const ok = <T>(data: T): Extract<Result<T>, { ok: true }> => ({ ok: true, data });
-export const err = (
-  message: string,
-  code?: ErrorCode,
-  context?: Record<string, unknown>
-): Extract<Result<never>, { ok: false }> => ({ ok: false, error: { message, code, context } });
-
-// Maps each ErrorCode to its canonical HTTP status — single source of truth
-// for route handlers so they stop hard-coding 404/400/500 per error message.
 export const ErrorHttpStatus: Record<ErrorCode, number> = {
   INTERNAL_ERROR: 500,
   AUTH0_ERROR: 500,
@@ -153,6 +162,26 @@ export const ErrorHttpStatus: Record<ErrorCode, number> = {
   BIBLE_BOOK_NOT_FOUND: 404,
   TRANSLATED_VERSE_NOT_FOUND: 404,
 };
+
+export interface AppError {
+  message: string;
+  code: ErrorCode;
+  context?: Record<string, unknown>;
+}
+
+// ─── Result type + factories ──────────────────────────────────────────────────
+
+export type Result<T, E = AppError> = { ok: true; data: T } | { ok: false; error: E };
+
+export const ok = <T>(data: T): Extract<Result<T>, { ok: true }> => ({ ok: true, data });
+
+export const err = (
+  code: ErrorCode,
+  context?: Record<string, unknown>
+): Extract<Result<never>, { ok: false }> => ({
+  ok: false,
+  error: { message: ErrorMessages[code], code, context },
+});
 
 // ─── Email service ────────────────────────────────────────────────────────────
 

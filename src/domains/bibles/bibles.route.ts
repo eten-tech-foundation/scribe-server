@@ -5,11 +5,13 @@ import { jsonContent, jsonContentRequired } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { insertBiblesSchema, patchBiblesSchema } from '@/db/schema';
-import { ErrorCode, ErrorHttpStatus } from '@/lib/types';
+import { ErrorHttpStatus } from '@/lib/types';
 import { server } from '@/server/server';
 
 import * as bibleService from './bibles.service';
 import { bibleResponseSchema } from './bibles.types';
+
+const idParam = z.object({ id: z.coerce.number().int().positive() });
 
 // ─── GET /bibles ──────────────────────────────────────────────────────────────
 
@@ -38,10 +40,7 @@ const listBiblesRoute = createRoute({
 server.openapi(listBiblesRoute, async (c) => {
   const result = await bibleService.getAllBibles();
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json(
-    { message: result.error.message },
-    ErrorHttpStatus[result.error.code ?? ErrorCode.INTERNAL_ERROR] as never
-  );
+  return c.json({ message: result.error.message }, ErrorHttpStatus[result.error.code] as never);
 });
 
 // ─── GET /bibles/:id ──────────────────────────────────────────────────────────
@@ -50,9 +49,7 @@ const getBibleByIdRoute = createRoute({
   tags: ['Bibles'],
   method: 'get',
   path: '/bibles/{id}',
-  request: {
-    params: z.object({ id: z.coerce.number().int().positive() }),
-  },
+  request: { params: idParam },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(bibleResponseSchema.openapi('Bible'), 'The requested bible'),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
@@ -76,10 +73,7 @@ server.openapi(getBibleByIdRoute, async (c) => {
   const { id } = c.req.valid('param');
   const result = await bibleService.getBibleById(id);
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json(
-    { message: result.error.message },
-    ErrorHttpStatus[result.error.code ?? ErrorCode.INTERNAL_ERROR] as never
-  );
+  return c.json({ message: result.error.message }, ErrorHttpStatus[result.error.code] as never);
 });
 
 // ─── GET /bibles/language/:languageId ────────────────────────────────────────
@@ -113,10 +107,7 @@ server.openapi(getBiblesByLanguageIdRoute, async (c) => {
   const { languageId } = c.req.valid('param');
   const result = await bibleService.getBiblesByLanguageId(languageId);
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json(
-    { message: result.error.message },
-    ErrorHttpStatus[result.error.code ?? ErrorCode.INTERNAL_ERROR] as never
-  );
+  return c.json({ message: result.error.message }, ErrorHttpStatus[result.error.code] as never);
 });
 
 // ─── POST /bibles ─────────────────────────────────────────────────────────────
@@ -153,10 +144,7 @@ const createBibleRoute = createRoute({
 server.openapi(createBibleRoute, async (c) => {
   const result = await bibleService.createBible(c.req.valid('json'));
   if (result.ok) return c.json(result.data, HttpStatusCodes.CREATED);
-  return c.json(
-    { message: result.error.message },
-    ErrorHttpStatus[result.error.code ?? ErrorCode.INTERNAL_ERROR] as never
-  );
+  return c.json({ message: result.error.message }, ErrorHttpStatus[result.error.code] as never);
 });
 
 // ─── PATCH /bibles/:id ────────────────────────────────────────────────────────
@@ -166,7 +154,7 @@ const updateBibleRoute = createRoute({
   method: 'patch',
   path: '/bibles/{id}',
   request: {
-    params: z.object({ id: z.coerce.number().int().positive() }),
+    params: idParam,
     body: jsonContentRequired(patchBiblesSchema, 'The bible data to update'),
   },
   responses: {
@@ -196,10 +184,7 @@ server.openapi(updateBibleRoute, async (c) => {
   const { id } = c.req.valid('param');
   const result = await bibleService.updateBible(id, c.req.valid('json'));
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json(
-    { message: result.error.message },
-    ErrorHttpStatus[result.error.code ?? ErrorCode.INTERNAL_ERROR] as never
-  );
+  return c.json({ message: result.error.message }, ErrorHttpStatus[result.error.code] as never);
 });
 
 // ─── DELETE /bibles/:id ───────────────────────────────────────────────────────
@@ -208,14 +193,9 @@ const deleteBibleRoute = createRoute({
   tags: ['Bibles'],
   method: 'delete',
   path: '/bibles/{id}',
-  request: {
-    params: z.object({ id: z.coerce.number().int().positive() }),
-  },
+  request: { params: idParam },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      z.object({ id: z.number() }).openapi('DeletedBible'),
-      'Bible deletion confirmation'
-    ),
+    [HttpStatusCodes.NO_CONTENT]: { description: 'Bible deleted successfully' },
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'Bible not found'
@@ -236,9 +216,6 @@ const deleteBibleRoute = createRoute({
 server.openapi(deleteBibleRoute, async (c) => {
   const { id } = c.req.valid('param');
   const result = await bibleService.deleteBible(id);
-  if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json(
-    { message: result.error.message },
-    ErrorHttpStatus[result.error.code ?? ErrorCode.INTERNAL_ERROR] as never
-  );
+  if (result.ok) return c.body(null, HttpStatusCodes.NO_CONTENT);
+  return c.json({ message: result.error.message }, ErrorHttpStatus[result.error.code] as never);
 });
