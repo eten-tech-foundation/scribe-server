@@ -4,13 +4,9 @@ import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import { bible_books, bibles, books } from '@/db/schema';
+import { err, ErrorCode, ok } from '@/lib/types';
 
-import type {
-  BibleBook,
-  BibleBookWithDetails,
-  CreateBibleBookInput,
-  UpdateBibleBookInput,
-} from './bible-books.types';
+import type { BibleBook, BibleBookWithDetails, CreateBibleBookInput } from './bible-books.types';
 
 const bibleBookSelect = {
   bibleId: bible_books.bibleId,
@@ -37,11 +33,9 @@ export async function getByBibleId(bibleId: number): Promise<Result<BibleBookWit
       .innerJoin(bibles, eq(bible_books.bibleId, bibles.id))
       .where(eq(bible_books.bibleId, bibleId));
 
-    return bibleBookList.length > 0
-      ? { ok: true, data: bibleBookList }
-      : { ok: false, error: { message: 'No Bible Books found for this bible' } };
+    return ok(bibleBookList);
   } catch {
-    return { ok: false, error: { message: 'Failed to fetch bible books' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
@@ -58,78 +52,39 @@ export async function getByBibleIdAndBookId(
       .where(and(eq(bible_books.bibleId, bibleId), eq(bible_books.bookId, bookId)))
       .limit(1);
 
-    if (!bibleBook) {
-      return { ok: false, error: { message: 'Bible Book not found' } };
-    }
-
-    return { ok: true, data: bibleBook };
+    if (!bibleBook) return err(ErrorCode.BIBLE_BOOK_NOT_FOUND);
+    return ok(bibleBook);
   } catch {
-    return { ok: false, error: { message: 'Failed to fetch bible book' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
 export async function create(input: CreateBibleBookInput): Promise<Result<BibleBook>> {
   try {
     const [bibleBook] = await db.insert(bible_books).values(input).returning();
-    if (!bibleBook) {
-      return { ok: false, error: { message: 'Unable to create bible book' } };
-    }
-    return { ok: true, data: bibleBook };
+    if (!bibleBook) return err(ErrorCode.INTERNAL_ERROR);
+    return ok(bibleBook);
   } catch (error) {
-    if (error instanceof Error && error.message.includes('UNIQUE constraint failed')) {
-      return { ok: false, error: { message: 'Bible book already exists' } };
+    if (error instanceof Error && error.message.includes('unique constraint')) {
+      return err(ErrorCode.DUPLICATE);
     }
-    if (error instanceof Error && error.message.includes('FOREIGN KEY constraint failed')) {
-      return { ok: false, error: { message: 'Invalid bible or book reference' } };
+    if (error instanceof Error && error.message.includes('foreign key constraint')) {
+      return err(ErrorCode.INVALID_REFERENCE);
     }
-    return { ok: false, error: { message: 'Failed to create bible book' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
-export async function update(
-  bibleId: number,
-  bookId: number,
-  input: UpdateBibleBookInput
-): Promise<Result<BibleBook>> {
+export async function remove(bibleId: number, bookId: number): Promise<Result<void>> {
   try {
-    const [updated] = await db
-      .update(bible_books)
-      .set(input)
-      .where(and(eq(bible_books.bibleId, bibleId), eq(bible_books.bookId, bookId)))
-      .returning();
-
-    if (!updated) {
-      return { ok: false, error: { message: 'Bible book not found' } };
-    }
-
-    return { ok: true, data: updated };
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('UNIQUE constraint failed')) {
-      return { ok: false, error: { message: 'Bible book already exists with these identifiers' } };
-    }
-    if (error instanceof Error && error.message.includes('FOREIGN KEY constraint failed')) {
-      return { ok: false, error: { message: 'Invalid bible or book reference' } };
-    }
-    return { ok: false, error: { message: 'Failed to update bible book' } };
-  }
-}
-
-export async function remove(
-  bibleId: number,
-  bookId: number
-): Promise<Result<{ bibleId: number; bookId: number }>> {
-  try {
-    const result = await db
+    const [deleted] = await db
       .delete(bible_books)
       .where(and(eq(bible_books.bibleId, bibleId), eq(bible_books.bookId, bookId)))
-      .returning({ bibleId: bible_books.bibleId, bookId: bible_books.bookId });
+      .returning({ bibleId: bible_books.bibleId });
 
-    if (result.length === 0) {
-      return { ok: false, error: { message: 'Bible book not found' } };
-    }
-
-    return { ok: true, data: result[0] };
+    if (!deleted) return err(ErrorCode.BIBLE_BOOK_NOT_FOUND);
+    return ok(undefined);
   } catch {
-    return { ok: false, error: { message: 'Failed to delete bible book' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }

@@ -4,10 +4,14 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { selectBooksSchema } from '@/db/schema';
+import { getHttpStatus } from '@/lib/types';
 import { server } from '@/server/server';
 
 import * as booksService from './books.service';
+import { bookResponseSchema } from './books.types';
+
+const idParam = z.object({ id: z.coerce.number().int().positive() });
+const codeParam = z.object({ code: z.string().min(1).max(50) });
 
 const listBooksRoute = createRoute({
   tags: ['Books'],
@@ -15,7 +19,7 @@ const listBooksRoute = createRoute({
   path: '/books',
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      selectBooksSchema.array().openapi('Books'),
+      bookResponseSchema.array().openapi('Books'),
       'The list of books'
     ),
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
@@ -30,7 +34,7 @@ const listBooksRoute = createRoute({
 server.openapi(listBooksRoute, async (c) => {
   const result = await booksService.getAllBooks();
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
 
 const getOldTestamentBooksRoute = createRoute({
@@ -39,7 +43,7 @@ const getOldTestamentBooksRoute = createRoute({
   path: '/books/old-testament',
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      selectBooksSchema.array().openapi('OldTestamentBooks'),
+      bookResponseSchema.array().openapi('OldTestamentBooks'),
       'The list of Old Testament books'
     ),
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
@@ -54,7 +58,7 @@ const getOldTestamentBooksRoute = createRoute({
 server.openapi(getOldTestamentBooksRoute, async (c) => {
   const result = await booksService.getOldTestamentBooks();
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
 
 const getNewTestamentBooksRoute = createRoute({
@@ -63,7 +67,7 @@ const getNewTestamentBooksRoute = createRoute({
   path: '/books/new-testament',
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      selectBooksSchema.array().openapi('NewTestamentBooks'),
+      bookResponseSchema.array().openapi('NewTestamentBooks'),
       'The list of New Testament books'
     ),
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
@@ -78,23 +82,16 @@ const getNewTestamentBooksRoute = createRoute({
 server.openapi(getNewTestamentBooksRoute, async (c) => {
   const result = await booksService.getNewTestamentBooks();
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
 
-const getBookRoute = createRoute({
+const getBookByIdRoute = createRoute({
   tags: ['Books'],
   method: 'get',
   path: '/books/{id}',
-  request: {
-    params: z.object({
-      id: z.coerce.number().openapi({
-        param: { name: 'id', in: 'path', required: true, allowReserved: false },
-        example: 1,
-      }),
-    }),
-  },
+  request: { params: idParam },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectBooksSchema, 'The book'),
+    [HttpStatusCodes.OK]: jsonContent(bookResponseSchema.openapi('Book'), 'The requested book'),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'Book not found'
@@ -105,37 +102,23 @@ const getBookRoute = createRoute({
     ),
   },
   summary: 'Get a book by ID',
-  description: 'Returns a single book by their ID',
+  description: 'Returns a single book by its ID',
 });
 
-server.openapi(getBookRoute, async (c) => {
+server.openapi(getBookByIdRoute, async (c) => {
   const { id } = c.req.valid('param');
   const result = await booksService.getBookById(id);
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  if (result.error.message === 'Book not found') {
-    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
-  }
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
 
 const getBookByCodeRoute = createRoute({
   tags: ['Books'],
   method: 'get',
   path: '/books/code/{code}',
-  request: {
-    params: z.object({
-      code: z
-        .string()
-        .min(1, 'Book code is required')
-        .max(50, 'Book code cannot exceed 50 characters')
-        .openapi({
-          param: { name: 'code', in: 'path', required: true, allowReserved: false },
-          example: 'GEN',
-        }),
-    }),
-  },
+  request: { params: codeParam },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectBooksSchema, 'The book'),
+    [HttpStatusCodes.OK]: jsonContent(bookResponseSchema.openapi('Book'), 'The requested book'),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'Book not found'
@@ -146,15 +129,12 @@ const getBookByCodeRoute = createRoute({
     ),
   },
   summary: 'Get a book by code',
-  description: 'Returns a single book by their code',
+  description: 'Returns a single book by its USFM code (e.g. GEN, MAT)',
 });
 
 server.openapi(getBookByCodeRoute, async (c) => {
   const { code } = c.req.valid('param');
   const result = await booksService.getBookByCode(code);
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  if (result.error.message === 'Book not found') {
-    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
-  }
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });

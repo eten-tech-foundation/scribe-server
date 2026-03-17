@@ -1,9 +1,10 @@
-import { eq, inArray, sql } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import { books } from '@/db/schema';
+import { err, ErrorCode, ok } from '@/lib/types';
 
 import type { Book } from './books.types';
 
@@ -83,56 +84,48 @@ const NEW_TESTAMENT_CODES = [
 
 export async function getAll(): Promise<Result<Book[]>> {
   try {
-    const bookList = await db.select().from(books);
-    return { ok: true, data: bookList };
+    return ok(await db.select().from(books));
   } catch {
-    return { ok: false, error: { message: 'Failed to fetch books' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
 export async function getById(id: number): Promise<Result<Book>> {
   try {
     const [book] = await db.select().from(books).where(eq(books.id, id)).limit(1);
-    if (!book) {
-      return { ok: false, error: { message: 'Book not found' } };
-    }
-    return { ok: true, data: book };
+    if (!book) return err(ErrorCode.BOOK_NOT_FOUND);
+    return ok(book);
   } catch {
-    return { ok: false, error: { message: 'Failed to fetch book' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
 export async function getByCode(code: string): Promise<Result<Book>> {
   try {
-    const normalizedCode = code.trim().toLowerCase();
     const [book] = await db
       .select()
       .from(books)
-      .where(sql`${books.code} = ${normalizedCode}`)
+      .where(eq(books.code, code.trim().toUpperCase()))
       .limit(1);
-    if (!book) {
-      return { ok: false, error: { message: 'Book not found' } };
-    }
-    return { ok: true, data: book };
+    if (!book) return err(ErrorCode.BOOK_NOT_FOUND);
+    return ok(book);
   } catch {
-    return { ok: false, error: { message: 'Failed to fetch book' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
 export async function getOldTestament(): Promise<Result<Book[]>> {
   try {
-    const bookList = await db.select().from(books).where(inArray(books.code, OLD_TESTAMENT_CODES));
-    return { ok: true, data: bookList };
+    return ok(await db.select().from(books).where(inArray(books.code, OLD_TESTAMENT_CODES)));
   } catch {
-    return { ok: false, error: { message: 'Failed to fetch Old Testament books' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
 export async function getNewTestament(): Promise<Result<Book[]>> {
   try {
-    const bookList = await db.select().from(books).where(inArray(books.code, NEW_TESTAMENT_CODES));
-    return { ok: true, data: bookList };
+    return ok(await db.select().from(books).where(inArray(books.code, NEW_TESTAMENT_CODES)));
   } catch {
-    return { ok: false, error: { message: 'Failed to fetch New Testament books' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }

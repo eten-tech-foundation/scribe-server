@@ -1,43 +1,60 @@
-import type { Result } from '@/lib/types';
+import { ok } from '@/lib/types';
 
 import type {
   BibleBook,
+  BibleBookDetailResponse,
+  BibleBookResponse,
   BibleBookWithDetails,
   CreateBibleBookInput,
-  UpdateBibleBookInput,
 } from './bible-books.types';
 
-import * as bibleBooksRepo from './bible-books.repository';
+import * as repo from './bible-books.repository';
 
-export async function getBibleBooksByBibleId(
-  bibleId: number
-): Promise<Result<BibleBookWithDetails[]>> {
-  return bibleBooksRepo.getByBibleId(bibleId);
+function toDetailResponse(record: BibleBookWithDetails): BibleBookDetailResponse {
+  return {
+    bibleId: record.bibleId,
+    bookId: record.bookId,
+    createdAt: record.createdAt?.toISOString() ?? null,
+    updatedAt: record.updatedAt?.toISOString() ?? null,
+    book: {
+      id: record.book.id,
+      code: record.book.code,
+      eng_display_name: record.book.eng_display_name,
+    },
+    bible: {
+      id: record.bible.id,
+      name: record.bible.name,
+    },
+  };
 }
 
-export async function getBibleBookByBibleIdAndBookId(
-  bibleId: number,
-  bookId: number
-): Promise<Result<BibleBookWithDetails>> {
-  return bibleBooksRepo.getByBibleIdAndBookId(bibleId, bookId);
+function toResponse(record: BibleBook): BibleBookResponse {
+  return {
+    bibleId: record.bibleId,
+    bookId: record.bookId,
+    createdAt: record.createdAt?.toISOString() ?? null,
+    updatedAt: record.updatedAt?.toISOString() ?? null,
+  };
 }
 
-export async function createBibleBook(input: CreateBibleBookInput): Promise<Result<BibleBook>> {
-  // Future: validate that bible and book both exist in a single pre-check, etc.
-  return bibleBooksRepo.create(input);
+export async function getBibleBooksByBibleId(bibleId: number) {
+  const result = await repo.getByBibleId(bibleId);
+  if (!result.ok) return result;
+  return ok(result.data.map(toDetailResponse));
 }
 
-export async function updateBibleBook(
-  bibleId: number,
-  bookId: number,
-  input: UpdateBibleBookInput
-): Promise<Result<BibleBook>> {
-  return bibleBooksRepo.update(bibleId, bookId, input);
+export async function getBibleBookByBibleIdAndBookId(bibleId: number, bookId: number) {
+  const result = await repo.getByBibleIdAndBookId(bibleId, bookId);
+  if (!result.ok) return result;
+  return ok(toDetailResponse(result.data));
 }
 
-export async function deleteBibleBook(
-  bibleId: number,
-  bookId: number
-): Promise<Result<{ bibleId: number; bookId: number }>> {
-  return bibleBooksRepo.remove(bibleId, bookId);
+export async function createBibleBook(input: CreateBibleBookInput) {
+  const result = await repo.create(input);
+  if (!result.ok) return result;
+  return ok(toResponse(result.data));
+}
+
+export function deleteBibleBook(bibleId: number, bookId: number) {
+  return repo.remove(bibleId, bookId);
 }
