@@ -8,13 +8,14 @@ import {
   editorStateResourcesSchema,
   insertUserChapterAssignmentEditorStateSchema,
 } from '@/db/schema';
-import * as chapterAssignmentsHandler from '@/domains/chapter-assignments/chapter-assignments.handlers';
 import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-assignments.policy';
+import * as chapterAssignmentService from '@/domains/chapter-assignments/chapter-assignments.service';
 import { PERMISSIONS } from '@/lib/permissions';
+import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
-import * as editorStateHandler from './user-chapter-assignment-editor-state.handlers';
+import * as editorStateService from './user-chapter-assignment-editor-state.service';
 
 const chapterAssignmentIdParam = z.object({
   chapterAssignmentId: z.coerce
@@ -35,13 +36,11 @@ const getEditorStateRoute = createRoute({
   method: 'get',
   path: '/chapter-assignments/{chapterAssignmentId}/editor-state',
   middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_UPDATE)] as const,
-  request: {
-    params: chapterAssignmentIdParam,
-  },
+  request: { params: chapterAssignmentIdParam },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       editorStateResourcesSchema,
-      'The editor state for the current user (null if not previously saved)'
+      'The editor state for the current user'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       createMessageObjectSchema('Unauthorized'),
@@ -62,7 +61,7 @@ const getEditorStateRoute = createRoute({
   },
   summary: 'Get editor state for current user',
   description:
-    'Returns the saved editor state (last opened resources) for the current user and specified chapter assignment. Returns null if no state has been saved yet.',
+    'Returns the saved editor state for the current user and specified chapter assignment.',
 });
 
 server.openapi(getEditorStateRoute, async (c) => {
@@ -74,23 +73,20 @@ server.openapi(getEditorStateRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  const assignmentResult =
-    await chapterAssignmentsHandler.getChapterAssignment(chapterAssignmentId);
+  const assignmentResult = await chapterAssignmentService.getChapterAssignment(chapterAssignmentId);
   if (!assignmentResult.ok) {
-    return assignmentResult.error.message === 'Chapter assignment not found'
-      ? c.json({ message: assignmentResult.error.message }, HttpStatusCodes.NOT_FOUND)
-      : c.json({ message: assignmentResult.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+    return c.json(
+      { message: assignmentResult.error.message },
+      getHttpStatus(assignmentResult.error) as never
+    );
   }
 
   if (!ChapterAssignmentPolicy.isParticipant(policyUser, assignmentResult.data)) {
     return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
   }
 
-  const result = await editorStateHandler.getEditorState(currentUser.id, chapterAssignmentId);
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
+  const result = await editorStateService.getEditorState(currentUser.id, chapterAssignmentId);
+  if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
 
@@ -107,7 +103,7 @@ const saveEditorStateRoute = createRoute({
       insertUserChapterAssignmentEditorStateSchema
         .omit({ userId: true, chapterAssignmentId: true })
         .openapi('EditorStateInput'),
-      'The editor state to save (last opened resources)'
+      'The editor state to save'
     ),
   },
   responses: {
@@ -128,26 +124,13 @@ const saveEditorStateRoute = createRoute({
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'Chapter assignment not found'
     ),
-    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-      z.object({
-        success: z.boolean(),
-        error: z.object({
-          issues: z.array(
-            z.object({ code: z.string(), path: z.array(z.string()), message: z.string() })
-          ),
-          name: z.string(),
-        }),
-      }),
-      'Validation error'
-    ),
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
       'Internal server error'
     ),
   },
   summary: 'Save editor state for current user',
-  description:
-    'Saves or updates the editor state (selected resources) for the current user and chapter assignment. Idempotent.',
+  description: 'Saves or updates the editor state for the current user and chapter assignment.',
 });
 
 server.openapi(saveEditorStateRoute, async (c) => {
@@ -160,27 +143,24 @@ server.openapi(saveEditorStateRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  const assignmentResult =
-    await chapterAssignmentsHandler.getChapterAssignment(chapterAssignmentId);
+  const assignmentResult = await chapterAssignmentService.getChapterAssignment(chapterAssignmentId);
   if (!assignmentResult.ok) {
-    return assignmentResult.error.message === 'Chapter assignment not found'
-      ? c.json({ message: assignmentResult.error.message }, HttpStatusCodes.NOT_FOUND)
-      : c.json({ message: assignmentResult.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+    return c.json(
+      { message: assignmentResult.error.message },
+      getHttpStatus(assignmentResult.error) as never
+    );
   }
 
   if (!ChapterAssignmentPolicy.isParticipant(policyUser, assignmentResult.data)) {
     return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
   }
 
-  const result = await editorStateHandler.upsertEditorState({
+  const result = await editorStateService.upsertEditorState({
     userId: currentUser.id,
     chapterAssignmentId,
     ...editorStateData,
   });
 
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
+  if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
   return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
 });
