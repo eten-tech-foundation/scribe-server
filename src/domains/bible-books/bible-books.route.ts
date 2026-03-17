@@ -8,9 +8,7 @@ import { getHttpStatus } from '@/lib/types';
 import { server } from '@/server/server';
 
 import * as bibleBooksService from './bible-books.service';
-import {
-  bibleBookDetailResponseSchema,
-} from './bible-books.types';
+import { bibleBookDetailResponseSchema } from './bible-books.types';
 
 const bibleIdParam = z.object({ bibleId: z.coerce.number().int().positive() });
 
