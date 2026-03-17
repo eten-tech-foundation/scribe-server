@@ -392,6 +392,24 @@ export const role_permissions = pgTable(
   ]
 );
 
+export const active_chapter_editors = pgTable(
+  'active_chapter_editors',
+  {
+    chapterAssignmentId: integer('chapter_assignment_id')
+      .notNull()
+      .references(() => chapter_assignments.id, { onDelete: 'cascade' }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    startedAt: timestamp('started_at').defaultNow().notNull(),
+    lastHeartbeat: timestamp('last_heartbeat').defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.chapterAssignmentId, table.userId] }),
+    index('idx_active_editors_chapter').on(table.chapterAssignmentId),
+  ]
+);
+
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({
   zodInstance: z,
 });
@@ -424,6 +442,7 @@ export const selectUserChapterAssignmentEditorStateSchema = createSelectSchema(
 export const selectProjectUsersSchema = createSelectSchema(project_users);
 export const selectPermissionsSchema = createSelectSchema(permissions);
 export const selectRolePermissionsSchema = createSelectSchema(role_permissions);
+export const selectActiveChapterEditorsSchema = createSelectSchema(active_chapter_editors);
 
 export const insertUsersSchema = createInsertSchema(users, {
   username: (schema) => schema.min(1).max(100),
@@ -696,6 +715,18 @@ export const insertRolePermissionsSchema = createInsertSchema(role_permissions, 
   .required({ roleId: true, permissionId: true })
   .omit({ updatedAt: true });
 
+export const insertActiveChapterEditorsSchema = createInsertSchema(active_chapter_editors, {
+  chapterAssignmentId: (schema) => schema.int(),
+  userId: (schema) => schema.int(),
+})
+  .required({
+    chapterAssignmentId: true,
+    userId: true,
+  })
+  .omit({
+    startedAt: true,
+    lastHeartbeat: true,
+  });
 export const patchUsersSchema = insertUsersSchema.partial();
 export const patchRolesSchema = insertRolesSchema.partial();
 export const patchOrganizationsSchema = insertOrganizationsSchema.partial();
@@ -727,5 +758,4 @@ export const patchProjectsClientSchema = patchProjectsSchema.omit({
 
 export const patchUsersClientSchema = patchUsersSchema.omit({
   organization: true,
-  role: true,
 });

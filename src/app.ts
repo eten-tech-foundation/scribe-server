@@ -19,6 +19,7 @@ import '@/domains/usfm/usfm.route';
 import '@/domains/chapter-assignments/editor-state/user-chapter-assignment-editor-state.route';
 import '@/domains/projects/project-users/project-users.route';
 import '@/domains/users/projects/user.projects.route';
+import '@/domains/chapter-assignments/presence/chapter-assignments-presence.route';
 configureOpenAPI(server);
 
 export default server;
