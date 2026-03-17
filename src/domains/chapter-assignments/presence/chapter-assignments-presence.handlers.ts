@@ -7,15 +7,6 @@ import { active_chapter_editors, users } from '@/db/schema';
 import { STALE_THRESHOLD_MINUTES } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 
-function resolveDisplayName(
-  username: string,
-  firstName: string | null,
-  lastName: string | null
-): string {
-  const names = [firstName, lastName].filter((n): n is string => !!n && n.trim().length > 0);
-  return names.length > 0 ? names.join(' ') : username;
-}
-
 export interface PresenceResult {
   isFirstEditor: boolean;
   firstEditorName: string | null;
@@ -58,8 +49,6 @@ export async function registerPresenceAndCheck(
         .select({
           userId: active_chapter_editors.userId,
           username: users.username,
-          firstName: users.firstName,
-          lastName: users.lastName,
           startedAt: active_chapter_editors.startedAt,
         })
         .from(active_chapter_editors)
@@ -73,17 +62,12 @@ export async function registerPresenceAndCheck(
       }
 
       const isFirst = firstEditor.userId === userId;
-      const displayName = resolveDisplayName(
-        firstEditor.username,
-        firstEditor.firstName,
-        firstEditor.lastName
-      );
 
       return {
         ok: true,
         data: {
           isFirstEditor: isFirst,
-          firstEditorName: isFirst ? null : displayName,
+          firstEditorName: isFirst ? null : firstEditor.username,
         },
       };
     });
