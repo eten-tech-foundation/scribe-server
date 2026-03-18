@@ -98,6 +98,12 @@ export const ErrorCode = {
   // External service errors
   AUTH0_ERROR: 'AUTH0_ERROR',
   EMAIL_SERVICE_ERROR: 'EMAIL_SERVICE_ERROR',
+  // Feature domain errors
+  LANGUAGE_ERROR: 'LANGUAGE_ERROR',
+  TRANSLATED_VERSE_FETCH_ERROR: 'TRANSLATED_VERSE_FETCH_ERROR',
+  TRANSLATED_VERSE_CREATE_ERROR: 'TRANSLATED_VERSE_CREATE_ERROR',
+  TRANSLATED_VERSE_UPDATE_ERROR: 'TRANSLATED_VERSE_UPDATE_ERROR',
+  TRANSLATED_VERSE_UPSERT_ERROR: 'TRANSLATED_VERSE_UPSERT_ERROR',
 } as const;
 
 // eslint-disable-next-line ts/no-redeclare
@@ -131,6 +137,11 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   INVALID_REFERENCE: 'Invalid reference',
   AUTH0_ERROR: 'Authentication service error',
   EMAIL_SERVICE_ERROR: 'Email service error',
+  LANGUAGE_ERROR: 'Failed to fetch languages',
+  TRANSLATED_VERSE_FETCH_ERROR: 'Failed to fetch translated verse',
+  TRANSLATED_VERSE_CREATE_ERROR: 'Failed to create translated verse',
+  TRANSLATED_VERSE_UPDATE_ERROR: 'Failed to update translated verse',
+  TRANSLATED_VERSE_UPSERT_ERROR: 'Failed to upsert translated verse',
 };
 
 // ─── HTTP status map ──────────────────────────────────────────────────────────
@@ -139,6 +150,11 @@ export const ErrorHttpStatus: Record<ErrorCode, number> = {
   INTERNAL_ERROR: 500,
   AUTH0_ERROR: 500,
   EMAIL_SERVICE_ERROR: 500,
+  LANGUAGE_ERROR: 500,
+  TRANSLATED_VERSE_FETCH_ERROR: 500,
+  TRANSLATED_VERSE_CREATE_ERROR: 500,
+  TRANSLATED_VERSE_UPDATE_ERROR: 500,
+  TRANSLATED_VERSE_UPSERT_ERROR: 500,
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
   CONFLICT: 409,
