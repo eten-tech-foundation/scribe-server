@@ -37,7 +37,7 @@ export async function getById(id: number): Promise<Result<TranslatedVerseRecord>
 
     return ok(verse);
   } catch {
-    return err(ErrorCode.TRANSLATED_VERSE_FETCH_ERROR);
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
@@ -49,12 +49,12 @@ export async function create(
 
     const result = await getById(verse.id);
     if (!result.ok) {
-      return err(ErrorCode.TRANSLATED_VERSE_CREATE_ERROR);
+      return err(ErrorCode.INTERNAL_ERROR);
     }
 
     return ok(result.data);
   } catch {
-    return err(ErrorCode.TRANSLATED_VERSE_CREATE_ERROR);
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
@@ -75,12 +75,12 @@ export async function update(
 
     const result = await getById(updated.id);
     if (!result.ok) {
-      return err(ErrorCode.TRANSLATED_VERSE_UPDATE_ERROR);
+      return err(ErrorCode.INTERNAL_ERROR);
     }
 
     return ok(result.data);
   } catch {
-    return err(ErrorCode.TRANSLATED_VERSE_UPDATE_ERROR);
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
@@ -102,12 +102,12 @@ export async function upsert(
 
     const result = await getById(verse.id);
     if (!result.ok) {
-      return err(ErrorCode.TRANSLATED_VERSE_UPSERT_ERROR);
+      return err(ErrorCode.INTERNAL_ERROR);
     }
 
     return ok(result.data);
   } catch {
-    return err(ErrorCode.TRANSLATED_VERSE_UPSERT_ERROR);
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
@@ -150,6 +150,6 @@ export async function list(
           );
     return ok(verses);
   } catch {
-    return err(ErrorCode.TRANSLATED_VERSE_FETCH_ERROR);
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }

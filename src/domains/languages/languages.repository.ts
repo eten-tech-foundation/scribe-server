@@ -10,10 +10,9 @@ import type { Language } from './languages.types';
 
 export async function getAll(): Promise<Result<Language[]>> {
   try {
-    const languageList = await db.select().from(languages);
-    return ok(languageList);
+    return ok(await db.select().from(languages));
   } catch {
-    return err(ErrorCode.LANGUAGE_ERROR);
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
@@ -21,12 +20,9 @@ export async function getById(id: number): Promise<Result<Language>> {
   try {
     const [language] = await db.select().from(languages).where(eq(languages.id, id));
 
-    if (!language) {
-      return err(ErrorCode.NOT_FOUND);
-    }
-
+    if (!language) return err(ErrorCode.LANGUAGE_NOT_FOUND);
     return ok(language);
   } catch {
-    return err(ErrorCode.LANGUAGE_ERROR);
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }

@@ -11,7 +11,7 @@ import type {
 import * as translatedVersesRepo from './translated-verses.repository';
 
 // Data boundary mapping
-export function toTranslatedVerseResponse(verse: TranslatedVerseRecord): TranslatedVerseResponse {
+function toTranslatedVerseResponse(verse: TranslatedVerseRecord): TranslatedVerseResponse {
   return {
     id: verse.id,
     projectUnitId: verse.projectUnitId,
@@ -19,8 +19,8 @@ export function toTranslatedVerseResponse(verse: TranslatedVerseRecord): Transla
     bibleTextId: verse.bibleTextId,
     assignedUserId: verse.assignedUserId,
     verseNumber: verse.verseNumber,
-    createdAt: verse.createdAt,
-    updatedAt: verse.updatedAt,
+    createdAt: verse.createdAt?.toISOString() ?? new Date().toISOString(),
+    updatedAt: verse.updatedAt?.toISOString() ?? new Date().toISOString(),
   };
 }
 
