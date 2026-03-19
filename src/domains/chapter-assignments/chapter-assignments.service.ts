@@ -4,6 +4,10 @@ import { db } from '@/db';
 import { logger } from '@/lib/logger';
 import { err, ErrorCode, ok } from '@/lib/types';
 
+import { resolveIsProjectMember } from '@/domains/projects/project-users/project-users.handlers';
+import { ProjectPolicy } from '@/domains/projects/project.policy';
+import * as projectHandler from '@/domains/projects/projects.handlers';
+
 import type { PolicyChapterAssignment } from './chapter-assignments.policy';
 import type {
   ChapterAssignmentRecord,
@@ -36,6 +40,51 @@ export function toChapterAssignmentResponse(
 
 export function getChapterAssignment(id: number): Promise<Result<ChapterAssignmentRecordWithOrg>> {
   return repo.findByIdWithOrg(id);
+}
+
+export async function getChapterAssignmentWithAuth(
+  chapterAssignmentId: number,
+  currentUser: {
+    id: number;
+    role: number;
+    roleName: string;
+    organization: number;
+  }
+): Promise<Result<ChapterAssignmentResponse>> {
+  // Get assignment with auth context in single query
+  const assignmentResult = await repo.findByIdWithAuthContext(
+    chapterAssignmentId,
+    currentUser.id,
+    currentUser.roleName
+  );
+  if (!assignmentResult.ok) {
+    return assignmentResult;
+  }
+
+  const assignment = assignmentResult.data;
+  const policyUser = {
+    id: currentUser.id,
+    role: currentUser.role,
+    roleName: currentUser.roleName,
+    organization: currentUser.organization,
+  };
+
+  // Get project data for policy check (still using existing handlers)
+  const projectResult = await projectHandler.getProjectById(assignment.projectId);
+  if (!projectResult.ok) {
+    return err(ErrorCode.CHAPTER_ASSIGNMENT_NOT_FOUND); // Consistent with current behavior
+  }
+
+  // Authorization check - moved from route handler
+  const isProjectMember = currentUser.roleName === 'translator' 
+    ? assignment.isProjectMember 
+    : await resolveIsProjectMember(assignment.projectId, currentUser.id, currentUser.roleName);
+
+  if (!ProjectPolicy.read(policyUser, projectResult.data, isProjectMember)) {
+    return err(ErrorCode.FORBIDDEN);
+  }
+
+  return ok(toChapterAssignmentResponse(assignment));
 }
 
 export function getAssignmentForVerse(
