@@ -8,12 +8,31 @@ import type { PolicyChapterAssignment } from './chapter-assignments.policy';
 import type {
   ChapterAssignmentRecord,
   ChapterAssignmentRecordWithOrg,
+  ChapterAssignmentResponse,
   ChapterAssignmentStatus,
   CreateChapterAssignmentRequestData,
   UpdateChapterAssignmentRequestData,
 } from './chapter-assignments.types';
 
 import * as repo from './chapter-assignments.repository';
+
+export function toChapterAssignmentResponse(
+  record: ChapterAssignmentRecord
+): ChapterAssignmentResponse {
+  return {
+    id: record.id,
+    projectUnitId: record.projectUnitId,
+    bibleId: record.bibleId,
+    bookId: record.bookId,
+    chapterNumber: record.chapterNumber,
+    assignedUserId: record.assignedUserId,
+    peerCheckerId: record.peerCheckerId,
+    status: record.status,
+    submittedTime: record.submittedTime,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
+}
 
 export function getChapterAssignment(id: number): Promise<Result<ChapterAssignmentRecordWithOrg>> {
   return repo.findByIdWithOrg(id);
@@ -28,7 +47,7 @@ export function getAssignmentForVerse(
 
 export async function createChapterAssignment(
   data: CreateChapterAssignmentRequestData
-): Promise<Result<ChapterAssignmentRecord>> {
+): Promise<Result<ChapterAssignmentResponse>> {
   return db.transaction(async (tx) => {
     try {
       const assignment = await repo.insert(data, tx);
@@ -54,7 +73,7 @@ export async function createChapterAssignment(
         );
       }
 
-      return ok(assignment);
+      return ok(toChapterAssignmentResponse(assignment));
     } catch (e) {
       logger.error({ cause: e, message: 'Failed to create chapter assignment', context: { data } });
       return err(ErrorCode.INTERNAL_ERROR);
@@ -64,7 +83,8 @@ export async function createChapterAssignment(
 
 /**
  * Bulk-create chapter assignments for a project unit from bible texts.
- * Called by the projects domain during project-unit setup.
+ * Internal cross-domain function called during project-unit setup —
+ * returns raw records since this is never sent directly to a client.
  */
 export async function createChapterAssignmentForProjectUnit(
   projectUnitId: number,
@@ -101,8 +121,8 @@ export async function updateChapterAssignment(
   id: number,
   data: UpdateChapterAssignmentRequestData,
   externalTx?: DbTransaction
-): Promise<Result<ChapterAssignmentRecord>> {
-  const exec = async (tx: DbTransaction): Promise<Result<ChapterAssignmentRecord>> => {
+): Promise<Result<ChapterAssignmentResponse>> {
+  const exec = async (tx: DbTransaction): Promise<Result<ChapterAssignmentResponse>> => {
     try {
       const current = await repo.findById(id, tx);
       if (!current) return err(ErrorCode.CHAPTER_ASSIGNMENT_NOT_FOUND);
@@ -114,7 +134,7 @@ export async function updateChapterAssignment(
       await recordStatusChange(tx, current, updated);
       await recordUserAssignmentChanges(tx, current, updated, data);
 
-      return ok(updated);
+      return ok(toChapterAssignmentResponse(updated));
     } catch (e) {
       logger.error({
         cause: e,
@@ -130,7 +150,7 @@ export async function updateChapterAssignment(
 
 export async function submitChapterAssignment(
   chapterAssignmentId: number
-): Promise<Result<ChapterAssignmentRecord>> {
+): Promise<Result<ChapterAssignmentResponse>> {
   return db.transaction(async (tx) => {
     try {
       const current = await repo.findById(chapterAssignmentId, tx);

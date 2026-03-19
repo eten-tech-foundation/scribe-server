@@ -14,6 +14,7 @@ import { server } from '@/server/server';
 
 import { ChapterAssignmentPolicy } from './chapter-assignments.policy';
 import * as chapterAssignmentService from './chapter-assignments.service';
+import { toChapterAssignmentResponse } from './chapter-assignments.service';
 import { chapterAssignmentResponseSchema } from './chapter-assignments.types';
 
 const chapterAssignmentIdParam = z.object({
@@ -308,7 +309,7 @@ server.openapi(getChapterAssignmentRoute, async (c) => {
     );
   }
 
-  return c.json(result.data, HttpStatusCodes.OK);
+  return c.json(toChapterAssignmentResponse(result.data), HttpStatusCodes.OK);
 });
 
 // ─── DELETE /chapter-assignments/:chapterAssignmentId ────────────────────────

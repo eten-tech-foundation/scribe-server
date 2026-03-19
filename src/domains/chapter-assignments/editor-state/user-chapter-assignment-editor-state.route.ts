@@ -4,10 +4,7 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import {
-  editorStateResourcesSchema,
-  insertUserChapterAssignmentEditorStateSchema,
-} from '@/db/schema';
+import { insertUserChapterAssignmentEditorStateSchema } from '@/db/schema';
 import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-assignments.policy';
 import * as chapterAssignmentService from '@/domains/chapter-assignments/chapter-assignments.service';
 import { PERMISSIONS } from '@/lib/permissions';
@@ -16,6 +13,7 @@ import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import * as editorStateService from './user-chapter-assignment-editor-state.service';
+import { editorStateResponseSchema } from './user-chapter-assignment-editor-state.types';
 
 const chapterAssignmentIdParam = z.object({
   chapterAssignmentId: z.coerce
@@ -39,7 +37,7 @@ const getEditorStateRoute = createRoute({
   request: { params: chapterAssignmentIdParam },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      editorStateResourcesSchema,
+      editorStateResponseSchema,
       'The editor state for the current user'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
@@ -107,7 +105,7 @@ const saveEditorStateRoute = createRoute({
     ),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(editorStateResourcesSchema, 'The saved editor state'),
+    [HttpStatusCodes.OK]: jsonContent(editorStateResponseSchema, 'The saved editor state'),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
       createMessageObjectSchema('Bad Request'),
       'Invalid request data'

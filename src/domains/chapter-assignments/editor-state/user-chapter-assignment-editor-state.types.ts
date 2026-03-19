@@ -1,4 +1,4 @@
-import type { z } from '@hono/zod-openapi';
+import { z } from '@hono/zod-openapi';
 
 import type {
   editorStateResourcesSchema,
@@ -9,7 +9,12 @@ import type {
 
 export type UpsertEditorStateInput = z.infer<typeof insertUserChapterAssignmentEditorStateSchema>;
 
+export type EditorStateResources = z.infer<typeof editorStateResourcesSchema>;
+
 // ─── API response schema ──────────────────────────────────────────────────────
 
-// Re-export the schema from db so routes and services share one definition.
-export type EditorStateResources = z.infer<typeof editorStateResourcesSchema>;
+export const editorStateResponseSchema = z.object({
+  resources: z.record(z.unknown()).nullable(),
+});
+
+export type EditorStateResponse = z.infer<typeof editorStateResponseSchema>;

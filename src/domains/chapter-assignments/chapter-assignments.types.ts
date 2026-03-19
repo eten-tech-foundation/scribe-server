@@ -33,7 +33,7 @@ export interface UpdateChapterAssignmentRequestData {
 // ─── API response schema ──────────────────────────────────────────────────────
 
 export const chapterAssignmentResponseSchema = z.object({
-  id: z.number().int().optional(),
+  id: z.number().int(),
   projectUnitId: z.number().int(),
   bibleId: z.number().int(),
   bookId: z.number().int(),
@@ -42,8 +42,8 @@ export const chapterAssignmentResponseSchema = z.object({
   peerCheckerId: z.number().int().nullable().optional(),
   status: z.enum(['not_started', 'draft', 'peer_check', 'community_review']).optional(),
   submittedTime: z.date().nullable().optional(),
-  createdAt: z.date().nullable().optional(),
-  updatedAt: z.date().nullable().optional(),
+  createdAt: z.date().nullable(),
+  updatedAt: z.date().nullable(),
 });
 
 export type ChapterAssignmentResponse = z.infer<typeof chapterAssignmentResponseSchema>;
