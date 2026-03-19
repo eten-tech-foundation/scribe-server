@@ -6,7 +6,7 @@ import * as repo from './bibles.repository';
 
 // ─── Response mapping ─────────────────────────────────────────────────────────
 
-export function toResponse(bible: Bible): BibleResponse {
+function toBibleResponse(bible: Bible): BibleResponse {
   return {
     id: bible.id,
     name: bible.name,
@@ -20,31 +20,31 @@ export function toResponse(bible: Bible): BibleResponse {
 export async function getAllBibles() {
   const result = await repo.getAll();
   if (!result.ok) return result;
-  return ok(result.data.map(toResponse));
+  return ok(result.data.map(toBibleResponse));
 }
 
 export async function getBibleById(id: number) {
   const result = await repo.getById(id);
   if (!result.ok) return result;
-  return ok(toResponse(result.data));
+  return ok(toBibleResponse(result.data));
 }
 
 export async function getBiblesByLanguageId(languageId: number) {
   const result = await repo.getByLanguageId(languageId);
   if (!result.ok) return result;
-  return ok(result.data.map(toResponse));
+  return ok(result.data.map(toBibleResponse));
 }
 
 export async function createBible(data: CreateBible) {
   const result = await repo.create(data);
   if (!result.ok) return result;
-  return ok(toResponse(result.data));
+  return ok(toBibleResponse(result.data));
 }
 
 export async function updateBible(id: number, data: UpdateBible) {
   const result = await repo.update(id, data);
   if (!result.ok) return result;
-  return ok(toResponse(result.data));
+  return ok(toBibleResponse(result.data));
 }
 
 export function deleteBible(id: number) {
