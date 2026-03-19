@@ -19,8 +19,8 @@ function toTranslatedVerseResponse(verse: TranslatedVerseRecord): TranslatedVers
     bibleTextId: verse.bibleTextId,
     assignedUserId: verse.assignedUserId,
     verseNumber: verse.verseNumber,
-    createdAt: verse.createdAt?.toISOString() ?? new Date().toISOString(),
-    updatedAt: verse.updatedAt?.toISOString() ?? new Date().toISOString(),
+    createdAt: verse.createdAt.toISOString(),
+    updatedAt: verse.updatedAt.toISOString(),
   };
 }
 

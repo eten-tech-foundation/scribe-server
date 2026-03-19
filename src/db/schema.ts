@@ -214,10 +214,11 @@ export const translated_verses = pgTable(
       .notNull()
       .references(() => bible_texts.id),
     assignedUserId: integer('assigned_user_id').references(() => users.id),
-    createdAt: timestamp('created_at').defaultNow(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
-      .$onUpdate(() => new Date()),
+      .$onUpdate(() => new Date())
+      .notNull(),
   },
   (table) => [
     uniqueIndex('uq_translated_verse_per_bible_text').on(table.projectUnitId, table.bibleTextId),
