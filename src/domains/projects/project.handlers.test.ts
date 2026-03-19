@@ -198,8 +198,9 @@ describe('project Handler Functions', () => {
 
   describe('createProject', () => {
     it('should create and return a new project', async () => {
-      const chapterAssignmentsModule =
-        await import('@/domains/chapter-assignments/chapter-assignments.handlers');
+      const chapterAssignmentsModule = await import(
+        '@/domains/chapter-assignments/chapter-assignments.handlers'
+      );
       const { bibleId, bookId, projectUnitStatus, ...projectWithoutExtras } = mockProjectInput;
 
       const createdProject = { ...projectWithoutExtras, id: 2 } as any;
@@ -242,8 +243,9 @@ describe('project Handler Functions', () => {
     });
 
     it('should return error if chapter assignment creation fails', async () => {
-      const chapterAssignmentsModule =
-        await import('@/domains/chapter-assignments/chapter-assignments.handlers');
+      const chapterAssignmentsModule = await import(
+        '@/domains/chapter-assignments/chapter-assignments.handlers'
+      );
       const { bibleId, bookId, projectUnitStatus, ...projectWithoutExtras } = mockProjectInput;
 
       const createdProject = { ...projectWithoutExtras, id: 2 } as any;
