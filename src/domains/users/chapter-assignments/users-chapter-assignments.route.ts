@@ -4,38 +4,17 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import * as chapterAssignmentsHandler from '@/domains/chapter-assignments/chapter-assignments.handlers';
+import * as chapterAssignmentService from '@/domains/chapter-assignments/chapter-assignments.handlers';
 import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-assignments.policy';
 import { UserPolicy } from '@/domains/users/user.policy';
-import * as userHandler from '@/domains/users/users.handlers';
+import * as userService from '@/domains/users/users.service';
 import { PERMISSIONS } from '@/lib/permissions';
+import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
-import * as usersChapterAssignmentsHandler from './users-chapter-assignments.handlers';
-
-const getChapterAssignmentByUserResponse = z.object({
-  chapterAssignmentId: z.number(),
-  projectName: z.string(),
-  projectUnitId: z.number(),
-  bibleId: z.number(),
-  bibleName: z.string(),
-  chapterStatus: z.string(),
-  targetLanguage: z.string(),
-  sourceLangCode: z.string(),
-  bookCode: z.string(),
-  bookId: z.number(),
-  book: z.string(),
-  chapterNumber: z.number(),
-  totalVerses: z.number().int(),
-  completedVerses: z.number().int(),
-  submittedTime: z.string().nullable(),
-});
-
-const getChapterAssignmentsByUserResponseV2 = z.object({
-  assignedChapters: getChapterAssignmentByUserResponse.array(),
-  peerCheckChapters: getChapterAssignmentByUserResponse.array(),
-});
+import * as usersChapterAssignmentsService from './users-chapter-assignments.service';
+import { userChapterAssignmentsByUserResponseSchema } from './users-chapter-assignments.types';
 
 const getChapterAssignmentsByUserIdRoute = createRoute({
   tags: ['Users - Chapter Assignments'],
@@ -49,7 +28,7 @@ const getChapterAssignmentsByUserIdRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      getChapterAssignmentsByUserResponseV2.openapi('ChapterAssignmentsByUser'),
+      userChapterAssignmentsByUserResponseSchema.openapi('ChapterAssignmentsByUser'),
       'Chapter assignments for the user separated by role'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
@@ -82,7 +61,7 @@ server.openapi(getChapterAssignmentsByUserIdRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  const targetUserResult = await userHandler.getUserById(userId);
+  const targetUserResult = await userService.getUserById(userId);
   if (!targetUserResult.ok) {
     return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
   }
@@ -91,20 +70,9 @@ server.openapi(getChapterAssignmentsByUserIdRoute, async (c) => {
     return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  const result = await usersChapterAssignmentsHandler.getAllChapterAssignmentsByUserId(userId);
-
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
-});
-
-const assignUsersToChapterAssignmentsRequest = z.object({
-  chapterAssignmentIds: z
-    .array(z.number().int())
-    .min(1, 'At least one chapter assignment ID is required'),
-  peerCheckerId: z.number().int(),
+  const result = await usersChapterAssignmentsService.getAllChapterAssignmentsByUserId(userId);
+  if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
 
 const assignUsersToChaptersRoute = createRoute({
@@ -117,7 +85,12 @@ const assignUsersToChaptersRoute = createRoute({
       userId: z.coerce.number().int().positive(),
     }),
     body: jsonContent(
-      assignUsersToChapterAssignmentsRequest,
+      z.object({
+        chapterAssignmentIds: z
+          .array(z.number().int())
+          .min(1, 'At least one chapter assignment ID is required'),
+        peerCheckerId: z.number().int(),
+      }),
       'Add chapter assignment IDs and peer checker ID'
     ),
   },
@@ -161,12 +134,12 @@ server.openapi(assignUsersToChaptersRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  const targetUserResult = await userHandler.getUserById(assignedUserId);
+  const targetUserResult = await userService.getUserById(assignedUserId);
   if (!targetUserResult.ok || !UserPolicy.view(policyUser, targetUserResult.data)) {
     return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  const firstAssignmentResult = await chapterAssignmentsHandler.getChapterAssignment(
+  const firstAssignmentResult = await chapterAssignmentService.getChapterAssignment(
     assignmentData.chapterAssignmentIds[0]
   );
   if (!firstAssignmentResult.ok) {
@@ -177,15 +150,12 @@ server.openapi(assignUsersToChaptersRoute, async (c) => {
     return c.json({ message: 'Forbidden: Insufficient permissions' }, HttpStatusCodes.FORBIDDEN);
   }
 
-  const result = await usersChapterAssignmentsHandler.assignUserToChapters(
+  const result = await usersChapterAssignmentsService.assignUserToChapters(
     assignedUserId,
     assignmentData.chapterAssignmentIds,
     assignmentData.peerCheckerId
   );
 
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });

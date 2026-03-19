@@ -13,7 +13,7 @@ import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import { UserPolicy } from './user.policy';
-import * as userHandler from './users.handlers';
+import * as userService from './users.service';
 
 // ─── GET /users ───────────────────────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ server.openapi(listUsersRoute, async (c) => {
     );
   }
 
-  const result = await userHandler.getUsersByOrganization(currentUser.organization);
+  const result = await userService.getUsersByOrganization(currentUser.organization);
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
   }
@@ -126,7 +126,7 @@ server.openapi(createUserRoute, async (c) => {
 
   userData.organization = currentUser.organization;
 
-  const result = await userHandler.createUser(userData);
+  const result = await userService.createUser(userData);
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.CREATED);
   }
@@ -250,7 +250,7 @@ server.openapi(getUserByEmailRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  const result = await userHandler.getUserByEmail(email.toLowerCase());
+  const result = await userService.getUserByEmail(email.toLowerCase());
 
   if (!result.ok) {
     return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
@@ -309,7 +309,7 @@ server.openapi(getUserRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  const result = await userHandler.getUserById(id);
+  const result = await userService.getUserById(id);
 
   if (!result.ok) {
     return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
@@ -402,7 +402,7 @@ server.openapi(updateUserRoute, async (c) => {
     );
   }
 
-  const targetResult = await userHandler.getUserById(id);
+  const targetResult = await userService.getUserById(id);
 
   if (!targetResult.ok) {
     return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
@@ -417,7 +417,7 @@ server.openapi(updateUserRoute, async (c) => {
     delete (updates as Record<string, unknown>).organization;
   }
 
-  const result = await userHandler.updateUser(id, updates);
+  const result = await userService.updateUser(id, updates);
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
@@ -471,7 +471,7 @@ server.openapi(deleteUserRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  const targetResult = await userHandler.getUserById(id);
+  const targetResult = await userService.getUserById(id);
 
   if (!targetResult.ok) {
     return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
@@ -481,7 +481,7 @@ server.openapi(deleteUserRoute, async (c) => {
     return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  const result = await userHandler.deleteUser(id);
+  const result = await userService.deleteUser(id);
 
   if (result.ok) {
     return c.body(null, HttpStatusCodes.NO_CONTENT);

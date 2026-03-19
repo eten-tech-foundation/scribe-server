@@ -4,40 +4,13 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { chapterStatusEnum, selectProjectsSchema } from '@/db/schema';
 import { PERMISSIONS } from '@/lib/permissions';
+import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission, requireSelf } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
-import * as userProjectsHandler from './user.projects.handlers';
-
-const chapterStatusCountsSchema = z.object(
-  chapterStatusEnum.enumValues.reduce(
-    (acc, status) => {
-      acc[status] = z.number().int().min(0);
-      return acc;
-    },
-    {} as Record<string, z.ZodNumber>
-  )
-);
-
-const workflowStepSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-});
-
-const projectWithLanguageNamesSchema = selectProjectsSchema
-  .omit({ sourceLanguage: true, targetLanguage: true })
-  .extend({
-    sourceLanguageName: z.string(),
-    targetLanguageName: z.string(),
-    sourceName: z.string(),
-    lastChapterActivity: z.union([z.date(), z.string()]).nullable(),
-    createdAt: z.union([z.date(), z.string()]).nullable(),
-    updatedAt: z.union([z.date(), z.string()]).nullable(),
-    chapterStatusCounts: chapterStatusCountsSchema,
-    workflowConfig: z.array(workflowStepSchema),
-  });
+import * as userProjectsService from './user.projects.service';
+import { userProjectResponseSchema } from './user.projects.types';
 
 const getUserProjectsRoute = createRoute({
   tags: ['Projects'],
@@ -55,18 +28,14 @@ const getUserProjectsRoute = createRoute({
         .int()
         .positive()
         .openapi({
-          param: {
-            name: 'userId',
-            in: 'path',
-            required: true,
-          },
+          param: { name: 'userId', in: 'path', required: true },
           example: 1,
         }),
     }),
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      projectWithLanguageNamesSchema.array().openapi('UserProjects'),
+      userProjectResponseSchema.array().openapi('UserProjects'),
       'The list of projects the user is a member of'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
@@ -85,11 +54,8 @@ const getUserProjectsRoute = createRoute({
 server.openapi(getUserProjectsRoute, async (c) => {
   const { userId } = c.req.valid('param');
 
-  const result = await userProjectsHandler.getProjectsByUserId(userId);
+  const result = await userProjectsService.getProjectsByUserId(userId);
 
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });

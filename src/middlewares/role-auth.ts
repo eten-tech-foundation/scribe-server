@@ -6,7 +6,7 @@ import * as HttpStatusCodes from 'stoker/http-status-codes';
 import type { Permission } from '@/lib/permissions';
 import type { AppBindings } from '@/lib/types';
 
-import { getUserByEmail } from '@/domains/users/users.handlers';
+import { getUserByEmail } from '@/domains/users/users.service';
 import { roleHasPermission } from '@/lib/services/permissions/permissions.service';
 
 export function normalizeEmail(email: string): string {
