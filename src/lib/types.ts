@@ -98,6 +98,8 @@ export const ErrorCode = {
   // External service errors
   AUTH0_ERROR: 'AUTH0_ERROR',
   EMAIL_SERVICE_ERROR: 'EMAIL_SERVICE_ERROR',
+  // Feature domain errors
+  LANGUAGE_NOT_FOUND: 'LANGUAGE_NOT_FOUND',
 } as const;
 
 // eslint-disable-next-line ts/no-redeclare
@@ -131,6 +133,7 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   INVALID_REFERENCE: 'Invalid reference',
   AUTH0_ERROR: 'Authentication service error',
   EMAIL_SERVICE_ERROR: 'Email service error',
+  LANGUAGE_NOT_FOUND: 'Language not found',
 };
 
 // ─── HTTP status map ──────────────────────────────────────────────────────────
@@ -139,6 +142,7 @@ export const ErrorHttpStatus: Record<ErrorCode, number> = {
   INTERNAL_ERROR: 500,
   AUTH0_ERROR: 500,
   EMAIL_SERVICE_ERROR: 500,
+  LANGUAGE_NOT_FOUND: 404,
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
   CONFLICT: 409,

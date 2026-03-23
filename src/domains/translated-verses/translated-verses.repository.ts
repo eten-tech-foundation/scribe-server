@@ -1,28 +1,19 @@
-import type { z } from '@hono/zod-openapi';
-
 import { and, eq, sql } from 'drizzle-orm';
 
-import type {
-  insertTranslatedVersesSchema,
-  patchTranslatedVersesSchema,
-  selectTranslatedVersesSchema,
-} from '@/db/schema';
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import { bible_texts, translated_verses } from '@/db/schema';
+import { err, ErrorCode, ok } from '@/lib/types';
 
-export type TranslatedVerse = z.infer<typeof selectTranslatedVersesSchema>;
-export type CreateTranslatedVerseInput = z.infer<typeof insertTranslatedVersesSchema>;
-export type UpdateTranslatedVerseInput = z.infer<typeof patchTranslatedVersesSchema>;
+import type {
+  CreateTranslatedVerseInput,
+  TranslatedVerseRecord,
+  TranslatedVersesFilters,
+  UpdateTranslatedVerseInput,
+} from './translated-verses.types';
 
-export interface TranslatedVersesFilters {
-  projectUnitId?: number;
-  bookId?: number;
-  chapterNumber?: number;
-}
-
-export async function getTranslatedVerseById(id: number): Promise<Result<TranslatedVerse>> {
+export async function getById(id: number): Promise<Result<TranslatedVerseRecord>> {
   try {
     const [verse] = await db
       .select({
@@ -41,36 +32,36 @@ export async function getTranslatedVerseById(id: number): Promise<Result<Transla
       .limit(1);
 
     if (!verse) {
-      return { ok: false, error: { message: 'Translated verse not found' } };
+      return err(ErrorCode.TRANSLATED_VERSE_NOT_FOUND);
     }
 
-    return { ok: true, data: verse };
+    return ok(verse);
   } catch {
-    return { ok: false, error: { message: 'Failed to fetch translated verse' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
-export async function createTranslatedVerse(
+export async function create(
   input: CreateTranslatedVerseInput
-): Promise<Result<TranslatedVerse>> {
+): Promise<Result<TranslatedVerseRecord>> {
   try {
     const [verse] = await db.insert(translated_verses).values(input).returning();
 
-    const result = await getTranslatedVerseById(verse.id);
+    const result = await getById(verse.id);
     if (!result.ok) {
-      return { ok: false, error: { message: 'Failed to fetch created verse' } };
+      return err(ErrorCode.INTERNAL_ERROR);
     }
 
-    return { ok: true, data: result.data };
+    return ok(result.data);
   } catch {
-    return { ok: false, error: { message: 'Failed to create translated verse' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
-export async function updateTranslatedVerse(
+export async function update(
   id: number,
   input: UpdateTranslatedVerseInput
-): Promise<Result<TranslatedVerse>> {
+): Promise<Result<TranslatedVerseRecord>> {
   try {
     const [updated] = await db
       .update(translated_verses)
@@ -79,23 +70,23 @@ export async function updateTranslatedVerse(
       .returning();
 
     if (!updated) {
-      return { ok: false, error: { message: 'Translated verse not found' } };
+      return err(ErrorCode.TRANSLATED_VERSE_NOT_FOUND);
     }
 
-    const result = await getTranslatedVerseById(updated.id);
+    const result = await getById(updated.id);
     if (!result.ok) {
-      return { ok: false, error: { message: 'Failed to fetch updated verse' } };
+      return err(ErrorCode.INTERNAL_ERROR);
     }
 
-    return { ok: true, data: result.data };
+    return ok(result.data);
   } catch {
-    return { ok: false, error: { message: 'Failed to update translated verse' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
-export async function upsertTranslatedVerse(
+export async function upsert(
   input: CreateTranslatedVerseInput
-): Promise<Result<TranslatedVerse>> {
+): Promise<Result<TranslatedVerseRecord>> {
   try {
     const [verse] = await db
       .insert(translated_verses)
@@ -109,20 +100,20 @@ export async function upsertTranslatedVerse(
       })
       .returning();
 
-    const result = await getTranslatedVerseById(verse.id);
+    const result = await getById(verse.id);
     if (!result.ok) {
-      return { ok: false, error: { message: 'Failed to fetch upserted verse' } };
+      return err(ErrorCode.INTERNAL_ERROR);
     }
 
-    return { ok: true, data: result.data };
+    return ok(result.data);
   } catch {
-    return { ok: false, error: { message: 'Failed to upsert translated verse' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
-export async function listTranslatedVerses(
+export async function list(
   filters: TranslatedVersesFilters = {}
-): Promise<Result<TranslatedVerse[]>> {
+): Promise<Result<TranslatedVerseRecord[]>> {
   try {
     const conditions = [] as any[];
     if (filters.projectUnitId !== undefined) {
@@ -157,8 +148,8 @@ export async function listTranslatedVerses(
             bible_texts.chapterNumber,
             bible_texts.verseNumber
           );
-    return { ok: true, data: verses };
+    return ok(verses);
   } catch {
-    return { ok: false, error: { message: 'Failed to fetch translated verses' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
