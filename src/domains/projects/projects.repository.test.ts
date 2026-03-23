@@ -3,13 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from '@/db';
 import { resetAllMocks, sampleChapterAssignments, sampleProjects } from '@/test/utils/test-helpers';
 
-import {
-  createProject,
-  deleteProject,
-  getProjectById,
-  getProjectsByOrganization,
-  updateProject,
-} from './projects.handlers';
+import { create, getById, getByOrganization, remove, update } from './projects.repository';
 
 // Mock dependencies BEFORE importing modules that use them
 const mockTx = {
@@ -18,6 +12,15 @@ const mockTx = {
   delete: vi.fn(),
   select: vi.fn(),
 };
+
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
 
 vi.mock('@/db', () => ({
   db: {
@@ -41,19 +44,10 @@ vi.mock('@/db', () => ({
   },
 }));
 
-// Mock chapter assignments service used by create/update flows
 vi.mock('@/domains/chapter-assignments/chapter-assignments.handlers', () => ({
   createChapterAssignmentForProjectUnit: vi.fn(),
 }));
 
-// Mock project chapter assignments service used by update flow
-vi.mock('@/domains/projects/chapter-assignments/project-chapter-assignments.handlers', () => ({
-  deleteChapterAssignmentsByProject: vi.fn(),
-}));
-
-/**
- * For getProjectsByOrganization the chain ends at groupBy().where().
- */
 function buildMockQueryChainWhere(terminalValue: unknown) {
   const whereMock = vi.fn().mockResolvedValue(terminalValue);
   const groupByMock = vi.fn().mockReturnValue({ where: whereMock });
@@ -68,9 +62,6 @@ function buildMockQueryChainWhere(terminalValue: unknown) {
   return { from: fromMock };
 }
 
-/**
- * For getProjectById the chain ends at groupBy().where().limit().
- */
 function buildMockQueryChainWhereLimit(terminalValue: unknown) {
   const limitMock = vi.fn().mockResolvedValue(terminalValue);
   const whereMock = vi.fn().mockReturnValue({ limit: limitMock });
@@ -86,9 +77,9 @@ function buildMockQueryChainWhereLimit(terminalValue: unknown) {
   return { from: fromMock };
 }
 
-describe('project Handler Functions', () => {
+describe('projects repository', () => {
   const mockProject = sampleProjects.project1;
-  const mockRawProject = sampleProjects.projectWithLanguageNames1; // raw DB row (has counts)
+  const mockRawProject = sampleProjects.projectWithLanguageNames1;
   const mockProjectInput = sampleProjects.newProject;
   const updateData = sampleProjects.updateProject;
 
@@ -97,11 +88,11 @@ describe('project Handler Functions', () => {
     (db.transaction as any).mockImplementation(async (cb: any) => cb(mockTx));
   });
 
-  describe('getProjectsByOrganization', () => {
+  describe('getByOrganization', () => {
     it('should return projects filtered by organization', async () => {
       (db.selectDistinct as any).mockReturnValue(buildMockQueryChainWhere([mockRawProject]));
 
-      const result = await getProjectsByOrganization(1);
+      const result = await getByOrganization(1);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
@@ -120,20 +111,20 @@ describe('project Handler Functions', () => {
         throw new Error('DB Error');
       });
 
-      const result = await getProjectsByOrganization(1);
+      const result = await getByOrganization(1);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.message).toBe('Failed to fetch organization projects');
+        expect(result.error.message).toBe('An unexpected error occurred');
       }
     });
   });
 
-  describe('getProjectById', () => {
+  describe('getById', () => {
     it('should return a single project by ID with transformed fields', async () => {
       (db.selectDistinct as any).mockReturnValue(buildMockQueryChainWhereLimit([mockRawProject]));
 
-      const result = await getProjectById(1);
+      const result = await getById(1);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
@@ -157,14 +148,12 @@ describe('project Handler Functions', () => {
         buildMockQueryChainWhereLimit([rawWithPartialCounts])
       );
 
-      const result = await getProjectById(1);
+      const result = await getById(1);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        // Every enum status should be present
         const counts = result.data.chapterStatusCounts;
         expect(counts.not_started).toBe(3);
-        // Other statuses default to 0
         for (const [, value] of Object.entries(counts)) {
           expect(typeof value).toBe('number');
         }
@@ -174,7 +163,7 @@ describe('project Handler Functions', () => {
     it('should return error when project not found', async () => {
       (db.selectDistinct as any).mockReturnValue(buildMockQueryChainWhereLimit([]));
 
-      const result = await getProjectById(999);
+      const result = await getById(999);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -187,16 +176,16 @@ describe('project Handler Functions', () => {
         throw new Error('DB Error');
       });
 
-      const result = await getProjectById(1);
+      const result = await getById(1);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.message).toBe('Failed to fetch project');
+        expect(result.error.message).toBe('An unexpected error occurred');
       }
     });
   });
 
-  describe('createProject', () => {
+  describe('create', () => {
     it('should create and return a new project', async () => {
       const chapterAssignmentsModule = await import(
         '@/domains/chapter-assignments/chapter-assignments.handlers'
@@ -205,7 +194,6 @@ describe('project Handler Functions', () => {
 
       const createdProject = { ...projectWithoutExtras, id: 2 } as any;
 
-      // Mock successful creation
       mockTx.insert
         .mockImplementationOnce(() => ({
           values: vi.fn().mockReturnValue({
@@ -226,7 +214,7 @@ describe('project Handler Functions', () => {
         data: sampleChapterAssignments as any,
       } as any);
 
-      const result = await createProject(mockProjectInput);
+      const result = await create(mockProjectInput);
 
       expect(result).toEqual({ ok: true, data: createdProject });
     });
@@ -234,11 +222,11 @@ describe('project Handler Functions', () => {
     it('should return error if transaction fails', async () => {
       (db.transaction as any).mockRejectedValue(new Error('DB Error'));
 
-      const result = await createProject(mockProjectInput);
+      const result = await create(mockProjectInput);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.message).toBe('Failed to create project');
+        expect(result.error.message).toBe('An unexpected error occurred');
       }
     });
 
@@ -250,7 +238,6 @@ describe('project Handler Functions', () => {
 
       const createdProject = { ...projectWithoutExtras, id: 2 } as any;
 
-      // Mock successful project creation but failed chapter assignment
       mockTx.insert
         .mockImplementationOnce(() => ({
           values: vi.fn().mockReturnValue({
@@ -271,16 +258,16 @@ describe('project Handler Functions', () => {
         error: { message: 'Chapter assignment failed' },
       } as any);
 
-      const result = await createProject(mockProjectInput);
+      const result = await create(mockProjectInput);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.message).toBe('Failed to create project');
+        expect(result.error.message).toBe('An unexpected error occurred');
       }
     });
   });
 
-  describe('updateProject', () => {
+  describe('update', () => {
     it('should update and return the project', async () => {
       const updatedProject = { ...mockProject, ...updateData } as any;
 
@@ -292,7 +279,7 @@ describe('project Handler Functions', () => {
         }),
       }));
 
-      const result = await updateProject(1, updateData);
+      const result = await update(1, updateData);
 
       expect(result).toEqual({ ok: true, data: updatedProject });
     });
@@ -306,7 +293,7 @@ describe('project Handler Functions', () => {
         }),
       }));
 
-      const result = await updateProject(999, updateData);
+      const result = await update(999, updateData);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -332,10 +319,9 @@ describe('project Handler Functions', () => {
           }),
         }));
 
-      const result = await updateProject(1, updateDataWithUnits);
+      const result = await update(1, updateDataWithUnits);
 
       expect(result).toEqual({ ok: true, data: updatedProject });
-      // Both projects and project_units updates were called
       expect(mockTx.update).toHaveBeenCalledTimes(2);
     });
 
@@ -350,7 +336,7 @@ describe('project Handler Functions', () => {
         }),
       }));
 
-      await updateProject(1, updateData);
+      await update(1, updateData);
 
       expect(mockTx.update).toHaveBeenCalledTimes(1);
     });
@@ -358,26 +344,26 @@ describe('project Handler Functions', () => {
     it('should return error if transaction fails', async () => {
       (db.transaction as any).mockRejectedValue(new Error('DB Error'));
 
-      const result = await updateProject(1, updateData);
+      const result = await update(1, updateData);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.message).toBe('Failed to update project');
+        expect(result.error.message).toBe('An unexpected error occurred');
       }
     });
   });
 
-  describe('deleteProject', () => {
-    it('should delete the project and return its id', async () => {
+  describe('remove', () => {
+    it('should delete the project and return void on success', async () => {
       (db.delete as any).mockReturnValue({
         where: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([{ id: 1 }]),
         }),
       });
 
-      const result = await deleteProject(1);
+      const result = await remove(1);
 
-      expect(result).toEqual({ ok: true, data: { id: 1 } });
+      expect(result).toEqual({ ok: true, data: undefined });
     });
 
     it('should return error when project not found', async () => {
@@ -387,7 +373,7 @@ describe('project Handler Functions', () => {
         }),
       });
 
-      const result = await deleteProject(999);
+      const result = await remove(999);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -400,11 +386,11 @@ describe('project Handler Functions', () => {
         throw new Error('DB Error');
       });
 
-      const result = await deleteProject(1);
+      const result = await remove(1);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.message).toBe('Failed to delete project');
+        expect(result.error.message).toBe('An unexpected error occurred');
       }
     });
   });

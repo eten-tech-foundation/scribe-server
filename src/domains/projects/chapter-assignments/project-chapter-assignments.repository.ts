@@ -2,7 +2,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import type { ChapterAssignmentRecord } from '@/domains/chapter-assignments/chapter-assignments.handlers';
-import type { Result } from '@/lib/types';
+import type { DbTransaction, Result } from '@/lib/types';
 
 import { db } from '@/db';
 import {
@@ -19,13 +19,11 @@ import {
   users,
 } from '@/db/schema';
 import { logger } from '@/lib/logger';
+import { err, ErrorCode, ok } from '@/lib/types';
 
-// -------------------------------
-// --- START STANDARD HANDLERS ---
-// -------------------------------
-export async function getProjectChapterAssignments(
-  projectId: number
-): Promise<Result<ChapterAssignmentRecord[]>> {
+import type { ChapterAssignmentProgress } from './project-chapter-assignments.types';
+
+export async function getByProject(projectId: number): Promise<Result<ChapterAssignmentRecord[]>> {
   try {
     const assignments = await db
       .select({
@@ -45,18 +43,18 @@ export async function getProjectChapterAssignments(
       .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
       .where(eq(project_units.projectId, projectId));
 
-    return { ok: true, data: assignments };
-  } catch (err) {
+    return ok(assignments);
+  } catch (e) {
     logger.error({
-      cause: err,
+      cause: e,
       message: 'Failed to get project chapter assignments',
       context: { projectId },
     });
-    return { ok: false, error: { message: 'Failed to get project chapter assignments' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
-export async function deleteChapterAssignmentsByProject(
+export async function deleteByProject(
   projectId: number
 ): Promise<Result<{ deletedCount: number }>> {
   try {
@@ -67,67 +65,32 @@ export async function deleteChapterAssignmentsByProject(
         .where(eq(project_units.projectId, projectId))
         .limit(1);
 
-      if (!projectUnit) {
-        return { ok: true, data: { deletedCount: 0 } };
-      }
+      if (!projectUnit) return ok({ deletedCount: 0 });
 
       const deletedAssignments = await tx
         .delete(chapter_assignments)
         .where(eq(chapter_assignments.projectUnitId, projectUnit.id))
         .returning({ id: chapter_assignments.id });
 
-      return { ok: true, data: { deletedCount: deletedAssignments.length } };
+      return ok({ deletedCount: deletedAssignments.length });
     });
-  } catch (err) {
+  } catch (e) {
     logger.error({
-      cause: err,
+      cause: e,
       message: 'Failed to delete chapter assignments for project',
       context: { projectId },
     });
-
-    return {
-      ok: false,
-      error: { message: 'Failed to delete chapter assignments' },
-    };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
-// -----------------------------
-// --- END STANDARD HANDLERS ---
-// -----------------------------
 
-// -----------------------------------
-// --- START NON-STANDARD HANDLERS ---
-// -----------------------------------
-export interface ChapterAssignmentProgress {
-  assignmentId: number;
-  projectUnitId: number;
-  bibleId: number;
-  bookId: number;
-  bookCode: string;
-  sourceLangCode: string;
-  status: string;
-  bookNameEng: string;
-  chapterNumber: number;
-  assignedUser: User | null;
-  peerChecker: User | null;
-  totalVerses: number;
-  completedVerses: number;
-  createdAt: Date | null;
-  updatedAt: Date | null;
-  submittedTime: Date | null;
-}
-
-interface User {
-  id: number;
-  displayName: string;
-}
-
-export async function getChapterAssignmentProgressByProject(
+export async function getProgressByProject(
   projectId: number
 ): Promise<Result<ChapterAssignmentProgress[]>> {
   try {
     const assignedUser = alias(users, 'assignedUser');
     const peerChecker = alias(users, 'peerChecker');
+
     const rows = await db
       .select({
         assignmentId: chapter_assignments.id,
@@ -189,58 +152,63 @@ export async function getChapterAssignmentProgressByProject(
       )
       .orderBy(books.eng_display_name, chapter_assignments.chapterNumber);
 
-    const progressData: ChapterAssignmentProgress[] = rows.map((row) => {
-      return {
-        assignmentId: row.assignmentId,
-        projectUnitId: row.projectUnitId,
-        status: row.status,
-        bookNameEng: row.bookNameEng,
-        chapterNumber: row.chapterNumber,
-        bibleId: row.bibleId,
-        bookId: row.bookId,
-        bookCode: row.bookCode,
-        sourceLangCode: row.sourceLangCode ?? '',
-        assignedUser: row.assignedUserId
-          ? {
-              id: row.assignedUserId,
-              displayName: row.assignedUserDisplayName ?? '',
-            }
-          : null,
-        peerChecker: row.peerCheckerId
-          ? {
-              id: row.peerCheckerId,
-              displayName: row.peerCheckerDisplayName ?? '',
-            }
-          : null,
-        totalVerses: Number(row.totalVerses),
-        completedVerses: Number(row.completedVerses),
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-        submittedTime: row.submittedTime,
-      };
-    });
+    const progressData: ChapterAssignmentProgress[] = rows.map((row) => ({
+      assignmentId: row.assignmentId,
+      projectUnitId: row.projectUnitId,
+      status: row.status,
+      bookNameEng: row.bookNameEng,
+      chapterNumber: row.chapterNumber,
+      bibleId: row.bibleId,
+      bookId: row.bookId,
+      bookCode: row.bookCode,
+      sourceLangCode: row.sourceLangCode ?? '',
+      assignedUser: row.assignedUserId
+        ? { id: row.assignedUserId, displayName: row.assignedUserDisplayName ?? '' }
+        : null,
+      peerChecker: row.peerCheckerId
+        ? { id: row.peerCheckerId, displayName: row.peerCheckerDisplayName ?? '' }
+        : null,
+      totalVerses: Number(row.totalVerses),
+      completedVerses: Number(row.completedVerses),
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      submittedTime: row.submittedTime,
+    }));
 
-    return { ok: true, data: progressData };
-  } catch {
-    return { ok: false, error: { message: 'Failed to fetch chapter assignment progress' } };
+    return ok(progressData);
+  } catch (e) {
+    logger.error({
+      cause: e,
+      message: 'Failed to get chapter assignment progress',
+      context: { projectId },
+    });
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
-export async function assignAllProjectChapterAssignmentsToUser(
-  projectId: number,
-  assignmentData: {
-    assignedUserId: number;
-  }
-): Promise<Result<ChapterAssignmentRecord[]>> {
-  if (!(await isAssignedUserInProjectOrganization(assignmentData.assignedUserId, projectId))) {
-    return {
-      ok: false,
-      error: { message: 'Assigned user is not in project organization' },
-    };
-  }
+async function isUserInProjectOrganization(
+  tx: DbTransaction,
+  assignedUserId: number,
+  projectId: number
+): Promise<boolean> {
+  const [match] = await tx
+    .select({ id: users.id })
+    .from(users)
+    .innerJoin(projects, eq(users.organization, projects.organization))
+    .where(and(eq(users.id, assignedUserId), eq(projects.id, projectId)))
+    .limit(1);
+  return !!match;
+}
 
+export async function assignAllToUser(
+  projectId: number,
+  assignedUserId: number
+): Promise<Result<ChapterAssignmentRecord[]>> {
   try {
-    const updatedAssignments = await db.transaction(async (tx) => {
+    return await db.transaction(async (tx) => {
+      if (!(await isUserInProjectOrganization(tx, assignedUserId, projectId)))
+        return err(ErrorCode.USER_NOT_IN_ORGANIZATION);
+
       const currentAssignments = await tx
         .select({
           id: chapter_assignments.id,
@@ -261,7 +229,7 @@ export async function assignAllProjectChapterAssignmentsToUser(
       const updated = await tx
         .update(chapter_assignments)
         .set({
-          assignedUserId: assignmentData.assignedUserId,
+          assignedUserId,
           status: sql`
             CASE
               WHEN ${chapter_assignments.status} = 'not_started' THEN 'draft'::chapter_status
@@ -287,19 +255,16 @@ export async function assignAllProjectChapterAssignmentsToUser(
           const currentAssignment = currentAssignments.find((a) => a.id === updatedAssignment.id);
           if (!currentAssignment) continue;
 
-          const drafterChanged = currentAssignment.assignedUserId !== assignmentData.assignedUserId;
-          const statusChanged = currentAssignment.status !== updatedAssignment.status;
-
-          if (drafterChanged) {
+          if (currentAssignment.assignedUserId !== assignedUserId) {
             assignedUserHistoryRecords.push({
               chapterAssignmentId: updatedAssignment.id,
-              assignedUserId: assignmentData.assignedUserId,
+              assignedUserId,
               role: 'drafter' as const,
               status: updatedAssignment.status,
             });
           }
 
-          if (statusChanged) {
+          if (currentAssignment.status !== updatedAssignment.status) {
             statusHistoryRecords.push({
               chapterAssignmentId: updatedAssignment.id,
               status: updatedAssignment.status,
@@ -312,55 +277,19 @@ export async function assignAllProjectChapterAssignmentsToUser(
             .insert(chapter_assignment_assigned_user_history)
             .values(assignedUserHistoryRecords);
         }
-
         if (statusHistoryRecords.length > 0) {
           await tx.insert(chapter_assignment_status_history).values(statusHistoryRecords);
         }
       }
 
-      return updated;
+      return ok(updated);
     });
-
-    return { ok: true, data: updatedAssignments };
-  } catch (err) {
+  } catch (e) {
     logger.error({
       message: 'Failed to assign user to project chapters',
-      cause: err,
-      context: {
-        projectId,
-        assignedUserId: assignmentData.assignedUserId,
-      },
+      cause: e,
+      context: { projectId, assignedUserId },
     });
-
-    return {
-      ok: false,
-      error: { message: 'Failed to assign user to project chapters' },
-    };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
-
-async function isAssignedUserInProjectOrganization(
-  assignedUserId: number,
-  projectId: number
-): Promise<boolean> {
-  try {
-    const [match] = await db
-      .select({ id: users.id })
-      .from(users)
-      .innerJoin(projects, eq(users.organization, projects.organization))
-      .where(and(eq(users.id, assignedUserId), eq(projects.id, projectId)))
-      .limit(1);
-
-    return !!match;
-  } catch (err) {
-    logger.error({
-      message: 'Failed to check if user is in project organization',
-      cause: err,
-      context: { assignedUserId, projectId },
-    });
-    return false;
-  }
-}
-// -----------------------------
-// --- END STANDARD HANDLERS ---
-// -----------------------------

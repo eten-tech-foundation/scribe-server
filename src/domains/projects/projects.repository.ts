@@ -1,9 +1,6 @@
-import type { z } from '@hono/zod-openapi';
-
 import { eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-import type { insertProjectsSchema, patchProjectsSchema, selectProjectsSchema } from '@/db/schema';
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
@@ -17,35 +14,19 @@ import {
   projects,
 } from '@/db/schema';
 import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapter-assignments.handlers';
+import { logger } from '@/lib/logger';
+import { err, ErrorCode, ok } from '@/lib/types';
 
-export type Project = z.infer<typeof selectProjectsSchema>;
+import type {
+  ChapterStatusCounts,
+  CreateProjectInput,
+  Project,
+  ProjectWithLanguageNames,
+  UpdateProjectInput,
+  WorkflowStep,
+} from './projects.types';
 
-export type ChapterStatusCounts = Record<string, number>;
-
-export interface WorkflowStep {
-  id: string;
-  label: string;
-}
-export type CreateProjectInput = Omit<z.infer<typeof insertProjectsSchema>, 'status'> & {
-  bibleId: number;
-  bookId: number[];
-  projectUnitStatus?: 'not_started' | 'in_progress' | 'completed';
-};
-
-export type UpdateProjectInput = Omit<z.infer<typeof patchProjectsSchema>, 'status'> & {
-  bibleId?: number;
-  bookId?: number[];
-  projectUnitStatus?: 'not_started' | 'in_progress' | 'completed';
-};
-
-export type ProjectWithLanguageNames = Omit<Project, 'sourceLanguage' | 'targetLanguage'> & {
-  sourceLanguageName: string;
-  targetLanguageName: string;
-  sourceName: string;
-  lastChapterActivity: Date | null;
-  chapterStatusCounts: ChapterStatusCounts;
-  workflowConfig: WorkflowStep[];
-};
+// ─── Query building blocks ────────────────────────────────────────────────────
 
 const sourceLanguages = alias(languages, 'sourceLanguages');
 const targetLanguages = alias(languages, 'targetLanguages');
@@ -128,12 +109,13 @@ const baseJoinQuery = () =>
       chapterStatusCountsSubquery.counts
     );
 
-const formatLabel = (str: string) => {
-  return str
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const formatLabel = (str: string) =>
+  str
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
-};
 
 const WORKFLOW_DEFINITION: WorkflowStep[] = chapterStatusEnum.enumValues.map((status) => ({
   id: status,
@@ -143,54 +125,44 @@ const WORKFLOW_DEFINITION: WorkflowStep[] = chapterStatusEnum.enumValues.map((st
 type BaseJoinQueryResult = Awaited<ReturnType<typeof baseJoinQuery>>;
 type RawProjectRow = BaseJoinQueryResult[number];
 
-function mapProjectDataToProjectWithLanguages(rawProject: RawProjectRow): ProjectWithLanguageNames {
+function mapToProjectWithLanguages(rawProject: RawProjectRow): ProjectWithLanguageNames {
   const { counts, ...rest } = rawProject;
   const defaultCounts = chapterStatusEnum.enumValues.reduce((acc, status) => {
     acc[status] = 0;
     return acc;
   }, {} as ChapterStatusCounts);
 
-  const finalCounts = {
-    ...defaultCounts,
-    ...(counts || {}),
-  };
-
   return {
     ...rest,
-    chapterStatusCounts: finalCounts,
+    chapterStatusCounts: { ...defaultCounts, ...(counts || {}) },
     workflowConfig: WORKFLOW_DEFINITION,
   };
 }
 
-export async function getProjectsByOrganization(
+// ─── Repository functions ─────────────────────────────────────────────────────
+
+export async function getByOrganization(
   organizationId: number
 ): Promise<Result<ProjectWithLanguageNames[]>> {
   try {
     const rawProjects = await baseJoinQuery().where(eq(projects.organization, organizationId));
-    const projectList = rawProjects.map(mapProjectDataToProjectWithLanguages);
-    return { ok: true, data: projectList };
+    return ok(rawProjects.map(mapToProjectWithLanguages));
   } catch {
-    return { ok: false, error: { message: 'Failed to fetch organization projects' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
-export async function getProjectById(id: number): Promise<Result<ProjectWithLanguageNames>> {
+export async function getById(id: number): Promise<Result<ProjectWithLanguageNames>> {
   try {
     const rawProjects = await baseJoinQuery().where(eq(projects.id, id)).limit(1);
-
-    if (rawProjects.length === 0) {
-      return { ok: false, error: { message: 'Project not found' } };
-    }
-
-    const project = mapProjectDataToProjectWithLanguages(rawProjects[0]);
-
-    return { ok: true, data: project };
+    if (rawProjects.length === 0) return err(ErrorCode.PROJECT_NOT_FOUND);
+    return ok(mapToProjectWithLanguages(rawProjects[0]));
   } catch {
-    return { ok: false, error: { message: 'Failed to fetch project' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
-export async function createProject(input: CreateProjectInput): Promise<Result<Project>> {
+export async function create(input: CreateProjectInput): Promise<Result<Project>> {
   try {
     return await db.transaction(async (tx) => {
       const { bibleId, bookId, projectUnitStatus = 'not_started', ...projectData } = input;
@@ -199,16 +171,13 @@ export async function createProject(input: CreateProjectInput): Promise<Result<P
 
       const [projectUnit] = await tx
         .insert(project_units)
-        .values({
-          projectId: project.id,
-          status: projectUnitStatus,
-        })
+        .values({ projectId: project.id, status: projectUnitStatus })
         .returning();
 
-      const bibleBookEntries = bookId.map((bookId) => ({
+      const bibleBookEntries = bookId.map((id) => ({
         projectUnitId: projectUnit.id,
         bibleId,
-        bookId,
+        bookId: id,
       }));
 
       if (bibleBookEntries.length > 0) {
@@ -227,17 +196,23 @@ export async function createProject(input: CreateProjectInput): Promise<Result<P
         throw new Error(assignmentsResult.error.message);
       }
 
-      return { ok: true, data: project };
+      return ok(project);
     });
-  } catch {
-    return { ok: false, error: { message: 'Failed to create project' } };
+  } catch (e) {
+    logger.error({
+      cause: e,
+      message: 'Failed to create project',
+      context: {
+        organization: input.organization,
+        bibleId: input.bibleId,
+        bookId: input.bookId,
+      },
+    });
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
-export async function updateProject(
-  id: number,
-  input: UpdateProjectInput
-): Promise<Result<Project>> {
+export async function update(id: number, input: UpdateProjectInput): Promise<Result<Project>> {
   try {
     return await db.transaction(async (tx) => {
       const { bibleId, bookId, projectUnitStatus, ...projectData } = input;
@@ -248,9 +223,7 @@ export async function updateProject(
         .where(eq(projects.id, id))
         .returning();
 
-      if (!updated) {
-        return { ok: false, error: { message: 'Project not found' } };
-      }
+      if (!updated) return err(ErrorCode.PROJECT_NOT_FOUND);
 
       if (projectUnitStatus !== undefined) {
         await tx
@@ -259,27 +232,23 @@ export async function updateProject(
           .where(eq(project_units.projectId, id));
       }
 
-      return { ok: true, data: updated };
+      return ok(updated);
     });
   } catch {
-    return { ok: false, error: { message: 'Failed to update project' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
-export async function deleteProject(id: number): Promise<Result<{ id: number }>> {
+export async function remove(id: number): Promise<Result<void>> {
   try {
-    const result = await db
+    const [deleted] = await db
       .delete(projects)
       .where(eq(projects.id, id))
       .returning({ id: projects.id });
-
-    if (result.length === 0) {
-      return { ok: false, error: { message: 'Project not found' } };
-    }
-
-    return { ok: true, data: { id: result[0].id } };
+    if (!deleted) return err(ErrorCode.PROJECT_NOT_FOUND);
+    return ok(undefined);
   } catch {
-    return { ok: false, error: { message: 'Failed to delete project' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
@@ -293,12 +262,9 @@ export async function getProjectIdByUnitId(
       .where(eq(project_units.id, projectUnitId))
       .limit(1);
 
-    if (!unit) {
-      return { ok: false, error: { message: 'Project unit not found' } };
-    }
-
-    return { ok: true, data: { projectId: unit.projectId } };
+    if (!unit) return err(ErrorCode.PROJECT_UNIT_NOT_FOUND);
+    return ok({ projectId: unit.projectId });
   } catch {
-    return { ok: false, error: { message: 'Failed to resolve project unit' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }

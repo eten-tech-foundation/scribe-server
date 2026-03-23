@@ -9,8 +9,8 @@ import { getAssignmentForVerse } from '@/domains/chapter-assignments/chapter-ass
 import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-assignments.policy';
 import { resolveIsProjectMember } from '@/domains/projects/project-users/project-users.handlers';
 import { ProjectPolicy } from '@/domains/projects/project.policy';
-import * as projectHandler from '@/domains/projects/projects.handlers';
-import { getProjectIdByUnitId } from '@/domains/projects/projects.handlers';
+import * as projectHandler from '@/domains/projects/projects.service';
+import { getProjectIdByUnitId } from '@/domains/projects/projects.service';
 import { PERMISSIONS } from '@/lib/permissions';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';

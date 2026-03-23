@@ -9,7 +9,7 @@
 
 import { ROLES } from '@/lib/roles';
 
-import type { ProjectWithLanguageNames } from './projects.handlers';
+import type { ProjectWithLanguageNames } from './projects.types';
 
 interface PolicyUser {
   id: number;

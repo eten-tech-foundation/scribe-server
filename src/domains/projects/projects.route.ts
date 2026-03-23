@@ -1,73 +1,27 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 import * as HttpStatusPhrases from 'stoker/http-status-phrases';
-import { jsonContent } from 'stoker/openapi/helpers';
+import { jsonContent, jsonContentRequired } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import {
-  chapterStatusEnum,
-  insertProjectsSchema,
-  patchProjectsClientSchema,
-  selectProjectsSchema,
-} from '@/db/schema';
-import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
+import { ZOD_ERROR_MESSAGES } from '@/lib/constants';
 import { PERMISSIONS } from '@/lib/permissions';
+import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import { resolveIsProjectMember } from './project-users/project-users.handlers';
 import { ProjectPolicy } from './project.policy';
-import * as projectHandler from './projects.handlers';
-
-// ─── Response schemas ─────────────────────────────────────────────────────────
-
-const chapterStatusCountsSchema = z.object(
-  chapterStatusEnum.enumValues.reduce(
-    (acc, status) => {
-      acc[status] = z.number().int().min(0);
-      return acc;
-    },
-    {} as Record<string, z.ZodNumber>
-  )
-);
-
-const workflowStepSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-});
-
-const projectWithLanguageNamesSchema = selectProjectsSchema
-  .omit({ sourceLanguage: true, targetLanguage: true })
-  .extend({
-    sourceLanguageName: z.string(),
-    targetLanguageName: z.string(),
-    sourceName: z.string(),
-    lastChapterActivity: z.union([z.date(), z.string()]).nullable(),
-    createdAt: z.union([z.date(), z.string()]).nullable(),
-    updatedAt: z.union([z.date(), z.string()]).nullable(),
-    chapterStatusCounts: chapterStatusCountsSchema,
-    workflowConfig: z.array(workflowStepSchema),
-  });
-
-// ─── Request schemas ──────────────────────────────────────────────────────────
-
-const createProjectWithUnitsSchema = insertProjectsSchema.extend({
-  bibleId: z.number().int(),
-  bookId: z.array(z.number().int()),
-  projectUnitStatus: z.enum(['not_started', 'in_progress', 'completed']).default('not_started'),
-});
-
-const updateProjectWithUnitsSchema = patchProjectsClientSchema.extend({
-  bibleId: z.number().int().optional(),
-  bookId: z.array(z.number().int()).optional(),
-  projectUnitStatus: z.enum(['not_started', 'in_progress', 'completed']).optional(),
-});
+import * as projectService from './projects.service';
+import {
+  createProjectWithUnitsSchema,
+  projectResponseSchema,
+  projectWithLanguageNamesSchema,
+  updateProjectWithUnitsSchema,
+} from './projects.types';
 
 const idParam = z.object({
-  id: z.coerce.number().openapi({
-    param: { name: 'id', in: 'path', required: true },
-    example: 1,
-  }),
+  id: z.coerce.number().openapi({ param: { name: 'id', in: 'path', required: true } }),
 });
 
 // ─── GET /projects ────────────────────────────────────────────────────────────
@@ -77,10 +31,50 @@ const listProjectsRoute = createRoute({
   method: 'get',
   path: '/projects',
   middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  summary: 'Get all projects',
+  description: 'Project Managers: all projects in their organisation.',
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      projectWithLanguageNamesSchema.array().openapi('Projects'),
-      'List of projects'
+    [HttpStatusCodes.OK]: jsonContent(projectWithLanguageNamesSchema.array(), 'List of projects'),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      createMessageObjectSchema('Unauthorized'),
+      'Authentication required'
+    ),
+    [HttpStatusCodes.FORBIDDEN]: jsonContent(
+      createMessageObjectSchema('Forbidden'),
+      'Insufficient permissions'
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
+      'Internal server error'
+    ),
+  },
+});
+
+server.openapi(listProjectsRoute, async (c) => {
+  const currentUser = c.get('user')!;
+  if (!ProjectPolicy.list(currentUser))
+    return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
+
+  const result = await projectService.getProjectsByOrganization(currentUser.organization);
+  if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
+});
+
+// ─── POST /projects ───────────────────────────────────────────────────────────
+
+const createProjectRoute = createRoute({
+  tags: ['Projects'],
+  method: 'post',
+  path: '/projects',
+  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_CREATE)] as const,
+  summary: 'Create a new project',
+  description: 'Project Manager only.',
+  request: { body: jsonContentRequired(createProjectWithUnitsSchema, 'Project to create') },
+  responses: {
+    [HttpStatusCodes.CREATED]: jsonContent(projectResponseSchema, 'Created project'),
+    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+      createMessageObjectSchema(HttpStatusPhrases.BAD_REQUEST),
+      'Constraint violation'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       createMessageObjectSchema('Unauthorized'),
@@ -95,70 +89,6 @@ const listProjectsRoute = createRoute({
       'Internal server error'
     ),
   },
-  summary: 'Get all projects',
-  description: 'Project Managers: all projects in their organisation.',
-});
-
-server.openapi(listProjectsRoute, async (c) => {
-  const currentUser = c.get('user')!;
-  const policyUser = {
-    id: currentUser.id,
-    role: currentUser.role,
-    roleName: currentUser.roleName,
-    organization: currentUser.organization,
-  };
-
-  if (!ProjectPolicy.list(policyUser)) {
-    return c.json(
-      { message: 'Forbidden: You do not have permission to list all projects.' },
-      HttpStatusCodes.FORBIDDEN
-    );
-  }
-
-  const result = await projectHandler.getProjectsByOrganization(currentUser.organization);
-  if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json({ message: result.error.message as string }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
-});
-
-// ─── POST /projects ───────────────────────────────────────────────────────────
-
-const createProjectRoute = createRoute({
-  tags: ['Projects'],
-  method: 'post',
-  path: '/projects',
-  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_CREATE)] as const,
-  request: {
-    body: jsonContent(createProjectWithUnitsSchema, 'The project to create'),
-  },
-  responses: {
-    [HttpStatusCodes.CREATED]: jsonContent(selectProjectsSchema, 'The created project'),
-    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
-      createMessageObjectSchema('Bad Request'),
-      'Constraint violation'
-    ),
-    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      createMessageObjectSchema('Unauthorized'),
-      'Authentication required'
-    ),
-    [HttpStatusCodes.FORBIDDEN]: jsonContent(
-      createMessageObjectSchema('Forbidden'),
-      'Insufficient permissions'
-    ),
-    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-      z.object({
-        success: z.boolean(),
-        error: z.object({
-          issues: z.array(
-            z.object({ code: z.string(), path: z.array(z.string()), message: z.string() })
-          ),
-          name: z.string(),
-        }),
-      }),
-      'Validation error'
-    ),
-  },
-  summary: 'Create a new project',
-  description: 'Project Manager only.',
 });
 
 server.openapi(createProjectRoute, async (c) => {
@@ -168,9 +98,9 @@ server.openapi(createProjectRoute, async (c) => {
   projectData.createdBy = currentUser.id;
   projectData.organization = currentUser.organization;
 
-  const result = await projectHandler.createProject(projectData);
+  const result = await projectService.createProject(projectData);
   if (result.ok) return c.json(result.data, HttpStatusCodes.CREATED);
-  return c.json({ message: result.error.message as string }, HttpStatusCodes.BAD_REQUEST);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
 
 // ─── GET /projects/:id ────────────────────────────────────────────────────────
@@ -180,6 +110,7 @@ const getProjectRoute = createRoute({
   method: 'get',
   path: '/projects/{id}',
   middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  summary: 'Get a project by ID',
   request: { params: idParam },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(projectWithLanguageNamesSchema, 'The project'),
@@ -192,7 +123,7 @@ const getProjectRoute = createRoute({
       'Insufficient permissions'
     ),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
+      createMessageObjectSchema('Not Found'),
       'Project not found'
     ),
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
@@ -200,33 +131,19 @@ const getProjectRoute = createRoute({
       'Internal server error'
     ),
   },
-  summary: 'Get a project by ID',
 });
 
 server.openapi(getProjectRoute, async (c) => {
   const { id } = c.req.valid('param');
   const currentUser = c.get('user')!;
-  const policyUser = {
-    id: currentUser.id,
-    role: currentUser.role,
-    roleName: currentUser.roleName,
-    organization: currentUser.organization,
-  };
 
-  const result = await projectHandler.getProjectById(id);
-  if (!result.ok) {
-    return result.error.message === 'Project not found'
-      ? c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND)
-      : c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
-  }
+  const result = await projectService.getProjectById(id);
+  if (!result.ok)
+    return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 
   const isProjectMember = await resolveIsProjectMember(id, currentUser.id, currentUser.roleName);
-
-  if (!ProjectPolicy.read(policyUser, result.data, isProjectMember)) {
-    return c.json(
-      { message: 'Forbidden: You do not have permission to view this project.' },
-      HttpStatusCodes.FORBIDDEN
-    );
+  if (!ProjectPolicy.read(currentUser, result.data, isProjectMember)) {
+    return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
   }
 
   return c.json(result.data, HttpStatusCodes.OK);
@@ -239,15 +156,17 @@ const updateProjectRoute = createRoute({
   method: 'patch',
   path: '/projects/{id}',
   middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_UPDATE)] as const,
+  summary: 'Update a project',
+  description: 'Project Manager only.',
   request: {
     params: idParam,
-    body: jsonContent(updateProjectWithUnitsSchema, 'The project updates'),
+    body: jsonContentRequired(updateProjectWithUnitsSchema, 'Project updates'),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectProjectsSchema, 'The updated project'),
+    [HttpStatusCodes.OK]: jsonContent(projectResponseSchema, 'Updated project'),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
-      createMessageObjectSchema('Bad Request'),
-      'Constraint error'
+      createMessageObjectSchema(HttpStatusPhrases.BAD_REQUEST),
+      'Constraint violation'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       createMessageObjectSchema('Unauthorized'),
@@ -258,75 +177,41 @@ const updateProjectRoute = createRoute({
       'Insufficient permissions'
     ),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
+      createMessageObjectSchema('Not Found'),
       'Project not found'
     ),
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-      z.object({
-        success: z.boolean(),
-        error: z.object({
-          issues: z.array(
-            z.object({ code: z.string(), path: z.array(z.string()), message: z.string() })
-          ),
-          name: z.string(),
-        }),
-      }),
-      'Validation error'
+      createMessageObjectSchema('Unprocessable Entity'),
+      'No updates provided'
     ),
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
       'Internal server error'
     ),
   },
-  summary: 'Update a project',
-  description: 'Project Manager only.',
 });
 
 server.openapi(updateProjectRoute, async (c) => {
   const { id } = c.req.valid('param');
   const updates = c.req.valid('json');
   const currentUser = c.get('user')!;
-  const policyUser = {
-    id: currentUser.id,
-    role: currentUser.role,
-    roleName: currentUser.roleName,
-    organization: currentUser.organization,
-  };
 
   if (Object.keys(updates).length === 0) {
+    return c.json({ message: ZOD_ERROR_MESSAGES.NO_UPDATES }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
+  }
+
+  const projectResult = await projectService.getProjectById(id);
+  if (!projectResult.ok)
     return c.json(
-      {
-        success: false,
-        error: {
-          issues: [
-            {
-              code: ZOD_ERROR_CODES.INVALID_UPDATES,
-              path: [],
-              message: ZOD_ERROR_MESSAGES.NO_UPDATES,
-            },
-          ],
-          name: 'ZodError',
-        },
-      },
-      HttpStatusCodes.UNPROCESSABLE_ENTITY
+      { message: projectResult.error.message },
+      getHttpStatus(projectResult.error) as never
     );
-  }
-
-  const projectResult = await projectHandler.getProjectById(id);
-  if (!projectResult.ok) {
+  if (!ProjectPolicy.update(currentUser, projectResult.data))
     return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
-  }
 
-  if (!ProjectPolicy.update(policyUser, projectResult.data)) {
-    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
-  }
-
-  const result = await projectHandler.updateProject(id, updates);
+  const result = await projectService.updateProject(id, updates);
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-
-  return result.error.message === 'Project not found'
-    ? c.json({ message: result.error.message as string }, HttpStatusCodes.NOT_FOUND)
-    : c.json({ message: result.error.message as string }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
 
 // ─── DELETE /projects/:id ─────────────────────────────────────────────────────
@@ -336,6 +221,8 @@ const deleteProjectRoute = createRoute({
   method: 'delete',
   path: '/projects/{id}',
   middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_DELETE)] as const,
+  summary: 'Delete a project',
+  description: 'Project Manager only.',
   request: { params: idParam },
   responses: {
     [HttpStatusCodes.NO_CONTENT]: { description: 'Project deleted' },
@@ -348,7 +235,7 @@ const deleteProjectRoute = createRoute({
       'Insufficient permissions'
     ),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
+      createMessageObjectSchema('Not Found'),
       'Project not found'
     ),
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
@@ -356,33 +243,22 @@ const deleteProjectRoute = createRoute({
       'Internal server error'
     ),
   },
-  summary: 'Delete a project',
-  description: 'Project Manager only.',
 });
 
 server.openapi(deleteProjectRoute, async (c) => {
   const { id } = c.req.valid('param');
   const currentUser = c.get('user')!;
-  const policyUser = {
-    id: currentUser.id,
-    role: currentUser.role,
-    roleName: currentUser.roleName,
-    organization: currentUser.organization,
-  };
 
-  const projectResult = await projectHandler.getProjectById(id);
-  if (!projectResult.ok) {
+  const projectResult = await projectService.getProjectById(id);
+  if (!projectResult.ok)
+    return c.json(
+      { message: projectResult.error.message },
+      getHttpStatus(projectResult.error) as never
+    );
+  if (!ProjectPolicy.delete(currentUser, projectResult.data))
     return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
-  }
 
-  if (!ProjectPolicy.delete(policyUser, projectResult.data)) {
-    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
-  }
-
-  const result = await projectHandler.deleteProject(id);
+  const result = await projectService.deleteProject(id);
   if (result.ok) return c.body(null, HttpStatusCodes.NO_CONTENT);
-
-  return result.error.message === 'Project not found'
-    ? c.json({ message: result.error.message as string }, HttpStatusCodes.NOT_FOUND)
-    : c.json({ message: result.error.message as string }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
