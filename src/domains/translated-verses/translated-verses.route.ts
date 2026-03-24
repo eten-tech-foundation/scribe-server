@@ -4,7 +4,7 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { insertTranslatedVersesSchema, selectTranslatedVersesSchema } from '@/db/schema';
+import { insertTranslatedVersesSchema } from '@/db/schema';
 import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-assignments.policy';
 import { getAssignmentForVerse } from '@/domains/chapter-assignments/chapter-assignments.service';
 import { resolveIsProjectMember } from '@/domains/projects/project-users/project-users.handlers';
@@ -12,10 +12,12 @@ import { ProjectPolicy } from '@/domains/projects/project.policy';
 import * as projectHandler from '@/domains/projects/projects.handlers';
 import { getProjectIdByUnitId } from '@/domains/projects/projects.handlers';
 import { PERMISSIONS } from '@/lib/permissions';
+import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
-import * as translatedVersesHandler from './translated-verses.handlers';
+import * as translatedVersesService from './translated-verses.service';
+import { translatedVerseResponseSchema } from './translated-verses.types';
 
 // ─── GET /translated-verses/:id ───────────────────────────────────────────────
 
@@ -34,7 +36,7 @@ const getTranslatedVerseRoute = createRoute({
     }),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectTranslatedVersesSchema, 'The translated verse'),
+    [HttpStatusCodes.OK]: jsonContent(translatedVerseResponseSchema, 'The translated verse'),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'Translated verse not found'
@@ -66,11 +68,12 @@ server.openapi(getTranslatedVerseRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  const verseResult = await translatedVersesHandler.getTranslatedVerseById(id);
+  const verseResult = await translatedVersesService.getTranslatedVerseById(id);
   if (!verseResult.ok) {
-    return verseResult.error.message === 'Translated verse not found'
-      ? c.json({ message: verseResult.error.message }, HttpStatusCodes.NOT_FOUND)
-      : c.json({ message: verseResult.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+    return c.json(
+      { message: verseResult.error.message },
+      getHttpStatus(verseResult.error) as never
+    );
   }
 
   const unitResult = await getProjectIdByUnitId(verseResult.data.projectUnitId);
@@ -108,7 +111,7 @@ const upsertTranslatedVerseRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      selectTranslatedVersesSchema,
+      translatedVerseResponseSchema,
       'The created or updated translated verse'
     ),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
@@ -183,12 +186,12 @@ server.openapi(upsertTranslatedVerseRoute, async (c) => {
     );
   }
 
-  const result = await translatedVersesHandler.upsertTranslatedVerse(translatedVerseData);
+  const result = await translatedVersesService.upsertTranslatedVerse(translatedVerseData);
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
   }
 
-  return c.json({ message: result.error.message }, HttpStatusCodes.BAD_REQUEST);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
 
 // ─── GET /translated-verses ───────────────────────────────────────────────────
@@ -230,7 +233,7 @@ const listTranslatedVersesRoute = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      selectTranslatedVersesSchema.array().openapi('TranslatedVerses'),
+      translatedVerseResponseSchema.array().openapi('TranslatedVerses'),
       'The list of translated verses (optionally filtered)'
     ),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
@@ -284,7 +287,7 @@ server.openapi(listTranslatedVersesRoute, async (c) => {
     return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
   }
 
-  const result = await translatedVersesHandler.listTranslatedVerses({
+  const result = await translatedVersesService.listTranslatedVerses({
     projectUnitId,
     bookId,
     chapterNumber,
@@ -293,5 +296,5 @@ server.openapi(listTranslatedVersesRoute, async (c) => {
     return c.json(result.data, HttpStatusCodes.OK);
   }
 
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
