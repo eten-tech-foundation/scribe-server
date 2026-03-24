@@ -125,7 +125,11 @@ export async function findByIdWithAuthContext(
     if (!assignment) return err(ErrorCode.CHAPTER_ASSIGNMENT_NOT_FOUND);
     return ok(assignment);
   } catch (e) {
-    logger.error({ cause: e, message: 'Failed to fetch chapter assignment with auth context', context: { id, userId } });
+    logger.error({
+      cause: e,
+      message: 'Failed to fetch chapter assignment with auth context',
+      context: { id, userId },
+    });
     return err(ErrorCode.INTERNAL_ERROR);
   }
 }

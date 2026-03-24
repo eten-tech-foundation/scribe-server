@@ -5,7 +5,6 @@ import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { resolveIsProjectMember } from '@/domains/projects/project-users/project-users.handlers';
-import { ProjectPolicy } from '@/domains/projects/project.policy';
 import * as projectHandler from '@/domains/projects/projects.handlers';
 import { PERMISSIONS } from '@/lib/permissions';
 import { ErrorCode, getHttpStatus } from '@/lib/types';

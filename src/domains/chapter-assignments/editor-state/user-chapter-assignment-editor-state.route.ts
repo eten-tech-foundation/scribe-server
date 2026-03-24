@@ -160,5 +160,5 @@ server.openapi(saveEditorStateRoute, async (c) => {
   });
 
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });

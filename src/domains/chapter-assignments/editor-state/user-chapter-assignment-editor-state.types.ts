@@ -13,8 +13,15 @@ export type EditorStateResources = z.infer<typeof editorStateResourcesSchema>;
 
 // ─── API response schema ──────────────────────────────────────────────────────
 
-export const editorStateResponseSchema = z.object({
-  resources: z.record(z.unknown()).nullable(),
-});
+export const editorStateResponseSchema = z
+  .object({
+    bookCode: z.string(),
+    tabStatus: z.boolean(),
+    verseNumber: z.number(),
+    languageCode: z.string(),
+    chapterNumber: z.number(),
+    activeResource: z.string(),
+  })
+  .nullable();
 
 export type EditorStateResponse = z.infer<typeof editorStateResponseSchema>;

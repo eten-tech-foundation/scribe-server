@@ -5,6 +5,7 @@ import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { PERMISSIONS } from '@/lib/permissions';
+import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
@@ -75,7 +76,7 @@ server.openapi(registerPresenceRoute, async (c) => {
     chapterAssignmentId
   );
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
 
 server.openapi(removePresenceRoute, async (c) => {
@@ -84,5 +85,5 @@ server.openapi(removePresenceRoute, async (c) => {
 
   const result = await presenceService.removePresence(currentUser.id, chapterAssignmentId);
   if (result.ok) return c.body(null, HttpStatusCodes.NO_CONTENT);
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });

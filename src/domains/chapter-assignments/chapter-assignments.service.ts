@@ -1,17 +1,14 @@
-import type { DbTransaction, Result } from '@/lib/types';
+import type { DbTransaction } from '@/lib/types';
 
 import { db } from '@/db';
-import { logger } from '@/lib/logger';
-import { err, ErrorCode, ok } from '@/lib/types';
-
 import { resolveIsProjectMember } from '@/domains/projects/project-users/project-users.handlers';
 import { ProjectPolicy } from '@/domains/projects/project.policy';
 import * as projectHandler from '@/domains/projects/projects.handlers';
+import { logger } from '@/lib/logger';
+import { err, ErrorCode, ok } from '@/lib/types';
 
-import type { PolicyChapterAssignment } from './chapter-assignments.policy';
 import type {
   ChapterAssignmentRecord,
-  ChapterAssignmentRecordWithOrg,
   ChapterAssignmentResponse,
   ChapterAssignmentStatus,
   CreateChapterAssignmentRequestData,
@@ -38,7 +35,7 @@ export function toChapterAssignmentResponse(
   };
 }
 
-export function getChapterAssignment(id: number): Promise<Result<ChapterAssignmentRecordWithOrg>> {
+export function getChapterAssignment(id: number) {
   return repo.findByIdWithOrg(id);
 }
 
@@ -50,7 +47,7 @@ export async function getChapterAssignmentWithAuth(
     roleName: string;
     organization: number;
   }
-): Promise<Result<ChapterAssignmentResponse>> {
+) {
   // Get assignment with auth context in single query
   const assignmentResult = await repo.findByIdWithAuthContext(
     chapterAssignmentId,
@@ -76,9 +73,10 @@ export async function getChapterAssignmentWithAuth(
   }
 
   // Authorization check - moved from route handler
-  const isProjectMember = currentUser.roleName === 'translator' 
-    ? assignment.isProjectMember 
-    : await resolveIsProjectMember(assignment.projectId, currentUser.id, currentUser.roleName);
+  const isProjectMember =
+    currentUser.roleName === 'translator'
+      ? assignment.isProjectMember
+      : await resolveIsProjectMember(assignment.projectId, currentUser.id, currentUser.roleName);
 
   if (!ProjectPolicy.read(policyUser, projectResult.data, isProjectMember)) {
     return err(ErrorCode.FORBIDDEN);
@@ -87,16 +85,11 @@ export async function getChapterAssignmentWithAuth(
   return ok(toChapterAssignmentResponse(assignment));
 }
 
-export function getAssignmentForVerse(
-  projectUnitId: number,
-  bibleTextId: number
-): Promise<Result<PolicyChapterAssignment>> {
+export function getAssignmentForVerse(projectUnitId: number, bibleTextId: number) {
   return repo.findForVerse(projectUnitId, bibleTextId);
 }
 
-export async function createChapterAssignment(
-  data: CreateChapterAssignmentRequestData
-): Promise<Result<ChapterAssignmentResponse>> {
+export async function createChapterAssignment(data: CreateChapterAssignmentRequestData) {
   return db.transaction(async (tx) => {
     try {
       const assignment = await repo.insert(data, tx);
@@ -140,7 +133,7 @@ export async function createChapterAssignmentForProjectUnit(
   bibleId: number,
   bookIds: number[],
   tx: DbTransaction
-): Promise<Result<ChapterAssignmentRecord[]>> {
+) {
   try {
     const chapters = await repo.findChaptersForProjectUnit(bibleId, bookIds, tx);
     if (chapters.length === 0) return ok([]);
@@ -170,8 +163,8 @@ export async function updateChapterAssignment(
   id: number,
   data: UpdateChapterAssignmentRequestData,
   externalTx?: DbTransaction
-): Promise<Result<ChapterAssignmentResponse>> {
-  const exec = async (tx: DbTransaction): Promise<Result<ChapterAssignmentResponse>> => {
+) {
+  const exec = async (tx: DbTransaction) => {
     try {
       const current = await repo.findById(id, tx);
       if (!current) return err(ErrorCode.CHAPTER_ASSIGNMENT_NOT_FOUND);
@@ -197,9 +190,7 @@ export async function updateChapterAssignment(
   return externalTx ? exec(externalTx) : db.transaction(exec);
 }
 
-export async function submitChapterAssignment(
-  chapterAssignmentId: number
-): Promise<Result<ChapterAssignmentResponse>> {
+export async function submitChapterAssignment(chapterAssignmentId: number) {
   return db.transaction(async (tx) => {
     try {
       const current = await repo.findById(chapterAssignmentId, tx);
@@ -247,7 +238,7 @@ export async function submitChapterAssignment(
   });
 }
 
-export function deleteChapterAssignment(id: number): Promise<Result<void>> {
+export function deleteChapterAssignment(id: number) {
   return repo.remove(id);
 }
 
@@ -269,7 +260,7 @@ async function recordStatusChange(
   tx: DbTransaction,
   current: ChapterAssignmentRecord,
   updated: ChapterAssignmentRecord
-): Promise<void> {
+) {
   if (updated.status !== current.status) {
     await repo.insertStatusHistory(tx, updated.id, updated.status as ChapterAssignmentStatus);
   }
@@ -280,7 +271,7 @@ async function recordUserAssignmentChanges(
   current: ChapterAssignmentRecord,
   updated: ChapterAssignmentRecord,
   data: UpdateChapterAssignmentRequestData
-): Promise<void> {
+) {
   if (
     data.assignedUserId !== undefined &&
     data.assignedUserId !== current.assignedUserId &&
