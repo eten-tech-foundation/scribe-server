@@ -62,3 +62,6 @@ export type ProjectWithLanguageNames = z.infer<typeof projectWithLanguageNamesSc
 export type CreateProjectInput = z.infer<typeof createProjectWithUnitsSchema>;
 export type UpdateProjectInput = z.infer<typeof updateProjectWithUnitsSchema>;
 export type ProjectResponse = z.infer<typeof projectResponseSchema>;
+export interface ProjectUnitRef {
+  projectId: number;
+}

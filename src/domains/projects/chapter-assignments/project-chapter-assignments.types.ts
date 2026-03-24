@@ -39,3 +39,7 @@ export const chapterAssignmentProgressResponseSchema = z.object({
 export type AssignmentUser = z.infer<typeof userResponseSchema>;
 export type ChapterAssignmentResponse = z.infer<typeof chapterAssignmentResponseSchema>;
 export type ChapterAssignmentProgress = z.infer<typeof chapterAssignmentProgressResponseSchema>;
+
+export interface AssignUserInput {
+  assignedUserId: number;
+}
