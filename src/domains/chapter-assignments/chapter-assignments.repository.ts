@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import type { DbTransaction, Result, USJDocument } from '@/lib/types';
 import type { VerseData } from '@/lib/usfm-converter';
@@ -12,6 +12,7 @@ import {
   chapter_assignment_status_history,
   chapter_assignments,
   project_units,
+  project_users,
   projects,
   translated_verses,
 } from '@/db/schema';
@@ -27,6 +28,12 @@ import type {
   CreateChapterAssignmentRequestData,
   UpdateChapterAssignmentRequestData,
 } from './chapter-assignments.types';
+
+export interface ChapterAssignmentWithAuthContext extends ChapterAssignmentRecord {
+  projectId: number;
+  organizationId: number;
+  isProjectMember: boolean;
+}
 
 const USJ_SPEC_VERSION = '0.0.1';
 
@@ -70,6 +77,55 @@ export async function findByIdWithOrg(id: number): Promise<Result<ChapterAssignm
     return ok(assignment);
   } catch (e) {
     logger.error({ cause: e, message: 'Failed to fetch chapter assignment', context: { id } });
+    return err(ErrorCode.INTERNAL_ERROR);
+  }
+}
+
+export async function findByIdWithAuthContext(
+  id: number,
+  userId: number,
+  roleName: string
+): Promise<Result<ChapterAssignmentWithAuthContext>> {
+  try {
+    const [assignment] = await db
+      .select({
+        // Assignment fields
+        id: chapter_assignments.id,
+        projectUnitId: chapter_assignments.projectUnitId,
+        bibleId: chapter_assignments.bibleId,
+        bookId: chapter_assignments.bookId,
+        chapterNumber: chapter_assignments.chapterNumber,
+        assignedUserId: chapter_assignments.assignedUserId,
+        peerCheckerId: chapter_assignments.peerCheckerId,
+        status: chapter_assignments.status,
+        submittedTime: chapter_assignments.submittedTime,
+        createdAt: chapter_assignments.createdAt,
+        updatedAt: chapter_assignments.updatedAt,
+        // Project context
+        projectId: projects.id,
+        organizationId: projects.organization,
+        // Project membership (LEFT JOIN to handle non-members)
+        isProjectMember: sql<boolean>`CASE WHEN ${project_users.userId} IS NOT NULL THEN true ELSE false END`,
+      })
+      .from(chapter_assignments)
+      .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
+      .innerJoin(projects, eq(project_units.projectId, projects.id))
+      .leftJoin(
+        project_users,
+        and(
+          eq(project_users.projectId, projects.id),
+          eq(project_users.userId, userId),
+          // Only check membership for translators (per resolveIsProjectMember logic)
+          roleName === 'translator' ? sql`1=1` : sql`1=0`
+        )
+      )
+      .where(eq(chapter_assignments.id, id))
+      .limit(1);
+
+    if (!assignment) return err(ErrorCode.CHAPTER_ASSIGNMENT_NOT_FOUND);
+    return ok(assignment);
+  } catch (e) {
+    logger.error({ cause: e, message: 'Failed to fetch chapter assignment with auth context', context: { id, userId } });
     return err(ErrorCode.INTERNAL_ERROR);
   }
 }

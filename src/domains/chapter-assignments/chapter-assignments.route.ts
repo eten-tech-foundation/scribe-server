@@ -14,7 +14,6 @@ import { server } from '@/server/server';
 
 import { ChapterAssignmentPolicy } from './chapter-assignments.policy';
 import * as chapterAssignmentService from './chapter-assignments.service';
-import { toChapterAssignmentResponse } from './chapter-assignments.service';
 import { chapterAssignmentResponseSchema } from './chapter-assignments.types';
 
 const chapterAssignmentIdParam = z.object({
@@ -274,42 +273,17 @@ const getChapterAssignmentRoute = createRoute({
 server.openapi(getChapterAssignmentRoute, async (c) => {
   const { chapterAssignmentId } = c.req.valid('param');
   const currentUser = c.get('user')!;
-  const policyUser = {
-    id: currentUser.id,
-    role: currentUser.role,
-    roleName: currentUser.roleName,
-    organization: currentUser.organization,
-  };
 
-  const result = await chapterAssignmentService.getChapterAssignment(chapterAssignmentId);
+  const result = await chapterAssignmentService.getChapterAssignmentWithAuth(
+    chapterAssignmentId,
+    currentUser
+  );
+
   if (!result.ok) {
     return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
   }
 
-  const unitResult = await projectHandler.getProjectIdByUnitId(result.data.projectUnitId);
-  if (!unitResult.ok) {
-    return c.json({ message: 'Chapter assignment not found' }, HttpStatusCodes.NOT_FOUND);
-  }
-
-  const projectResult = await projectHandler.getProjectById(unitResult.data.projectId);
-  if (!projectResult.ok) {
-    return c.json({ message: 'Chapter assignment not found' }, HttpStatusCodes.NOT_FOUND);
-  }
-
-  const isProjectMember = await resolveIsProjectMember(
-    unitResult.data.projectId,
-    currentUser.id,
-    currentUser.roleName
-  );
-
-  if (!ProjectPolicy.read(policyUser, projectResult.data, isProjectMember)) {
-    return c.json(
-      { message: 'Forbidden: You do not have permission to view this assignment.' },
-      HttpStatusCodes.FORBIDDEN
-    );
-  }
-
-  return c.json(toChapterAssignmentResponse(result.data), HttpStatusCodes.OK);
+  return c.json(result.data, HttpStatusCodes.OK);
 });
 
 // ─── DELETE /chapter-assignments/:chapterAssignmentId ────────────────────────
