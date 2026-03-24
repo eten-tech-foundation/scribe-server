@@ -10,7 +10,6 @@ import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
-import { resolveIsProjectMember } from './project-users/project-users.handlers';
 import { ProjectPolicy } from './project.policy';
 import * as projectService from './projects.service';
 import {
@@ -19,6 +18,7 @@ import {
   projectWithLanguageNamesSchema,
   updateProjectWithUnitsSchema,
 } from './projects.types';
+import { resolveIsProjectMember } from './users/project-users.repository';
 
 const idParam = z.object({
   id: z.coerce.number().openapi({ param: { name: 'id', in: 'path', required: true } }),
