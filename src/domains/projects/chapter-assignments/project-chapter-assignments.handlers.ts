@@ -1,7 +1,7 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-import type { ChapterAssignmentRecord } from '@/domains/chapter-assignments/chapter-assignments.handlers';
+import type { ChapterAssignmentRecord } from '@/domains/chapter-assignments/chapter-assignments.types';
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
