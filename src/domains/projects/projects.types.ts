@@ -51,7 +51,7 @@ export const updateProjectWithUnitsSchema = patchProjectsClientSchema
     projectUnitStatus: z.enum(['not_started', 'in_progress', 'completed']).optional(),
   });
 
-// ─── Domain types inferred from Zod ───────────────────────────────────────────
+// Domain types inferred from Zod
 
 export type Project = z.infer<typeof selectProjectsSchema>;
 export type CreateProjectData = z.infer<typeof insertProjectsSchema>;

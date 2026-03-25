@@ -4,6 +4,7 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent, jsonContentRequired } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
+import { resolveIsProjectMember } from '@/domains/projects/users/project-users.service';
 import { ZOD_ERROR_MESSAGES } from '@/lib/constants';
 import { PERMISSIONS } from '@/lib/permissions';
 import { getHttpStatus } from '@/lib/types';
@@ -18,7 +19,6 @@ import {
   projectWithLanguageNamesSchema,
   updateProjectWithUnitsSchema,
 } from './projects.types';
-import { resolveIsProjectMember } from './users/project-users.repository';
 
 const idParam = z.object({
   id: z.coerce.number().openapi({ param: { name: 'id', in: 'path', required: true } }),

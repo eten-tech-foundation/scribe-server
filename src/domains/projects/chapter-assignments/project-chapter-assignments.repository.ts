@@ -1,7 +1,10 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-import type { ChapterAssignmentRecord } from '@/domains/chapter-assignments/chapter-assignments.types';
+import type {
+  ChapterAssignmentRecord,
+  ChapterAssignmentStatus,
+} from '@/domains/chapter-assignments/chapter-assignments.types';
 import type { DbTransaction, Result } from '@/lib/types';
 
 import { db } from '@/db';
@@ -219,7 +222,7 @@ export async function assignAllToUser(
         .where(
           inArray(
             chapter_assignments.projectUnitId,
-            db
+            tx
               .select({ id: project_units.id })
               .from(project_units)
               .where(eq(project_units.projectId, projectId))
@@ -239,7 +242,7 @@ export async function assignAllToUser(
         .where(
           inArray(
             chapter_assignments.projectUnitId,
-            db
+            tx
               .select({ id: project_units.id })
               .from(project_units)
               .where(eq(project_units.projectId, projectId))
@@ -260,14 +263,14 @@ export async function assignAllToUser(
               chapterAssignmentId: updatedAssignment.id,
               assignedUserId,
               role: 'drafter' as const,
-              status: updatedAssignment.status,
+              status: updatedAssignment.status as ChapterAssignmentStatus,
             });
           }
 
           if (currentAssignment.status !== updatedAssignment.status) {
             statusHistoryRecords.push({
               chapterAssignmentId: updatedAssignment.id,
-              status: updatedAssignment.status,
+              status: updatedAssignment.status as ChapterAssignmentStatus,
             });
           }
         }

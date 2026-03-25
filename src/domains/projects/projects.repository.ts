@@ -47,7 +47,7 @@ function mapToProjectWithLanguages(rawProject: RawProjectRow): ProjectWithLangua
   };
 }
 
-// ─── Repository functions ─────────────────────────────────────────────────────
+// Repository functions
 
 export async function getByOrganization(
   organizationId: number
@@ -100,6 +100,7 @@ export async function create(input: CreateProjectInput): Promise<Result<Project>
           tx
         );
 
+      // Rollback transaction if cross-domain assignment creation fails
       if (!assignmentsResult.ok) {
         throw new Error(assignmentsResult.error.message);
       }

@@ -1,21 +1,13 @@
 import { z } from '@hono/zod-openapi';
 
+import { chapterAssignmentResponseSchema as sharedAssignmentSchema } from '@/domains/chapter-assignments/chapter-assignments.types';
+
 export const userResponseSchema = z.object({
   id: z.number().int(),
   displayName: z.string(),
 });
 
-export const chapterAssignmentResponseSchema = z.object({
-  id: z.number().int().optional(),
-  projectUnitId: z.number().int(),
-  bibleId: z.number().int(),
-  bookId: z.number().int(),
-  chapterNumber: z.number().int(),
-  assignedUserId: z.number().int().nullable().optional(),
-  submittedTime: z.date().nullable().optional(),
-  createdAt: z.date().nullable().optional(),
-  updatedAt: z.date().nullable().optional(),
-});
+export const chapterAssignmentResponseSchema = sharedAssignmentSchema;
 
 export const chapterAssignmentProgressResponseSchema = z.object({
   assignmentId: z.number(),
