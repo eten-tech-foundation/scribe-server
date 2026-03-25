@@ -5,12 +5,12 @@ import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { insertTranslatedVersesSchema } from '@/db/schema';
-import { getAssignmentForVerse } from '@/domains/chapter-assignments/chapter-assignments.handlers';
 import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-assignments.policy';
+import { getAssignmentForVerse } from '@/domains/chapter-assignments/chapter-assignments.service';
 import { ProjectPolicy } from '@/domains/projects/project.policy';
 import * as projectHandler from '@/domains/projects/projects.service';
 import { getProjectIdByUnitId } from '@/domains/projects/projects.service';
-import { resolveIsProjectMember } from '@/domains/projects/users/project-users.repository';
+import { resolveIsProjectMember } from '@/domains/projects/users/project-users.service';
 import { PERMISSIONS } from '@/lib/permissions';
 import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';

@@ -4,7 +4,7 @@ import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import { chapterStatusEnum, project_unit_bible_books, project_units, projects } from '@/db/schema';
-import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapter-assignments.handlers';
+import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapter-assignments.service';
 import { logger } from '@/lib/logger';
 import { err, ErrorCode, ok } from '@/lib/types';
 

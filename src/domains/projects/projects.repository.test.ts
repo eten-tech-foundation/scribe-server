@@ -44,7 +44,7 @@ vi.mock('@/db', () => ({
   },
 }));
 
-vi.mock('@/domains/chapter-assignments/chapter-assignments.handlers', () => ({
+vi.mock('@/domains/chapter-assignments/chapter-assignments.service', () => ({
   createChapterAssignmentForProjectUnit: vi.fn(),
 }));
 
@@ -188,7 +188,7 @@ describe('projects repository', () => {
   describe('create', () => {
     it('should create and return a new project', async () => {
       const chapterAssignmentsModule = await import(
-        '@/domains/chapter-assignments/chapter-assignments.handlers'
+        '@/domains/chapter-assignments/chapter-assignments.service'
       );
       const { bibleId, bookId, projectUnitStatus, ...projectWithoutExtras } = mockProjectInput;
 
@@ -232,7 +232,7 @@ describe('projects repository', () => {
 
     it('should return error if chapter assignment creation fails', async () => {
       const chapterAssignmentsModule = await import(
-        '@/domains/chapter-assignments/chapter-assignments.handlers'
+        '@/domains/chapter-assignments/chapter-assignments.service'
       );
       const { bibleId, bookId, projectUnitStatus, ...projectWithoutExtras } = mockProjectInput;
 
