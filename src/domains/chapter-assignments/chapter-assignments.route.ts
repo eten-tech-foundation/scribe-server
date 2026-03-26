@@ -203,7 +203,8 @@ const submitChapterAssignmentRoute = createRoute({
     ),
   },
   summary: 'Submit a chapter assignment',
-  description: 'Advances chapter assignment to next stage: draft → peer_check → community_review.',
+  description:
+    'Advances chapter assignment to next stage: draft → peer_check → community_review → linguist_check → theological_check → consultant_check → complete.',
 });
 
 server.openapi(submitChapterAssignmentRoute, async (c) => {
