@@ -4,8 +4,8 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import * as chapterAssignmentService from '@/domains/chapter-assignments/chapter-assignments.handlers';
 import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-assignments.policy';
+import * as chapterAssignmentService from '@/domains/chapter-assignments/chapter-assignments.service';
 import { UserPolicy } from '@/domains/users/user.policy';
 import * as userService from '@/domains/users/users.service';
 import { PERMISSIONS } from '@/lib/permissions';

@@ -1,5 +1,4 @@
-// import type { ChapterAssignmentStatus } from '@/domains/chapter-assignments/chapter-assignments.types';
-import type { ChapterAssignmentStatus } from '@/domains/chapter-assignments/chapter-assignments.handlers';
+import type { ChapterAssignmentStatus } from '@/domains/chapter-assignments/chapter-assignments.types';
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';

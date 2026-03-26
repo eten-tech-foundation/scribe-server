@@ -42,12 +42,12 @@ vi.mock('@/db', () => ({
 }));
 
 // Mock chapter assignments service used by create/update flows
-vi.mock('@/domains/chapter-assignments/chapter-assignments.handlers', () => ({
+vi.mock('@/domains/chapter-assignments/chapter-assignments.service', () => ({
   createChapterAssignmentForProjectUnit: vi.fn(),
 }));
 
 // Mock project chapter assignments service used by update flow
-vi.mock('@/domains/projects/chapter-assignments/project-chapter-assignments.handlers', () => ({
+vi.mock('@/domains/projects/chapter-assignments/project-chapter-assignments.service', () => ({
   deleteChapterAssignmentsByProject: vi.fn(),
 }));
 
@@ -199,7 +199,7 @@ describe('project Handler Functions', () => {
   describe('createProject', () => {
     it('should create and return a new project', async () => {
       const chapterAssignmentsModule = await import(
-        '@/domains/chapter-assignments/chapter-assignments.handlers'
+        '@/domains/chapter-assignments/chapter-assignments.service'
       );
       const { bibleId, bookId, projectUnitStatus, ...projectWithoutExtras } = mockProjectInput;
 
@@ -244,7 +244,7 @@ describe('project Handler Functions', () => {
 
     it('should return error if chapter assignment creation fails', async () => {
       const chapterAssignmentsModule = await import(
-        '@/domains/chapter-assignments/chapter-assignments.handlers'
+        '@/domains/chapter-assignments/chapter-assignments.service'
       );
       const { bibleId, bookId, projectUnitStatus, ...projectWithoutExtras } = mockProjectInput;
 

@@ -16,7 +16,7 @@ import {
   project_units,
   projects,
 } from '@/db/schema';
-import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapter-assignments.handlers';
+import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapter-assignments.service';
 
 export type Project = z.infer<typeof selectProjectsSchema>;
 

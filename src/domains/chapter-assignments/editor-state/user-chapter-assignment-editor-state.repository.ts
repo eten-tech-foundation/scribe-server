@@ -1,25 +1,21 @@
-import type { z } from '@hono/zod-openapi';
-
 import { and, eq, sql } from 'drizzle-orm';
 
-import type {
-  editorStateResourcesSchema,
-  insertUserChapterAssignmentEditorStateSchema,
-} from '@/db/schema';
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import { user_chapter_assignment_editor_state } from '@/db/schema';
 import { logger } from '@/lib/logger';
+import { err, ErrorCode, ok } from '@/lib/types';
 
-export type UpsertUserChapterAssignmentEditorStateInput = z.infer<
-  typeof insertUserChapterAssignmentEditorStateSchema
->;
+import type {
+  EditorStateResources,
+  UpsertEditorStateInput,
+} from './user-chapter-assignment-editor-state.types';
 
-export async function getEditorState(
+export async function findByUserAndAssignment(
   userId: number,
   chapterAssignmentId: number
-): Promise<Result<z.infer<typeof editorStateResourcesSchema>>> {
+): Promise<Result<EditorStateResources>> {
   try {
     const [result] = await db
       .select({ resources: user_chapter_assignment_editor_state.resources })
@@ -32,20 +28,18 @@ export async function getEditorState(
       )
       .limit(1);
 
-    return { ok: true, data: result?.resources ?? null };
-  } catch (err) {
+    return ok(result?.resources ?? null);
+  } catch (e) {
     logger.error({
-      cause: err,
+      cause: e,
       message: 'Failed to fetch editor state',
       context: { userId, chapterAssignmentId },
     });
-    return { ok: false, error: { message: 'Failed to fetch editor state' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
-export async function upsertEditorState(
-  input: UpsertUserChapterAssignmentEditorStateInput
-): Promise<Result<z.infer<typeof editorStateResourcesSchema>>> {
+export async function upsert(input: UpsertEditorStateInput): Promise<Result<EditorStateResources>> {
   try {
     const [result] = await db
       .insert(user_chapter_assignment_editor_state)
@@ -62,13 +56,9 @@ export async function upsertEditorState(
       })
       .returning({ resources: user_chapter_assignment_editor_state.resources });
 
-    return { ok: true, data: result.resources };
-  } catch (err) {
-    logger.error({
-      cause: err,
-      message: 'Failed to upsert editor state',
-      context: input,
-    });
-    return { ok: false, error: { message: 'Failed to save editor state' } };
+    return ok(result.resources);
+  } catch (e) {
+    logger.error({ cause: e, message: 'Failed to upsert editor state', context: { input } });
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }

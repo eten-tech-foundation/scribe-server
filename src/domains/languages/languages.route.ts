@@ -4,10 +4,11 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { selectLanguagesSchema } from '@/db/schema';
+import { getHttpStatus } from '@/lib/types';
 import { server } from '@/server/server';
 
-import * as languageHandler from './languages.handlers';
+import * as languageService from './languages.service';
+import { languageResponseSchema } from './languages.types';
 
 const listLanguagesRoute = createRoute({
   tags: ['Languages'],
@@ -15,7 +16,7 @@ const listLanguagesRoute = createRoute({
   path: '/languages',
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      selectLanguagesSchema.array().openapi('Languages'),
+      languageResponseSchema.array().openapi('Languages'),
       'The list of languages'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
@@ -32,13 +33,13 @@ const listLanguagesRoute = createRoute({
 });
 
 server.openapi(listLanguagesRoute, async (c) => {
-  const result = await languageHandler.getAllLanguages();
+  const result = await languageService.getAllLanguages();
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
   }
 
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
 
 const getLanguageRoute = createRoute({
@@ -59,7 +60,7 @@ const getLanguageRoute = createRoute({
     }),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectLanguagesSchema, 'The language'),
+    [HttpStatusCodes.OK]: jsonContent(languageResponseSchema, 'The language'),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'Language not found'
@@ -80,15 +81,11 @@ const getLanguageRoute = createRoute({
 server.openapi(getLanguageRoute, async (c) => {
   const { id } = c.req.valid('param');
 
-  const result = await languageHandler.getLanguageById(id);
+  const result = await languageService.getLanguageById(id);
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
   }
 
-  if (result.error.message === 'Language not found') {
-    return c.json({ message: result.error.message }, HttpStatusCodes.NOT_FOUND);
-  }
-
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
