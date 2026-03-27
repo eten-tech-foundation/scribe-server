@@ -15,6 +15,7 @@ import { server } from '@/server/server';
 
 import * as service from './project-chapter-assignments.service';
 import {
+  assignUserInputSchema,
   chapterAssignmentProgressResponseSchema,
   chapterAssignmentResponseSchema,
 } from './project-chapter-assignments.types';
@@ -191,11 +192,12 @@ const assignAllRoute = createRoute({
   method: 'patch',
   path: '/projects/{projectId}/chapter-assignments/assign-all',
   middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
-  summary: 'Assign user to all chapters for a project',
-  description: 'Assigns a user to all chapter assignments for a project. Manager only.',
+  summary: 'Assign users to all chapters for a project',
+  description:
+    'Assigns a drafter and/or peer checker to all chapter assignments for a project. Manager only.',
   request: {
     params: projectIdParam,
-    body: jsonContent(z.object({ assignedUserId: z.number().int() }), 'User ID'),
+    body: jsonContent(assignUserInputSchema, 'User IDs to assign'),
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(chapterAssignmentResponseSchema.array(), 'Success'),

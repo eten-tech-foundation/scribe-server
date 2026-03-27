@@ -37,11 +37,17 @@ export const projectWithLanguageNamesSchema = selectProjectsSchema
     workflowConfig: z.array(workflowStepSchema),
   });
 
-export const createProjectWithUnitsSchema = insertProjectsSchema.omit({ status: true }).extend({
-  bibleId: z.number().int(),
-  bookId: z.array(z.number().int()),
-  projectUnitStatus: z.enum(['not_started', 'in_progress', 'completed']).default('not_started'),
-});
+export const createProjectWithUnitsSchema = insertProjectsSchema
+  .omit({ status: true, organization: true, createdBy: true })
+  .extend({
+    bibleId: z.number().int(),
+    bookId: z.array(z.number().int()),
+    projectUnitStatus: z.enum(['not_started', 'in_progress', 'completed']).default('not_started'),
+    // Made optional for frontend backwards compatibility.
+    // The route will overwrite these with secure auth context anyway.
+    organization: z.number().int().optional(),
+    createdBy: z.number().int().optional(),
+  });
 
 export const updateProjectWithUnitsSchema = patchProjectsClientSchema
   .omit({ status: true })
@@ -64,4 +70,10 @@ export type UpdateProjectInput = z.infer<typeof updateProjectWithUnitsSchema>;
 export type ProjectResponse = z.infer<typeof projectResponseSchema>;
 export interface ProjectUnitRef {
   projectId: number;
+}
+
+// Service layer input that guarantees auth context is strictly provided by the route
+export interface CreateProjectServiceInput extends CreateProjectInput {
+  organization: number;
+  createdBy: number;
 }

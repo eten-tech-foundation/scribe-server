@@ -1,21 +1,25 @@
 import { eq } from 'drizzle-orm';
 
-import type { Result } from '@/lib/types';
+import type { DbTransaction, Result } from '@/lib/types';
 
 import { db } from '@/db';
-import { chapterStatusEnum, project_unit_bible_books, project_units, projects } from '@/db/schema';
-import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapter-assignments.service';
-import { logger } from '@/lib/logger';
+import {
+  bible_books,
+  chapterStatusEnum,
+  project_unit_bible_books,
+  project_units,
+  projects,
+} from '@/db/schema';
 import { err, ErrorCode, ok } from '@/lib/types';
 
 import type { RawProjectRow } from './projects.query-builder';
 import type {
   ChapterStatusCounts,
-  CreateProjectInput,
+  CreateProjectData,
   Project,
   ProjectUnitRef,
   ProjectWithLanguageNames,
-  UpdateProjectInput,
+  UpdateProjectData,
   WorkflowStep,
 } from './projects.types';
 
@@ -70,82 +74,58 @@ export async function getById(id: number): Promise<Result<ProjectWithLanguageNam
   }
 }
 
-export async function create(input: CreateProjectInput): Promise<Result<Project>> {
-  try {
-    return await db.transaction(async (tx) => {
-      const { bibleId, bookId, projectUnitStatus = 'not_started', ...projectData } = input;
+export async function getValidBookIdsForBible(bibleId: number): Promise<number[]> {
+  const rows = await db
+    .select({ bookId: bible_books.bookId })
+    .from(bible_books)
+    .where(eq(bible_books.bibleId, bibleId));
+  return rows.map((r) => r.bookId);
+}
 
-      const [project] = await tx.insert(projects).values(projectData).returning();
+export async function insertProjectRecord(
+  projectData: CreateProjectData,
+  tx: DbTransaction
+): Promise<Project> {
+  const [project] = await tx.insert(projects).values(projectData).returning();
+  return project;
+}
 
-      const [projectUnit] = await tx
-        .insert(project_units)
-        .values({ projectId: project.id, status: projectUnitStatus })
-        .returning();
+export async function insertProjectUnitRecord(
+  unitData: { projectId: number; status: 'not_started' | 'in_progress' | 'completed' },
+  tx: DbTransaction
+) {
+  const [projectUnit] = await tx.insert(project_units).values(unitData).returning();
+  return projectUnit;
+}
 
-      const bibleBookEntries = bookId.map((id) => ({
-        projectUnitId: projectUnit.id,
-        bibleId,
-        bookId: id,
-      }));
-
-      if (bibleBookEntries.length > 0) {
-        await tx.insert(project_unit_bible_books).values(bibleBookEntries);
-      }
-
-      const assignmentsResult =
-        await chapterAssignmentsService.createChapterAssignmentForProjectUnit(
-          projectUnit.id,
-          bibleId,
-          bookId,
-          tx
-        );
-
-      // Rollback transaction if cross-domain assignment creation fails
-      if (!assignmentsResult.ok) {
-        throw new Error(assignmentsResult.error.message);
-      }
-
-      return ok(project);
-    });
-  } catch (e) {
-    logger.error({
-      cause: e,
-      message: 'Failed to create project',
-      context: {
-        organization: input.organization,
-        bibleId: input.bibleId,
-        bookId: input.bookId,
-      },
-    });
-    return err(ErrorCode.INTERNAL_ERROR);
+export async function insertBibleBookLinks(
+  bibleBookEntries: { projectUnitId: number; bibleId: number; bookId: number }[],
+  tx: DbTransaction
+) {
+  if (bibleBookEntries.length > 0) {
+    await tx.insert(project_unit_bible_books).values(bibleBookEntries);
   }
 }
 
-export async function update(id: number, input: UpdateProjectInput): Promise<Result<Project>> {
-  try {
-    return await db.transaction(async (tx) => {
-      const { bibleId, bookId, projectUnitStatus, ...projectData } = input;
+export async function updateProjectRecord(
+  id: number,
+  projectData: UpdateProjectData,
+  tx: DbTransaction
+): Promise<Project | undefined> {
+  const [updated] = await tx
+    .update(projects)
+    .set(projectData)
+    .where(eq(projects.id, id))
+    .returning();
+  return updated;
+}
 
-      const [updated] = await tx
-        .update(projects)
-        .set(projectData)
-        .where(eq(projects.id, id))
-        .returning();
-
-      if (!updated) return err(ErrorCode.PROJECT_NOT_FOUND);
-
-      if (projectUnitStatus !== undefined) {
-        await tx
-          .update(project_units)
-          .set({ status: projectUnitStatus })
-          .where(eq(project_units.projectId, id));
-      }
-
-      return ok(updated);
-    });
-  } catch {
-    return err(ErrorCode.INTERNAL_ERROR);
-  }
+export async function updateProjectUnitStatusByProjectId(
+  projectId: number,
+  status: 'not_started' | 'in_progress' | 'completed',
+  tx: DbTransaction
+) {
+  await tx.update(project_units).set({ status }).where(eq(project_units.projectId, projectId));
 }
 
 export async function remove(id: number): Promise<Result<void>> {

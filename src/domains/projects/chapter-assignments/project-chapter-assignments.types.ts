@@ -28,10 +28,16 @@ export const chapterAssignmentProgressResponseSchema = z.object({
   updatedAt: z.date().nullable(),
 });
 
+export const assignUserInputSchema = z
+  .object({
+    assignedUserId: z.number().int().optional(),
+    peerCheckerId: z.number().int().optional(),
+  })
+  .refine((data) => data.assignedUserId !== undefined || data.peerCheckerId !== undefined, {
+    message: 'At least one of assignedUserId or peerCheckerId must be provided',
+  });
+
 export type AssignmentUser = z.infer<typeof userResponseSchema>;
 export type ChapterAssignmentResponse = z.infer<typeof chapterAssignmentResponseSchema>;
 export type ChapterAssignmentProgress = z.infer<typeof chapterAssignmentProgressResponseSchema>;
-
-export interface AssignUserInput {
-  assignedUserId: number;
-}
+export type AssignUserInput = z.infer<typeof assignUserInputSchema>;

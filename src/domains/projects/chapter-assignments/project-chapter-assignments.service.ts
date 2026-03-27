@@ -1,5 +1,8 @@
+// format
+import { db } from '@/db';
+import * as chapterAssignmentService from '@/domains/chapter-assignments/chapter-assignments.service';
 import { toChapterAssignmentResponse } from '@/domains/chapter-assignments/chapter-assignments.service';
-import { ok } from '@/lib/types';
+import { err, ErrorCode, ok } from '@/lib/types';
 
 import type { AssignUserInput } from './project-chapter-assignments.types';
 
@@ -24,8 +27,46 @@ export async function assignAllProjectChapterAssignmentsToUser(
   projectId: number,
   assignmentData: AssignUserInput
 ) {
-  const result = await repo.assignAllToUser(projectId, assignmentData.assignedUserId);
-  if (!result.ok) return result;
+  return db.transaction(async (tx) => {
+    // Validate organization match for assignedUserId (if provided)
+    if (assignmentData.assignedUserId !== undefined) {
+      const isDrafterValid = await repo.isUserInProjectOrganization(
+        assignmentData.assignedUserId,
+        projectId,
+        tx
+      );
+      if (!isDrafterValid) return err(ErrorCode.USER_NOT_IN_ORGANIZATION);
+    }
 
-  return ok(result.data.map(toChapterAssignmentResponse));
+    // Validate organization match for peerCheckerId (if provided)
+    if (assignmentData.peerCheckerId !== undefined) {
+      const isPeerCheckerValid = await repo.isUserInProjectOrganization(
+        assignmentData.peerCheckerId,
+        projectId,
+        tx
+      );
+      if (!isPeerCheckerValid) return err(ErrorCode.USER_NOT_IN_ORGANIZATION);
+    }
+
+    // Retrieve target assignment IDs
+    const assignmentIds = await repo.getAssignmentIdsByProject(projectId, tx);
+
+    if (assignmentIds.length === 0) return ok([]);
+
+    const updatedAssignments = [];
+
+    // Delegate updates to central chapter assignments service
+    // We pass assignmentData directly, which naturally unpacks into the fields we provided!
+    for (const id of assignmentIds) {
+      const result = await chapterAssignmentService.updateChapterAssignment(id, assignmentData, tx);
+
+      if (!result.ok) {
+        return result;
+      }
+
+      updatedAssignments.push(result.data);
+    }
+
+    return ok(updatedAssignments);
+  });
 }

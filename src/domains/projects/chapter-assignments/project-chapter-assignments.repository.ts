@@ -1,10 +1,7 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-import type {
-  ChapterAssignmentRecord,
-  ChapterAssignmentStatus,
-} from '@/domains/chapter-assignments/chapter-assignments.types';
+import type { ChapterAssignmentRecord } from '@/domains/chapter-assignments/chapter-assignments.types';
 import type { DbTransaction, Result } from '@/lib/types';
 
 import { db } from '@/db';
@@ -12,8 +9,6 @@ import {
   bible_texts,
   bibles,
   books,
-  chapter_assignment_assigned_user_history,
-  chapter_assignment_status_history,
   chapter_assignments,
   languages,
   project_units,
@@ -189,110 +184,31 @@ export async function getProgressByProject(
   }
 }
 
-async function isUserInProjectOrganization(
-  tx: DbTransaction,
-  assignedUserId: number,
-  projectId: number
+export async function isUserInProjectOrganization(
+  userId: number,
+  projectId: number,
+  tx?: DbTransaction
 ): Promise<boolean> {
-  const [match] = await tx
+  const conn = tx ?? db;
+  const [match] = await conn
     .select({ id: users.id })
     .from(users)
     .innerJoin(projects, eq(users.organization, projects.organization))
-    .where(and(eq(users.id, assignedUserId), eq(projects.id, projectId)))
+    .where(and(eq(users.id, userId), eq(projects.id, projectId)))
     .limit(1);
   return !!match;
 }
 
-export async function assignAllToUser(
+export async function getAssignmentIdsByProject(
   projectId: number,
-  assignedUserId: number
-): Promise<Result<ChapterAssignmentRecord[]>> {
-  try {
-    return await db.transaction(async (tx) => {
-      if (!(await isUserInProjectOrganization(tx, assignedUserId, projectId)))
-        return err(ErrorCode.USER_NOT_IN_ORGANIZATION);
+  tx?: DbTransaction
+): Promise<number[]> {
+  const conn = tx ?? db;
+  const rows = await conn
+    .select({ id: chapter_assignments.id })
+    .from(chapter_assignments)
+    .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
+    .where(eq(project_units.projectId, projectId));
 
-      const currentAssignments = await tx
-        .select({
-          id: chapter_assignments.id,
-          status: chapter_assignments.status,
-          assignedUserId: chapter_assignments.assignedUserId,
-        })
-        .from(chapter_assignments)
-        .where(
-          inArray(
-            chapter_assignments.projectUnitId,
-            tx
-              .select({ id: project_units.id })
-              .from(project_units)
-              .where(eq(project_units.projectId, projectId))
-          )
-        );
-
-      const updated = await tx
-        .update(chapter_assignments)
-        .set({
-          assignedUserId,
-          status: sql`
-            CASE
-              WHEN ${chapter_assignments.status} = 'not_started' THEN 'draft'::chapter_status
-              ELSE ${chapter_assignments.status}
-            END`,
-        })
-        .where(
-          inArray(
-            chapter_assignments.projectUnitId,
-            tx
-              .select({ id: project_units.id })
-              .from(project_units)
-              .where(eq(project_units.projectId, projectId))
-          )
-        )
-        .returning();
-
-      if (updated.length > 0) {
-        const assignedUserHistoryRecords = [];
-        const statusHistoryRecords = [];
-
-        for (const updatedAssignment of updated) {
-          const currentAssignment = currentAssignments.find((a) => a.id === updatedAssignment.id);
-          if (!currentAssignment) continue;
-
-          if (currentAssignment.assignedUserId !== assignedUserId) {
-            assignedUserHistoryRecords.push({
-              chapterAssignmentId: updatedAssignment.id,
-              assignedUserId,
-              role: 'drafter' as const,
-              status: updatedAssignment.status as ChapterAssignmentStatus,
-            });
-          }
-
-          if (currentAssignment.status !== updatedAssignment.status) {
-            statusHistoryRecords.push({
-              chapterAssignmentId: updatedAssignment.id,
-              status: updatedAssignment.status as ChapterAssignmentStatus,
-            });
-          }
-        }
-
-        if (assignedUserHistoryRecords.length > 0) {
-          await tx
-            .insert(chapter_assignment_assigned_user_history)
-            .values(assignedUserHistoryRecords);
-        }
-        if (statusHistoryRecords.length > 0) {
-          await tx.insert(chapter_assignment_status_history).values(statusHistoryRecords);
-        }
-      }
-
-      return ok(updated);
-    });
-  } catch (e) {
-    logger.error({
-      message: 'Failed to assign user to project chapters',
-      cause: e,
-      context: { projectId, assignedUserId },
-    });
-    return err(ErrorCode.INTERNAL_ERROR);
-  }
+  return rows.map((r) => r.id);
 }

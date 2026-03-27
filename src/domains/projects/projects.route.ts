@@ -95,10 +95,12 @@ server.openapi(createProjectRoute, async (c) => {
   const projectData = c.req.valid('json');
   const currentUser = c.get('user')!;
 
-  projectData.createdBy = currentUser.id;
-  projectData.organization = currentUser.organization;
+  const result = await projectService.createProject({
+    ...projectData,
+    createdBy: currentUser.id,
+    organization: currentUser.organization,
+  });
 
-  const result = await projectService.createProject(projectData);
   if (result.ok) return c.json(result.data, HttpStatusCodes.CREATED);
   return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });

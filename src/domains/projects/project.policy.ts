@@ -18,6 +18,13 @@ interface PolicyUser {
   organization: number;
 }
 
+/**
+ * Internal helper to check if a user has modification rights over a project.
+ */
+const _canModifyProject = (user: PolicyUser, project: ProjectWithLanguageNames): boolean => {
+  return user.roleName === ROLES.PROJECT_MANAGER && project.organization === user.organization;
+};
+
 export const ProjectPolicy = {
   /**
    * Can this user list all projects in the standard org route?
@@ -57,11 +64,7 @@ export const ProjectPolicy = {
    * Translator      : never.
    */
   update(user: PolicyUser, project: ProjectWithLanguageNames): boolean {
-    if (user.roleName === ROLES.PROJECT_MANAGER) {
-      return project.organization === user.organization;
-    }
-
-    return false;
+    return _canModifyProject(user, project);
   },
 
   /**
@@ -71,10 +74,6 @@ export const ProjectPolicy = {
    * Translator      : never.
    */
   delete(user: PolicyUser, project: ProjectWithLanguageNames): boolean {
-    if (user.roleName === ROLES.PROJECT_MANAGER) {
-      return project.organization === user.organization;
-    }
-
-    return false;
+    return _canModifyProject(user, project);
   },
 };
