@@ -1,4 +1,4 @@
-import { count, eq, not, or } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
 
 import type { Result } from '@/lib/types';
 
@@ -108,20 +108,4 @@ export async function remove(id: number): Promise<Result<void>> {
   } catch {
     return err(ErrorCode.INTERNAL_ERROR);
   }
-}
-
-export async function countAll(): Promise<number> {
-  const [result] = await db.select({ count: count() }).from(users);
-  return result?.count ?? 0;
-}
-
-export async function findActive(): Promise<User[]> {
-  return db
-    .select()
-    .from(users)
-    .where(not(eq(users.status, 'inactive')));
-}
-
-export async function findInactive(): Promise<User[]> {
-  return db.select().from(users).where(eq(users.status, 'inactive'));
 }

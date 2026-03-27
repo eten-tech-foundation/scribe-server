@@ -5,7 +5,7 @@ import type { ProjectWithLanguageNames, UserProjectResponse } from './user.proje
 import * as repo from './user.projects.repository';
 
 // ─── Response mapper ──────────────────────────────────────────────────────────
-export function toResponse(project: ProjectWithLanguageNames): UserProjectResponse {
+export function toUserProjectResponse(project: ProjectWithLanguageNames): UserProjectResponse {
   return {
     id: project.id,
     name: project.name,
@@ -29,5 +29,5 @@ export function toResponse(project: ProjectWithLanguageNames): UserProjectRespon
 export async function getProjectsByUserId(userId: number) {
   const result = await repo.findByUserId(userId);
   if (!result.ok) return result;
-  return ok(result.data.map(toResponse));
+  return ok(result.data.map(toUserProjectResponse));
 }

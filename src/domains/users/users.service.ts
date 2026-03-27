@@ -8,7 +8,7 @@ import * as repo from './users.repository';
 
 // ─── Response mapper ──────────────────────────────────────────────────────────
 
-export function toResponse(user: User): UserResponse {
+export function toUserResponse(user: User): UserResponse {
   return {
     id: user.id,
     email: user.email,
@@ -29,7 +29,7 @@ export function toResponse(user: User): UserResponse {
 export async function getAllUsers(): Promise<Result<UserResponse[]>> {
   const result = await repo.findAll();
   if (!result.ok) return result;
-  return ok(result.data.map(toResponse));
+  return ok(result.data.map(toUserResponse));
 }
 
 export async function getUsersByOrganization(
@@ -37,13 +37,13 @@ export async function getUsersByOrganization(
 ): Promise<Result<UserResponse[]>> {
   const result = await repo.findByOrganization(organization);
   if (!result.ok) return result;
-  return ok(result.data.map(toResponse));
+  return ok(result.data.map(toUserResponse));
 }
 
 export async function getUserById(id: number): Promise<Result<UserResponse>> {
   const result = await repo.findById(id);
   if (!result.ok) return result;
-  return ok(toResponse(result.data));
+  return ok(toUserResponse(result.data));
 }
 
 export async function getUserByEmail(
@@ -51,19 +51,19 @@ export async function getUserByEmail(
 ): Promise<Result<UserResponse & { roleName: string }>> {
   const result = await repo.findByEmail(email);
   if (!result.ok) return result;
-  return ok({ ...toResponse(result.data), roleName: result.data.roleName });
+  return ok({ ...toUserResponse(result.data), roleName: result.data.roleName });
 }
 
 export async function getUserByUsername(username: string): Promise<Result<UserResponse>> {
   const result = await repo.findByUsername(username);
   if (!result.ok) return result;
-  return ok(toResponse(result.data));
+  return ok(toUserResponse(result.data));
 }
 
 export async function getUserByEmailOrUsername(identifier: string): Promise<Result<UserResponse>> {
   const result = await repo.findByEmailOrUsername(identifier);
   if (!result.ok) return result;
-  return ok(toResponse(result.data));
+  return ok(toUserResponse(result.data));
 }
 
 // ─── Writes ───────────────────────────────────────────────────────────────────
@@ -71,7 +71,7 @@ export async function getUserByEmailOrUsername(identifier: string): Promise<Resu
 export async function createUser(input: CreateUserInput): Promise<Result<UserResponse>> {
   const result = await repo.insert(input);
   if (!result.ok) return result;
-  return ok(toResponse(result.data));
+  return ok(toUserResponse(result.data));
 }
 
 export async function updateUser(
@@ -80,31 +80,9 @@ export async function updateUser(
 ): Promise<Result<UserResponse>> {
   const result = await repo.update(id, input);
   if (!result.ok) return result;
-  return ok(toResponse(result.data));
+  return ok(toUserResponse(result.data));
 }
 
 export async function deleteUser(id: number): Promise<Result<void>> {
   return repo.remove(id);
-}
-
-// ─── Lifecycle helpers ────────────────────────────────────────────────────────
-
-export function activateUser(id: number): Promise<Result<UserResponse>> {
-  return updateUser(id, { status: 'verified' });
-}
-
-export function deactivateUser(id: number): Promise<Result<UserResponse>> {
-  return updateUser(id, { status: 'inactive' });
-}
-
-export function getUsersCount(): Promise<number> {
-  return repo.countAll();
-}
-
-export function getActiveUsers(): Promise<User[]> {
-  return repo.findActive();
-}
-
-export function getInactiveUsers(): Promise<User[]> {
-  return repo.findInactive();
 }
