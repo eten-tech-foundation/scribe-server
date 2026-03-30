@@ -6,14 +6,9 @@ import { db } from '@/db';
 import { chapter_assignments, project_units, project_users, users } from '@/db/schema';
 import { logger } from '@/lib/logger';
 import { ROLES } from '@/lib/roles';
+import { err, ErrorCode, ok } from '@/lib/types';
 
-export interface ProjectUserRecord {
-  projectId: number;
-  userId: number;
-  displayName: string;
-  roleID: number;
-  createdAt: Date | null;
-}
+import type { ProjectUserRecord } from './project-users.types';
 
 function handleUniqueConstraintError(error: unknown): boolean {
   if (error && typeof error === 'object' && 'cause' in error) {
@@ -23,7 +18,8 @@ function handleUniqueConstraintError(error: unknown): boolean {
   return false;
 }
 
-// GET -- all users for a project
+// Repository functions
+
 export async function getProjectUsers(projectId: number): Promise<Result<ProjectUserRecord[]>> {
   try {
     const rows = await db
@@ -39,61 +35,52 @@ export async function getProjectUsers(projectId: number): Promise<Result<Project
       .where(eq(project_users.projectId, projectId))
       .orderBy(users.username);
 
-    return { ok: true, data: rows };
-  } catch (err) {
+    return ok(rows);
+  } catch (e) {
     logger.error({
-      cause: err,
+      cause: e,
       message: 'Failed to get project users',
       context: { projectId },
     });
-    return { ok: false, error: { message: 'Failed to get project users' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
-// POST -- add a user to a project
 export async function addProjectUser(
   projectId: number,
   userId: number
 ): Promise<Result<ProjectUserRecord>> {
   try {
-    // Check user exists before inserting
     const [user] = await db
       .select({ username: users.username, role: users.role })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
 
-    if (!user) {
-      return { ok: false, error: { message: 'User not found' } };
-    }
+    if (!user) return err(ErrorCode.USER_NOT_FOUND);
 
     const [inserted] = await db.insert(project_users).values({ projectId, userId }).returning();
 
-    return {
-      ok: true,
-      data: {
-        projectId: inserted.projectId,
-        userId: inserted.userId,
-        displayName: user.username,
-        roleID: user.role,
-        createdAt: inserted.createdAt,
-      },
-    };
-  } catch (err) {
-    // DB unique constraint handles duplicates and race conditions
-    if (handleUniqueConstraintError(err)) {
-      return { ok: false, error: { message: 'User is already in this project' } };
+    return ok({
+      projectId: inserted.projectId,
+      userId: inserted.userId,
+      displayName: user.username,
+      roleID: user.role,
+      createdAt: inserted.createdAt,
+    });
+  } catch (e) {
+    if (handleUniqueConstraintError(e)) {
+      return err(ErrorCode.USER_ALREADY_IN_PROJECT);
     }
     logger.error({
-      cause: err,
+      cause: e,
       message: 'Failed to add user to project',
       context: { projectId, userId },
     });
-    return { ok: false, error: { message: 'Failed to add user to project' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
-// DELETE -- remove a user from a project
 export async function removeProjectUser(projectId: number, userId: number): Promise<Result<void>> {
   try {
     const [assignedContent] = await db
@@ -111,27 +98,23 @@ export async function removeProjectUser(projectId: number, userId: number): Prom
       )
       .limit(1);
 
-    if (assignedContent) {
-      return { ok: false, error: { message: 'User still has content assigned' } };
-    }
+    if (assignedContent) return err(ErrorCode.USER_HAS_ASSIGNED_CONTENT);
 
     const deleted = await db
       .delete(project_users)
       .where(and(eq(project_users.projectId, projectId), eq(project_users.userId, userId)))
       .returning({ userId: project_users.userId });
 
-    if (deleted.length === 0) {
-      return { ok: false, error: { message: 'User not found in project' } };
-    }
+    if (deleted.length === 0) return err(ErrorCode.USER_NOT_IN_PROJECT);
 
-    return { ok: true, data: undefined };
-  } catch (err) {
+    return ok(undefined);
+  } catch (e) {
     logger.error({
-      cause: err,
+      cause: e,
       message: 'Failed to remove user from project',
       context: { projectId, userId },
     });
-    return { ok: false, error: { message: 'Failed to remove user from project' } };
+    return err(ErrorCode.INTERNAL_ERROR);
   }
 }
 
@@ -140,9 +123,7 @@ export async function resolveIsProjectMember(
   userId: number,
   roleName: string
 ): Promise<boolean> {
-  if (roleName !== ROLES.TRANSLATOR) {
-    return false;
-  }
+  if (roleName !== ROLES.TRANSLATOR) return false;
 
   const [member] = await db
     .select({ projectId: project_users.projectId })

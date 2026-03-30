@@ -1,9 +1,9 @@
 import type { DbTransaction } from '@/lib/types';
 
 import { db } from '@/db';
-import { resolveIsProjectMember } from '@/domains/projects/project-users/project-users.handlers';
 import { ProjectPolicy } from '@/domains/projects/project.policy';
-import * as projectHandler from '@/domains/projects/projects.handlers';
+import * as projectHandler from '@/domains/projects/projects.service';
+import { resolveIsProjectMember } from '@/domains/projects/users/project-users.service';
 import { logger } from '@/lib/logger';
 import { err, ErrorCode, ok } from '@/lib/types';
 

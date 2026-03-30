@@ -1,23 +1,19 @@
-import { createRoute, z } from '@hono/zod-openapi';
+import { createRoute } from '@hono/zod-openapi';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { resolveIsProjectMember } from '@/domains/projects/project-users/project-users.handlers';
 import { ProjectPolicy } from '@/domains/projects/project.policy';
-import * as projectHandler from '@/domains/projects/projects.handlers';
+import * as projectService from '@/domains/projects/projects.service';
+import * as projectUsersService from '@/domains/projects/users/project-users.service';
 import { PERMISSIONS } from '@/lib/permissions';
+import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
-import * as projectBooksHandler from './project-books.handlers';
-
-const projectBookSchema = z.object({
-  bookId: z.number().int(),
-  code: z.string(),
-  engDisplayName: z.string(),
-});
+import * as projectBooksService from './project-books.service';
+import { projectBookSchema, projectIdParamSchema } from './project-books.types';
 
 const getProjectBooksRoute = createRoute({
   tags: ['Projects - Bible Books'],
@@ -25,9 +21,7 @@ const getProjectBooksRoute = createRoute({
   path: '/projects/{projectId}/books',
   middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
   request: {
-    params: z.object({
-      projectId: z.coerce.number().int().positive(),
-    }),
+    params: projectIdParamSchema,
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
@@ -58,32 +52,27 @@ const getProjectBooksRoute = createRoute({
 server.openapi(getProjectBooksRoute, async (c) => {
   const { projectId } = c.req.valid('param');
   const currentUser = c.get('user')!;
-  const policyUser = {
-    id: currentUser.id,
-    role: currentUser.role,
-    roleName: currentUser.roleName,
-    organization: currentUser.organization,
-  };
 
-  const projectResult = await projectHandler.getProjectById(projectId);
+  const projectResult = await projectService.getProjectById(projectId);
   if (!projectResult.ok) {
-    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+    return c.json(
+      { message: projectResult.error.message },
+      getHttpStatus(projectResult.error) as never
+    );
   }
 
-  const isProjectMember = await resolveIsProjectMember(
+  const isProjectMember = await projectUsersService.resolveIsProjectMember(
     projectId,
     currentUser.id,
     currentUser.roleName
   );
 
-  if (!ProjectPolicy.read(policyUser, projectResult.data, isProjectMember)) {
-    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
+  if (!ProjectPolicy.read(currentUser, projectResult.data, isProjectMember)) {
+    return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
   }
 
-  const result = await projectBooksHandler.getBooksByProjectId(projectId);
-  if (result.ok) {
-    return c.json(result.data, HttpStatusCodes.OK);
-  }
+  const result = await projectBooksService.getBooksByProjectId(projectId);
+  if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
 
-  return c.json({ message: result.error.message }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
