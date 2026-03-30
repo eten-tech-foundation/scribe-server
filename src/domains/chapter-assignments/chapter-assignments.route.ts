@@ -4,8 +4,8 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { resolveIsProjectMember } from '@/domains/projects/project-users/project-users.handlers';
-import * as projectHandler from '@/domains/projects/projects.handlers';
+import * as projectHandler from '@/domains/projects/projects.service';
+import { resolveIsProjectMember } from '@/domains/projects/users/project-users.service';
 import { PERMISSIONS } from '@/lib/permissions';
 import { ErrorCode, getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
