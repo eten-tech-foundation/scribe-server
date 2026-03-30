@@ -34,6 +34,10 @@ export const chapterStatusEnum = pgEnum('chapter_status', [
   'draft',
   'peer_check',
   'community_review',
+  'linguist_check',
+  'theological_check',
+  'consultant_check',
+  'complete',
 ]);
 export const assignmentRoleEnum = pgEnum('assignment_role', ['drafter', 'peer_checker']);
 

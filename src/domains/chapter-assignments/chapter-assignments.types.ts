@@ -4,7 +4,15 @@ import type { selectChapterAssignmentsSchema } from '@/db/schema';
 
 // ─── DB-derived types ─────────────────────────────────────────────────────────
 
-export type ChapterAssignmentStatus = 'not_started' | 'draft' | 'peer_check' | 'community_review';
+export type ChapterAssignmentStatus =
+  | 'not_started'
+  | 'draft'
+  | 'peer_check'
+  | 'community_review'
+  | 'linguist_check'
+  | 'theological_check'
+  | 'consultant_check'
+  | 'complete';
 
 export type ChapterAssignmentRecord = z.infer<typeof selectChapterAssignmentsSchema>;
 
@@ -40,7 +48,18 @@ export const chapterAssignmentResponseSchema = z.object({
   chapterNumber: z.number().int(),
   assignedUserId: z.number().int().nullable().optional(),
   peerCheckerId: z.number().int().nullable().optional(),
-  status: z.enum(['not_started', 'draft', 'peer_check', 'community_review']).optional(),
+  status: z
+    .enum([
+      'not_started',
+      'draft',
+      'peer_check',
+      'community_review',
+      'linguist_check',
+      'theological_check',
+      'consultant_check',
+      'complete',
+    ])
+    .optional(),
   submittedTime: z.date().nullable().optional(),
   createdAt: z.date().nullable(),
   updatedAt: z.date().nullable(),

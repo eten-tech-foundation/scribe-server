@@ -4,8 +4,8 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { resolveIsProjectMember } from '@/domains/projects/project-users/project-users.handlers';
-import * as projectHandler from '@/domains/projects/projects.handlers';
+import * as projectHandler from '@/domains/projects/projects.service';
+import { resolveIsProjectMember } from '@/domains/projects/users/project-users.service';
 import { PERMISSIONS } from '@/lib/permissions';
 import { ErrorCode, getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
@@ -203,7 +203,8 @@ const submitChapterAssignmentRoute = createRoute({
     ),
   },
   summary: 'Submit a chapter assignment',
-  description: 'Advances chapter assignment to next stage: draft → peer_check → community_review.',
+  description:
+    'Advances chapter assignment to next stage: draft → peer_check → community_review → linguist_check → theological_check → consultant_check → complete.',
 });
 
 server.openapi(submitChapterAssignmentRoute, async (c) => {

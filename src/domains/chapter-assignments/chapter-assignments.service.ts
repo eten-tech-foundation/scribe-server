@@ -1,9 +1,9 @@
 import type { DbTransaction } from '@/lib/types';
 
 import { db } from '@/db';
-import { resolveIsProjectMember } from '@/domains/projects/project-users/project-users.handlers';
 import { ProjectPolicy } from '@/domains/projects/project.policy';
-import * as projectHandler from '@/domains/projects/projects.handlers';
+import * as projectHandler from '@/domains/projects/projects.service';
+import { resolveIsProjectMember } from '@/domains/projects/users/project-users.service';
 import { logger } from '@/lib/logger';
 import { err, ErrorCode, ok } from '@/lib/types';
 
@@ -207,6 +207,22 @@ export async function submitChapterAssignment(chapterAssignmentId: number) {
         case 'peer_check':
           nextStatus = 'community_review';
           snapshotUser = current.peerCheckerId;
+          break;
+        case 'community_review':
+          nextStatus = 'linguist_check';
+          snapshotUser = current.assignedUserId;
+          break;
+        case 'linguist_check':
+          nextStatus = 'theological_check';
+          snapshotUser = current.assignedUserId;
+          break;
+        case 'theological_check':
+          nextStatus = 'consultant_check';
+          snapshotUser = current.assignedUserId;
+          break;
+        case 'consultant_check':
+          nextStatus = 'complete';
+          snapshotUser = current.assignedUserId;
           break;
         default:
           return err(ErrorCode.INVALID_STATUS_TRANSITION);

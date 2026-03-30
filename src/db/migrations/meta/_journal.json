@@ -64,6 +64,13 @@
       "when": 1773928898872,
       "tag": "0008_add_notnull_translated_verses_timestamps",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1774517640951,
+      "tag": "0009_adding_more_project_status_",
+      "breakpoints": true
     }
   ]
 }
