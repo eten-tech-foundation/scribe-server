@@ -30,7 +30,12 @@ export const ChapterAssignmentPolicy = {
     }
 
     if (user.roleName === ROLES.PROJECT_MANAGER) {
-      return assignment.status === 'community_review';
+      return (
+        assignment.status === 'community_review' ||
+        assignment.status === 'linguist_check' ||
+        assignment.status === 'theological_check' ||
+        assignment.status === 'consultant_check'
+      );
     }
 
     // future roles can be prevented access using this
@@ -46,6 +51,9 @@ export const ChapterAssignmentPolicy = {
         return assignment.peerCheckerId === user.id;
 
       case 'community_review':
+      case 'linguist_check':
+      case 'theological_check':
+      case 'consultant_check':
         return isProjectMember;
 
       default:
@@ -139,7 +147,12 @@ export const ChapterAssignmentPolicy = {
     }
 
     if (user.roleName === ROLES.PROJECT_MANAGER) {
-      return assignment.status === 'community_review';
+      return (
+        assignment.status === 'community_review' ||
+        assignment.status === 'linguist_check' ||
+        assignment.status === 'theological_check' ||
+        assignment.status === 'consultant_check'
+      );
     }
 
     if (user.roleName !== ROLES.TRANSLATOR) {
@@ -155,6 +168,9 @@ export const ChapterAssignmentPolicy = {
         return assignment.peerCheckerId === user.id;
 
       case 'community_review':
+      case 'linguist_check':
+      case 'theological_check':
+      case 'consultant_check':
         return isProjectMember;
 
       default:
