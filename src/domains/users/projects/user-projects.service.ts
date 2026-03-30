@@ -1,8 +1,8 @@
 import { ok } from '@/lib/types';
 
-import type { ProjectWithLanguageNames, UserProjectResponse } from './user.projects.types';
+import type { ProjectWithLanguageNames, UserProjectResponse } from './user-projects.types';
 
-import * as repo from './user.projects.repository';
+import * as repo from './user-projects.repository';
 
 // ─── Response mapper ──────────────────────────────────────────────────────────
 export function toUserProjectResponse(project: ProjectWithLanguageNames): UserProjectResponse {

@@ -22,7 +22,7 @@ import type {
   ProjectWithLanguageNames,
   RawProjectRow,
   WorkflowStep,
-} from './user.projects.types';
+} from './user-projects.types';
 
 const sourceLanguages = alias(languages, 'sourceLanguages');
 const targetLanguages = alias(languages, 'targetLanguages');

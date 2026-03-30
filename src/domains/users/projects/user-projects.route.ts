@@ -9,8 +9,8 @@ import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission, requireSelf } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
-import * as userProjectsService from './user.projects.service';
-import { userProjectResponseSchema } from './user.projects.types';
+import * as userProjectsService from './user-projects.service';
+import { userProjectResponseSchema } from './user-projects.types';
 
 const getUserProjectsRoute = createRoute({
   tags: ['Projects'],
