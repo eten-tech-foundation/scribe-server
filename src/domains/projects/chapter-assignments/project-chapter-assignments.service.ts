@@ -1,4 +1,3 @@
-// format
 import { db } from '@/db';
 import * as chapterAssignmentService from '@/domains/chapter-assignments/chapter-assignments.service';
 import { toChapterAssignmentResponse } from '@/domains/chapter-assignments/chapter-assignments.service';
