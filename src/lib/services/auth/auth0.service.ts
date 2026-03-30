@@ -1,10 +1,10 @@
 import { ManagementClient } from 'auth0';
 import { randomBytes } from 'node:crypto';
 
-import type { CreateUserInput, User } from '@/domains/users/users.handlers';
+import type { CreateUserInput, User } from '@/domains/users/users.types';
 import type { Result } from '@/lib/types';
 
-import { createUser, deleteUser } from '@/domains/users/users.handlers';
+import { createUser, deleteUser } from '@/domains/users/users.service';
 import env from '@/env';
 import { sendInvitationEmail } from '@/lib/services/notifications/mailgun.service';
 
