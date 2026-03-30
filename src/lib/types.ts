@@ -79,6 +79,7 @@ export const ErrorCode = {
   PROJECT_NOT_FOUND: 'PROJECT_NOT_FOUND',
   PROJECT_UNIT_NOT_FOUND: 'PROJECT_UNIT_NOT_FOUND',
   USER_NOT_FOUND: 'USER_NOT_FOUND',
+  USER_NOT_IN_PROJECT: 'USER_NOT_IN_PROJECT',
   CHAPTER_ASSIGNMENT_NOT_FOUND: 'CHAPTER_ASSIGNMENT_NOT_FOUND',
   BIBLE_NOT_FOUND: 'BIBLE_NOT_FOUND',
   BOOK_NOT_FOUND: 'BOOK_NOT_FOUND',
@@ -95,9 +96,12 @@ export const ErrorCode = {
   USER_HAS_ASSIGNED_CONTENT: 'USER_HAS_ASSIGNED_CONTENT',
   CHAPTER_LIMIT_EXCEEDED: 'CHAPTER_LIMIT_EXCEEDED',
   INVALID_REFERENCE: 'INVALID_REFERENCE',
+  INVALID_BIBLE_BOOKS: 'INVALID_BIBLE_BOOKS',
   // External service errors
   AUTH0_ERROR: 'AUTH0_ERROR',
   EMAIL_SERVICE_ERROR: 'EMAIL_SERVICE_ERROR',
+  // Feature domain errors
+  LANGUAGE_NOT_FOUND: 'LANGUAGE_NOT_FOUND',
 } as const;
 
 // eslint-disable-next-line ts/no-redeclare
@@ -115,6 +119,7 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   PROJECT_NOT_FOUND: 'Project not found',
   PROJECT_UNIT_NOT_FOUND: 'Project unit not found',
   USER_NOT_FOUND: 'User not found',
+  USER_NOT_IN_PROJECT: 'User not found in project',
   CHAPTER_ASSIGNMENT_NOT_FOUND: 'Chapter assignment not found',
   BIBLE_NOT_FOUND: 'Bible not found',
   BOOK_NOT_FOUND: 'Book not found',
@@ -129,8 +134,10 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   USER_HAS_ASSIGNED_CONTENT: 'User has content assigned and cannot be removed',
   CHAPTER_LIMIT_EXCEEDED: 'Chapter assignment limit exceeded',
   INVALID_REFERENCE: 'Invalid reference',
+  INVALID_BIBLE_BOOKS: 'One or more requested books do not belong to the specified Bible',
   AUTH0_ERROR: 'Authentication service error',
   EMAIL_SERVICE_ERROR: 'Email service error',
+  LANGUAGE_NOT_FOUND: 'Language not found',
 };
 
 // ─── HTTP status map ──────────────────────────────────────────────────────────
@@ -139,6 +146,7 @@ export const ErrorHttpStatus: Record<ErrorCode, number> = {
   INTERNAL_ERROR: 500,
   AUTH0_ERROR: 500,
   EMAIL_SERVICE_ERROR: 500,
+  LANGUAGE_NOT_FOUND: 404,
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
   CONFLICT: 409,
@@ -152,10 +160,12 @@ export const ErrorHttpStatus: Record<ErrorCode, number> = {
   USER_HAS_ASSIGNED_CONTENT: 400,
   CHAPTER_LIMIT_EXCEEDED: 400,
   INVALID_REFERENCE: 400,
+  INVALID_BIBLE_BOOKS: 400,
   NOT_FOUND: 404,
   PROJECT_NOT_FOUND: 404,
   PROJECT_UNIT_NOT_FOUND: 404,
   USER_NOT_FOUND: 404,
+  USER_NOT_IN_PROJECT: 404,
   CHAPTER_ASSIGNMENT_NOT_FOUND: 404,
   BIBLE_NOT_FOUND: 404,
   BOOK_NOT_FOUND: 404,

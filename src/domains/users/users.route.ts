@@ -4,7 +4,6 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { insertUsersSchema, patchUsersClientSchema, selectUsersSchema } from '@/db/schema';
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
 import { PERMISSIONS } from '@/lib/permissions';
 import { ROLES } from '@/lib/roles';
@@ -13,7 +12,12 @@ import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
 import { UserPolicy } from './user.policy';
-import * as userHandler from './users.handlers';
+import * as userService from './users.service';
+import {
+  createUserRequestSchema,
+  updateUserRequestSchema,
+  userResponseSchema,
+} from './users.types';
 
 // ─── GET /users ───────────────────────────────────────────────────────────────
 
@@ -24,7 +28,7 @@ const listUsersRoute = createRoute({
   middleware: [authenticateUser, requirePermission(PERMISSIONS.USER_VIEW)] as const,
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      selectUsersSchema.array().openapi('Users'),
+      userResponseSchema.array().openapi('Users'),
       'The list of users within the organization'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
@@ -59,7 +63,7 @@ server.openapi(listUsersRoute, async (c) => {
     );
   }
 
-  const result = await userHandler.getUsersByOrganization(currentUser.organization);
+  const result = await userService.getUsersByOrganization(currentUser.organization);
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
   }
@@ -75,10 +79,10 @@ const createUserRoute = createRoute({
   path: '/users',
   middleware: [authenticateUser, requirePermission(PERMISSIONS.USER_CREATE)] as const,
   request: {
-    body: jsonContent(insertUsersSchema, 'The user to create'),
+    body: jsonContent(createUserRequestSchema, 'The user to create'),
   },
   responses: {
-    [HttpStatusCodes.CREATED]: jsonContent(selectUsersSchema, 'The created user'),
+    [HttpStatusCodes.CREATED]: jsonContent(userResponseSchema, 'The created user'),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
       createMessageObjectSchema('Bad Request'),
       'Validation error or duplicate user'
@@ -109,7 +113,7 @@ const createUserRoute = createRoute({
 });
 
 server.openapi(createUserRoute, async (c) => {
-  const userData = c.req.valid('json');
+  const requestData = c.req.valid('json');
   const currentUser = c.get('user')!;
   const policyUser = {
     id: currentUser.id,
@@ -124,9 +128,13 @@ server.openapi(createUserRoute, async (c) => {
     );
   }
 
-  userData.organization = currentUser.organization;
+  // Safely map the API request schema into the DB-bound input type
+  const userData = {
+    ...requestData,
+    organization: currentUser.organization,
+  };
 
-  const result = await userHandler.createUser(userData);
+  const result = await userService.createUser(userData);
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.CREATED);
   }
@@ -142,11 +150,11 @@ const createUserWithInvitationRoute = createRoute({
   path: '/users/invite',
   middleware: [authenticateUser, requirePermission(PERMISSIONS.USER_CREATE)] as const,
   request: {
-    body: jsonContent(insertUsersSchema, 'The user to create and invite'),
+    body: jsonContent(createUserRequestSchema, 'The user to create and invite'),
   },
   responses: {
     [HttpStatusCodes.CREATED]: jsonContent(
-      z.object({ user: selectUsersSchema, auth0_user_id: z.string(), ticket_url: z.string() }),
+      z.object({ user: userResponseSchema, auth0_user_id: z.string(), ticket_url: z.string() }),
       'User created and invitation sent'
     ),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
@@ -179,7 +187,7 @@ const createUserWithInvitationRoute = createRoute({
 });
 
 server.openapi(createUserWithInvitationRoute, async (c) => {
-  const userData = c.req.valid('json');
+  const requestData = c.req.valid('json');
   const currentUser = c.get('user')!;
   const policyUser = {
     id: currentUser.id,
@@ -194,7 +202,10 @@ server.openapi(createUserWithInvitationRoute, async (c) => {
     );
   }
 
-  userData.organization = currentUser.organization;
+  const userData = {
+    ...requestData,
+    organization: currentUser.organization,
+  };
 
   const result = await createUserWithInvitation(userData);
   if (result.ok) {
@@ -223,7 +234,7 @@ const getUserByEmailRoute = createRoute({
     }),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectUsersSchema, 'The user'),
+    [HttpStatusCodes.OK]: jsonContent(userResponseSchema, 'The user'),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'User not found'
@@ -250,7 +261,7 @@ server.openapi(getUserByEmailRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  const result = await userHandler.getUserByEmail(email.toLowerCase());
+  const result = await userService.getUserByEmail(email.toLowerCase());
 
   if (!result.ok) {
     return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
@@ -282,7 +293,7 @@ const getUserRoute = createRoute({
     }),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectUsersSchema, 'The user'),
+    [HttpStatusCodes.OK]: jsonContent(userResponseSchema, 'The user'),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'User not found'
@@ -309,7 +320,7 @@ server.openapi(getUserRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  const result = await userHandler.getUserById(id);
+  const result = await userService.getUserById(id);
 
   if (!result.ok) {
     return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
@@ -336,10 +347,10 @@ const updateUserRoute = createRoute({
         example: 1,
       }),
     }),
-    body: jsonContent(patchUsersClientSchema, 'The user updates'),
+    body: jsonContent(updateUserRequestSchema, 'The user updates'),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(selectUsersSchema, 'The updated user'),
+    [HttpStatusCodes.OK]: jsonContent(userResponseSchema, 'The updated user'),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
       'User not found'
@@ -402,7 +413,7 @@ server.openapi(updateUserRoute, async (c) => {
     );
   }
 
-  const targetResult = await userHandler.getUserById(id);
+  const targetResult = await userService.getUserById(id);
 
   if (!targetResult.ok) {
     return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
@@ -414,10 +425,9 @@ server.openapi(updateUserRoute, async (c) => {
 
   if (currentUser.roleName === ROLES.TRANSLATOR) {
     delete (updates as Record<string, unknown>).role;
-    delete (updates as Record<string, unknown>).organization;
   }
 
-  const result = await userHandler.updateUser(id, updates);
+  const result = await userService.updateUser(id, updates);
 
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
@@ -471,7 +481,7 @@ server.openapi(deleteUserRoute, async (c) => {
     organization: currentUser.organization,
   };
 
-  const targetResult = await userHandler.getUserById(id);
+  const targetResult = await userService.getUserById(id);
 
   if (!targetResult.ok) {
     return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
@@ -481,7 +491,7 @@ server.openapi(deleteUserRoute, async (c) => {
     return c.json({ message: 'User not found' }, HttpStatusCodes.NOT_FOUND);
   }
 
-  const result = await userHandler.deleteUser(id);
+  const result = await userService.deleteUser(id);
 
   if (result.ok) {
     return c.body(null, HttpStatusCodes.NO_CONTENT);
