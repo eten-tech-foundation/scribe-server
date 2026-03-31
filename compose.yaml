@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fluent
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - fluent-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fluent"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "${PORT:-9999}:9999"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/fluent
+    command: sh docker-entrypoint.sh
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9999/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/fluent
+    command: npx tsx watch src/workers/standalone-worker.ts
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  fluent-pgdata:
