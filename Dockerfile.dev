@@ -1,10 +1,57 @@
-FROM node:22-alpine
+# Use specific version for reproducibility and security updates
+FROM node:22.15.0-alpine AS base
 
-RUN apk add --no-cache python3 make g++ curl
+# Install security updates and build dependencies
+RUN apk update && \
+    apk upgrade && \
+    apk add --no-cache \
+        python3 \
+        make \
+        g++ \
+        curl \
+        ca-certificates && \
+    rm -rf /var/cache/apk/*
 
+# Create non-root user with limited permissions
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Set working directory
 WORKDIR /app
 
+# Copy package files for dependency installation
 COPY package.json package-lock.json ./
-RUN npm ci
 
+# Install production dependencies (skip prepare/husky — no .git in container)
+RUN npm pkg delete scripts.prepare && \
+    npm ci --omit=dev && \
+    npm cache clean --force
+
+# Development stage
+FROM base AS development
+
+# Install all dependencies for development (prepare already removed in base)
+RUN npm ci && \
+    npm cache clean --force
+
+# Copy source code
+COPY --chown=nodejs:nodejs . .
+
+# Switch to non-root user
+USER nodejs
+
+# Set secure environment variables
+ENV NODE_ENV=development \
+    NPM_CONFIG_AUDIT=true \
+    NPM_CONFIG_FUND=false \
+    NPM_CONFIG_AUDIT_LEVEL=moderate
+
+# Expose port
 EXPOSE 9999
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:9999/health || exit 1
+
+# Default command for development
+CMD ["npm", "run", "dev"]
