@@ -22,12 +22,25 @@ services:
     ports:
       - "${PORT:-9999}:9999"
     volumes:
-      - .:/app
+      - ./src:/app/src:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./drizzle.config.ts:/app/drizzle.config.ts:ro
+      - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
       - /app/node_modules
     env_file: .env
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/fluent
-    command: sh docker-entrypoint.sh
+      EXPORTS_DIR: /app/exports
+    user: "1001:1001"
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64m
+      - /app/.cache:noexec,nosuid,size=128m
+      - /app/exports:noexec,nosuid,size=256m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     depends_on:
       db:
         condition: service_healthy
@@ -43,12 +56,24 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     volumes:
-      - .:/app
+      - ./src:/app/src:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
       - /app/node_modules
     env_file: .env
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/fluent
-    command: npx tsx watch src/workers/standalone-worker.ts
+      EXPORTS_DIR: /app/exports
+    command: ["dumb-init", "--", "npx", "tsx", "watch", "src/workers/standalone-worker.ts"]
+    user: "1001:1001"
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64m
+      - /app/.cache:noexec,nosuid,size=128m
+      - /app/exports:noexec,nosuid,size=256m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     depends_on:
       api:
         condition: service_healthy
