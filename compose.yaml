@@ -26,7 +26,7 @@ services:
       - ./tsconfig.json:/app/tsconfig.json:ro
       - ./drizzle.config.ts:/app/drizzle.config.ts:ro
       - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
-      - /app/node_modules
+      - fluent-api-node-modules:/app/node_modules
     env_file: .env
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/fluent
@@ -58,7 +58,7 @@ services:
     volumes:
       - ./src:/app/src:ro
       - ./tsconfig.json:/app/tsconfig.json:ro
-      - /app/node_modules
+      - fluent-worker-node-modules:/app/node_modules
     env_file: .env
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/fluent
@@ -80,3 +80,5 @@ services:
 
 volumes:
   fluent-pgdata:
+  fluent-api-node-modules:
+  fluent-worker-node-modules:
