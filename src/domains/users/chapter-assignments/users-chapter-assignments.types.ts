@@ -17,6 +17,9 @@ export interface UserChapterAssignment {
   totalVerses: number;
   completedVerses: number;
   submittedTime: string | null;
+  assignedUserId: number | null;
+  peerCheckerId: number | null;
+  updatedAt: string | null;
 }
 
 // ─── API response schema ──────────────────────────────────────────────────────
@@ -36,6 +39,9 @@ export const userChapterAssignmentResponseSchema = z.object({
   totalVerses: z.number().int(),
   completedVerses: z.number().int(),
   submittedTime: z.string().nullable(),
+  assignedUserId: z.number().int().nullable(),
+  peerCheckerId: z.number().int().nullable(),
+  updatedAt: z.string().nullable(),
 });
 
 export const userChapterAssignmentsByUserResponseSchema = z.object({
