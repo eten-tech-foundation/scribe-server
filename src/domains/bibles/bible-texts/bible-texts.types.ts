@@ -31,3 +31,13 @@ export const bulkChapterTextResponseSchema = z.object({
 
 export type BulkChapterRequest = z.infer<typeof bulkChapterRequestSchema>;
 export type BulkChapterTextResponse = z.infer<typeof bulkChapterTextResponseSchema>;
+
+export type BulkBibleTextsRequest = z.infer<typeof bulkChapterRequestSchema>;
+
+export interface BulkVerseRow {
+  id: number;
+  bookId: number;
+  chapterNumber: number;
+  verseNumber: number;
+  text: string;
+}

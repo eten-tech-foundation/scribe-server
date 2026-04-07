@@ -7,6 +7,8 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 import { getHttpStatus } from '@/lib/types';
 import { server } from '@/server/server';
 
+import type { BulkBibleTextsRequest } from './bible-texts.types';
+
 import * as bibleTextsService from './bible-texts.service';
 import {
   bibleTextResponseSchema,
@@ -125,7 +127,7 @@ const getBulkBibleTextsRoute = createRoute({
 
 server.openapi(getBulkBibleTextsRoute, async (c) => {
   const { bibleId } = c.req.valid('param');
-  const body = c.req.valid('json');
+  const body: BulkBibleTextsRequest = bulkChapterRequestSchema.parse(c.req.valid('json'));
   const result = await bibleTextsService.getBulkBibleTexts(bibleId, body);
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
   return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);

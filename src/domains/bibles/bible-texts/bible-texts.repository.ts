@@ -6,7 +6,7 @@ import { db } from '@/db';
 import { bible_texts } from '@/db/schema';
 import { err, ErrorCode, ok } from '@/lib/types';
 
-import type { BibleTextResponse, BulkChapterTextResponse } from './bible-texts.types';
+import type { BibleTextResponse, BulkVerseRow } from './bible-texts.types';
 
 export async function getByChapter(
   bibleId: number,
@@ -38,27 +38,17 @@ export async function getByChapter(
   }
 }
 
-// ─── Bulk chapter fetch───────────────────────────────────────────────────────────────
+// ─── Bulk chapter fetch ───────────────────────────────────────────────────────────────
 
 interface ChapterKey {
   bookId: number;
   chapterNumber: number;
 }
 
-interface BulkVerseRow {
-  id: number;
-  bookId: number;
-  chapterNumber: number;
-  verseNumber: number;
-  text: string;
-}
-
 export async function getByChapters(
   bibleId: number,
   chapters: ChapterKey[]
-): Promise<Result<BulkChapterTextResponse[]>> {
-  if (chapters.length === 0) return ok([]);
-
+): Promise<Result<BulkVerseRow[]>> {
   try {
     const conditions = chapters.map((ch) =>
       and(eq(bible_texts.bookId, ch.bookId), eq(bible_texts.chapterNumber, ch.chapterNumber))
@@ -76,21 +66,7 @@ export async function getByChapters(
       .where(and(eq(bible_texts.bibleId, bibleId), or(...conditions)))
       .orderBy(bible_texts.bookId, bible_texts.chapterNumber, bible_texts.verseNumber);
 
-    const grouped = new Map<string, BulkChapterTextResponse>();
-    for (const row of rows as BulkVerseRow[]) {
-      const key = `${row.bookId}:${row.chapterNumber}`;
-      if (!grouped.has(key)) {
-        grouped.set(key, { bookId: row.bookId, chapterNumber: row.chapterNumber, verses: [] });
-      }
-      grouped.get(key)!.verses.push({
-        id: row.id,
-        chapterNumber: row.chapterNumber,
-        verseNumber: row.verseNumber,
-        text: row.text,
-      });
-    }
-
-    return ok([...grouped.values()]);
+    return ok(rows);
   } catch {
     return err(ErrorCode.INTERNAL_ERROR);
   }
