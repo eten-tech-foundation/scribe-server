@@ -49,10 +49,6 @@ ENV NODE_ENV=development \
 # Expose port
 EXPOSE 9999
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:9999/health || exit 1
-
 # Use dumb-init for proper signal handling — prevents zombie processes
 # and ensures clean shutdown even if a dependency spawns child processes
 ENTRYPOINT ["dumb-init", "--"]
