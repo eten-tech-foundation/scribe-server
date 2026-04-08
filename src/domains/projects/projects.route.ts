@@ -4,14 +4,13 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent, jsonContentRequired } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { resolveIsProjectMember } from '@/domains/projects/users/project-users.service';
 import { ZOD_ERROR_MESSAGES } from '@/lib/constants';
 import { PERMISSIONS } from '@/lib/permissions';
 import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
-import { ProjectPolicy } from './project.policy';
+import { requireProjectAccess } from './project-auth.middleware';
 import * as projectService from './projects.service';
 import {
   createProjectWithUnitsSchema,
@@ -30,7 +29,11 @@ const listProjectsRoute = createRoute({
   tags: ['Projects'],
   method: 'get',
   path: '/projects',
-  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  middleware: [
+    authenticateUser,
+    requirePermission(PERMISSIONS.PROJECT_VIEW),
+    requireProjectAccess('list'),
+  ] as const,
   summary: 'Get all projects',
   description: 'Project Managers: all projects in their organisation.',
   responses: {
@@ -52,8 +55,6 @@ const listProjectsRoute = createRoute({
 
 server.openapi(listProjectsRoute, async (c) => {
   const currentUser = c.get('user')!;
-  if (!ProjectPolicy.list(currentUser))
-    return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
 
   const result = await projectService.getProjectsByOrganization(currentUser.organization);
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
@@ -111,7 +112,11 @@ const getProjectRoute = createRoute({
   tags: ['Projects'],
   method: 'get',
   path: '/projects/{id}',
-  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  middleware: [
+    authenticateUser,
+    requirePermission(PERMISSIONS.PROJECT_VIEW),
+    requireProjectAccess('read'),
+  ] as const,
   summary: 'Get a project by ID',
   request: { params: idParam },
   responses: {
@@ -136,19 +141,8 @@ const getProjectRoute = createRoute({
 });
 
 server.openapi(getProjectRoute, async (c) => {
-  const { id } = c.req.valid('param');
-  const currentUser = c.get('user')!;
-
-  const result = await projectService.getProjectById(id);
-  if (!result.ok)
-    return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
-
-  const isProjectMember = await resolveIsProjectMember(id, currentUser.id, currentUser.roleName);
-  if (!ProjectPolicy.read(currentUser, result.data, isProjectMember)) {
-    return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
-  }
-
-  return c.json(result.data, HttpStatusCodes.OK);
+  const project = c.get('project')!;
+  return c.json(project, HttpStatusCodes.OK);
 });
 
 // ─── PATCH /projects/:id ──────────────────────────────────────────────────────
@@ -157,7 +151,11 @@ const updateProjectRoute = createRoute({
   tags: ['Projects'],
   method: 'patch',
   path: '/projects/{id}',
-  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_UPDATE)] as const,
+  middleware: [
+    authenticateUser,
+    requirePermission(PERMISSIONS.PROJECT_UPDATE),
+    requireProjectAccess('update'),
+  ] as const,
   summary: 'Update a project',
   description: 'Project Manager only.',
   request: {
@@ -196,20 +194,10 @@ const updateProjectRoute = createRoute({
 server.openapi(updateProjectRoute, async (c) => {
   const { id } = c.req.valid('param');
   const updates = c.req.valid('json');
-  const currentUser = c.get('user')!;
 
   if (Object.keys(updates).length === 0) {
     return c.json({ message: ZOD_ERROR_MESSAGES.NO_UPDATES }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
   }
-
-  const projectResult = await projectService.getProjectById(id);
-  if (!projectResult.ok)
-    return c.json(
-      { message: projectResult.error.message },
-      getHttpStatus(projectResult.error) as never
-    );
-  if (!ProjectPolicy.update(currentUser, projectResult.data))
-    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
 
   const result = await projectService.updateProject(id, updates);
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
@@ -222,7 +210,11 @@ const deleteProjectRoute = createRoute({
   tags: ['Projects'],
   method: 'delete',
   path: '/projects/{id}',
-  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_DELETE)] as const,
+  middleware: [
+    authenticateUser,
+    requirePermission(PERMISSIONS.PROJECT_DELETE),
+    requireProjectAccess('delete'),
+  ] as const,
   summary: 'Delete a project',
   description: 'Project Manager only.',
   request: { params: idParam },
@@ -249,16 +241,6 @@ const deleteProjectRoute = createRoute({
 
 server.openapi(deleteProjectRoute, async (c) => {
   const { id } = c.req.valid('param');
-  const currentUser = c.get('user')!;
-
-  const projectResult = await projectService.getProjectById(id);
-  if (!projectResult.ok)
-    return c.json(
-      { message: projectResult.error.message },
-      getHttpStatus(projectResult.error) as never
-    );
-  if (!ProjectPolicy.delete(currentUser, projectResult.data))
-    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
 
   const result = await projectService.deleteProject(id);
   if (result.ok) return c.body(null, HttpStatusCodes.NO_CONTENT);
