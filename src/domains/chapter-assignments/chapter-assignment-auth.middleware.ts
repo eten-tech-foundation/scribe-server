@@ -35,10 +35,7 @@ export function requireChapterAssignmentAccess(
       );
 
     if (!result.ok) {
-      return c.json(
-        { message: result.error.message },
-        getHttpStatus(result.error) as never
-      );
+      return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
     }
 
     const ctx = result.data;

@@ -87,7 +87,7 @@ export function requireTranslatedVerseAccess(
       c.set('projectAuthContext', { isProjectMember });
     } else if (action === 'edit') {
       // Reuse already-parsed body from source resolution
-      const body = parsedBody ?? (await c.req.json() as TranslatedVerseAuthBody);
+      const body = parsedBody ?? ((await c.req.json()) as TranslatedVerseAuthBody);
 
       const assignmentResult = await chapterAssignmentService.getAssignmentForVerse(
         body.projectUnitId,

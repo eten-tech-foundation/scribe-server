@@ -36,10 +36,7 @@ export function requireProjectAccess(action: ProjectAction, paramName = 'id') {
 
     const result = await projectService.getProjectById(projectId);
     if (!result.ok) {
-      return c.json(
-        { message: result.error.message },
-        getHttpStatus(result.error) as never
-      );
+      return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
     }
 
     const project = result.data;
