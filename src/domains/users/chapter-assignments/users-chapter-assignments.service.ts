@@ -101,8 +101,8 @@ export async function assignUserToChapters(
 
       const updated = await repo.bulkUpdateAssignments(
         chapterAssignmentIds,
-        assignedUserId,   // passes null through to repo
-        peerCheckerId,    // passes null through to repo
+        assignedUserId, // passes null through to repo
+        peerCheckerId, // passes null through to repo
         tx
       );
 

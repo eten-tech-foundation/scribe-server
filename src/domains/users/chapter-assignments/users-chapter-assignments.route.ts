@@ -81,12 +81,12 @@ const assignUsersToChaptersRoute = createRoute({
   path: '/users/{userId}/chapter-assignments',
   middleware: [authenticateUser, requirePermission(PERMISSIONS.CONTENT_ASSIGN)] as const,
   request: {
-params: z.object({
-  userId: z.preprocess(
-    (val) => (val === 'null' ? null : val),
-    z.coerce.number().int().positive().nullable()
-  ),
-}),
+    params: z.object({
+      userId: z.preprocess(
+        (val) => (val === 'null' ? null : val),
+        z.coerce.number().int().positive().nullable()
+      ),
+    }),
     body: jsonContent(
       z.object({
         chapterAssignmentIds: z
@@ -129,7 +129,7 @@ params: z.object({
 
 server.openapi(assignUsersToChaptersRoute, async (c) => {
   const assignedUserId = c.req.valid('param').userId; // now number | null
-  const assignmentData = c.req.valid('json');         // peerCheckerId: number | null
+  const assignmentData = c.req.valid('json'); // peerCheckerId: number | null
   const currentUser = c.get('user')!;
   const policyUser = {
     id: currentUser.id,
@@ -157,9 +157,9 @@ server.openapi(assignUsersToChaptersRoute, async (c) => {
   }
 
   const result = await usersChapterAssignmentsService.assignUserToChapters(
-    assignedUserId,               // now passes null through
+    assignedUserId, // now passes null through
     assignmentData.chapterAssignmentIds,
-    assignmentData.peerCheckerId  // now passes null through
+    assignmentData.peerCheckerId // now passes null through
   );
 
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
