@@ -20,6 +20,8 @@ export interface ProjectWithLanguageNames {
   createdAt: Date | null;
   updatedAt: Date | null;
   metadata: unknown;
+  sourceLanguageId: number;
+  targetLanguageId: number;
   sourceLanguageName: string;
   targetLanguageName: string;
   sourceName: string;
@@ -40,6 +42,8 @@ export interface RawProjectRow {
   createdAt: Date | null;
   updatedAt: Date | null;
   metadata: unknown;
+  sourceLanguageId: number;
+  targetLanguageId: number;
   sourceLanguageName: string;
   targetLanguageName: string;
   sourceName: string;
@@ -72,6 +76,8 @@ export const userProjectResponseSchema = z.object({
   createdAt: z.union([z.date(), z.string()]).nullable(),
   updatedAt: z.union([z.date(), z.string()]).nullable(),
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+  sourceLanguageId: z.number().int(),
+  targetLanguageId: z.number().int(),
   sourceLanguageName: z.string(),
   targetLanguageName: z.string(),
   sourceName: z.string(),
