@@ -78,7 +78,7 @@ export async function addProjectUsers(
       }))
     );
   } catch (e) {
-     if (handleUniqueConstraintError(e)) {
+    if (handleUniqueConstraintError(e)) {
       return err(ErrorCode.USER_ALREADY_IN_PROJECT);
     }
     logger.error({
