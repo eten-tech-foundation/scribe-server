@@ -75,6 +75,8 @@ const projectSelectFields = {
   createdAt: projects.createdAt,
   updatedAt: projects.updatedAt,
   metadata: projects.metadata,
+  sourceLanguageId: sourceLanguages.id,
+  targetLanguageId: targetLanguages.id,
   sourceLanguageName: sourceLanguages.langName,
   targetLanguageName: targetLanguages.langName,
   sourceName: sourceBibles.name,
