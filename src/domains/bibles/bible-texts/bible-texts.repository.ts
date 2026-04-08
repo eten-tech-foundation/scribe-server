@@ -66,6 +66,8 @@ export async function getByChapters(
       .where(and(eq(bible_texts.bibleId, bibleId), or(...conditions)))
       .orderBy(bible_texts.bookId, bible_texts.chapterNumber, bible_texts.verseNumber);
 
+    if (rows.length === 0) return err(ErrorCode.NOT_FOUND);
+
     return ok(rows);
   } catch {
     return err(ErrorCode.INTERNAL_ERROR);
