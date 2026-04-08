@@ -34,6 +34,9 @@ export function toResponse(assignment: UserChapterAssignment): UserChapterAssign
     totalVerses: assignment.totalVerses,
     completedVerses: assignment.completedVerses,
     submittedTime: assignment.submittedTime,
+    assignedUserId: assignment.assignedUserId,
+    peerCheckerId: assignment.peerCheckerId,
+    updatedAt: assignment.updatedAt,
   };
 }
 

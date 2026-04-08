@@ -38,6 +38,9 @@ interface QueryRow {
   submittedTime: Date | null;
   totalVerses: number;
   completedVerses: number;
+  assignedUserId: number | null;
+  peerCheckerId: number | null;
+  updatedAt: Date | null;
 }
 
 function createBaseQuery() {
@@ -58,6 +61,9 @@ function createBaseQuery() {
       submittedTime: chapter_assignments.submittedTime,
       totalVerses: sql<number>`COUNT(${bible_texts.id})`,
       completedVerses: sql<number>`COUNT(CASE WHEN ${translated_verses.content} != '' AND ${translated_verses.content} IS NOT NULL THEN 1 END)`,
+      assignedUserId: chapter_assignments.assignedUserId,
+      peerCheckerId: chapter_assignments.peerCheckerId,
+      updatedAt: chapter_assignments.updatedAt,
     })
     .from(chapter_assignments)
     .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
@@ -88,6 +94,9 @@ function createBaseQuery() {
       chapter_assignments.bookId,
       chapter_assignments.chapterNumber,
       chapter_assignments.submittedTime,
+      chapter_assignments.assignedUserId,
+      chapter_assignments.peerCheckerId,
+      chapter_assignments.updatedAt,
       projects.name,
       bibles.name,
       languages.langName,
@@ -115,6 +124,9 @@ function mapRows(rows: QueryRow[]): UserChapterAssignment[] {
     totalVerses: Number(row.totalVerses),
     completedVerses: Number(row.completedVerses),
     submittedTime: row.submittedTime?.toISOString() ?? null,
+    assignedUserId: row.assignedUserId,
+    peerCheckerId: row.peerCheckerId,
+    updatedAt: row.updatedAt?.toISOString() ?? null,
   }));
 }
 
