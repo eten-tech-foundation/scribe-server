@@ -21,6 +21,8 @@ jobs:
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
+        env:
+          CXXFLAGS: '-std=c++20'
 
       - name: Lint and format check
         run: |
