@@ -58,6 +58,8 @@ jobs:
         run: |
           cd deployment
           npm install --prod --legacy-peer-deps
+        env:
+          CXXFLAGS: '-std=c++20'
 
       - name: Add WebJob to deployment package
         run: |
