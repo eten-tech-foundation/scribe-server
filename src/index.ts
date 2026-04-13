@@ -10,7 +10,7 @@ import app from './app';
 
 async function startServer() {
   try {
-    logger.info('Starting Scribe server');
+    logger.info('Starting Fluent API server');
 
     await initializeFileStorage();
     logger.info('File storage initialized');
