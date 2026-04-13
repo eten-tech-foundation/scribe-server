@@ -16,6 +16,8 @@ export function toUserProjectResponse(project: ProjectWithLanguageNames): UserPr
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,
     metadata: project.metadata as Record<string, unknown> | null | undefined,
+    sourceLanguageId: project.sourceLanguageId,
+    targetLanguageId: project.targetLanguageId,
     sourceLanguageName: project.sourceLanguageName,
     targetLanguageName: project.targetLanguageName,
     sourceName: project.sourceName,
