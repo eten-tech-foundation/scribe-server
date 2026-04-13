@@ -20,6 +20,7 @@ import * as repo from './users-chapter-assignments.repository';
 export function toResponse(assignment: UserChapterAssignment): UserChapterAssignmentResponse {
   return {
     chapterAssignmentId: assignment.chapterAssignmentId,
+    projectId: assignment.projectId,
     projectName: assignment.projectName,
     projectUnitId: assignment.projectUnitId,
     bibleId: assignment.bibleId,
