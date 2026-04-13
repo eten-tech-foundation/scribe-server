@@ -395,14 +395,17 @@ server.openapi(downloadExportRoute, async (c) => {
 
     const fileBuffer = await getExportFile(filename);
 
-    c.header('Content-Type', 'application/zip');
-    c.header('Content-Disposition', `attachment; filename="${filename}"`);
-    c.header('Content-Length', fileBuffer.length.toString());
-    c.header('Cache-Control', 'no-cache');
-
     logger.info('File downloaded', { filename, sizeBytes: fileBuffer.length });
 
-    return c.body(fileBuffer);
+    return new Response(fileBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': fileBuffer.length.toString(),
+        'Cache-Control': 'no-cache',
+      },
+    });
   } catch (error) {
     logger.error('File download failed', { filename, error });
     return c.json({ error: 'Failed to download file' }, HttpStatusCodes.INTERNAL_SERVER_ERROR);

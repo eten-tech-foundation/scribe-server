@@ -3,6 +3,7 @@ import { z } from '@hono/zod-openapi';
 // ─── DB-derived types ─────────────────────────────────────────────────────────
 export interface UserChapterAssignment {
   chapterAssignmentId: number;
+  projectId: number;
   projectName: string;
   projectUnitId: number;
   bibleId: number;
@@ -25,6 +26,7 @@ export interface UserChapterAssignment {
 // ─── API response schema ──────────────────────────────────────────────────────
 export const userChapterAssignmentResponseSchema = z.object({
   chapterAssignmentId: z.number().int(),
+  projectId: z.number().int(),
   projectName: z.string(),
   projectUnitId: z.number().int(),
   bibleId: z.number().int(),
