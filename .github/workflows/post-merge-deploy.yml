@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Set up Node.js version
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24.14.0
           cache: npm
@@ -67,7 +67,7 @@ jobs:
           node scripts/setup-webjob.js
 
       - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: node-app
           path: deployment/
@@ -82,7 +82,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Set up Node.js version
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24.14.0
           cache: npm
@@ -107,7 +107,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Set up Node.js version
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24.14.0
           cache: npm
@@ -131,7 +131,7 @@ jobs:
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     steps:
       - name: Download artifact from build job
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: node-app
           path: deployment/
@@ -170,7 +170,7 @@ jobs:
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     steps:
       - name: Download artifact from build job
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: node-app
           path: deployment/
