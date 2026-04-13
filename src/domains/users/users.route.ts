@@ -17,6 +17,7 @@ import * as userService from './users.service';
 import {
   createUserRequestSchema,
   updateUserRequestSchema,
+  USER_ACTIONS,
   userResponseSchema,
 } from './users.types';
 
@@ -29,7 +30,7 @@ const listUsersRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.USER_VIEW),
-    requireUserAccess('list'),
+    requireUserAccess(USER_ACTIONS.LIST),
   ] as const,
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
@@ -73,7 +74,7 @@ const createUserRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.USER_CREATE),
-    requireUserAccess('create'),
+    requireUserAccess(USER_ACTIONS.CREATE),
   ] as const,
   request: {
     body: jsonContent(createUserRequestSchema, 'The user to create'),
@@ -136,7 +137,7 @@ const createUserWithInvitationRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.USER_CREATE),
-    requireUserAccess('create'),
+    requireUserAccess(USER_ACTIONS.CREATE),
   ] as const,
   request: {
     body: jsonContent(createUserRequestSchema, 'The user to create and invite'),
@@ -264,7 +265,7 @@ const getUserRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.USER_VIEW),
-    requireUserAccess('view'),
+    requireUserAccess(USER_ACTIONS.VIEW),
   ] as const,
   request: {
     params: z.object({
@@ -307,7 +308,7 @@ const updateUserRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.USER_UPDATE),
-    requireUserAccess('update'),
+    requireUserAccess(USER_ACTIONS.UPDATE),
   ] as const,
   request: {
     params: z.object({
@@ -399,7 +400,7 @@ const deleteUserRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.USER_DELETE),
-    requireUserAccess('delete'),
+    requireUserAccess(USER_ACTIONS.DELETE),
   ] as const,
   request: {
     params: z.object({

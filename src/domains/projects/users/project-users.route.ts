@@ -5,6 +5,7 @@ import { jsonContent, jsonContentRequired } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { requireProjectAccess } from '@/domains/projects/project-auth.middleware';
+import { PROJECT_ACTIONS } from '@/domains/projects/projects.types';
 import { PERMISSIONS } from '@/lib/permissions';
 import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
@@ -27,7 +28,7 @@ const getProjectUsersRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.PROJECT_VIEW),
-    requireProjectAccess('read', 'projectId'),
+    requireProjectAccess(PROJECT_ACTIONS.READ, 'projectId'),
   ] as const,
   request: { params: projectIdParamSchema },
   responses: {
@@ -74,7 +75,7 @@ const addProjectUserRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.PROJECT_UPDATE),
-    requireProjectAccess('update', 'projectId'),
+    requireProjectAccess(PROJECT_ACTIONS.UPDATE, 'projectId'),
   ] as const,
   request: {
     params: projectIdParamSchema,
@@ -129,7 +130,7 @@ const removeProjectUserRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.PROJECT_UPDATE),
-    requireProjectAccess('update', 'projectId'),
+    requireProjectAccess(PROJECT_ACTIONS.UPDATE, 'projectId'),
   ] as const,
   request: {
     params: removeProjectUserParamSchema,

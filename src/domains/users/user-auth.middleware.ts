@@ -3,10 +3,11 @@ import * as HttpStatusCodes from 'stoker/http-status-codes';
 
 import type { AppEnv } from '@/server/context.types';
 
+import type { UserAction } from './users.types';
+
 import { UserPolicy } from './user.policy';
 import * as userService from './users.service';
-
-export type UserAction = 'list' | 'create' | 'view' | 'update' | 'delete';
+import { USER_ACTIONS } from './users.types';
 
 // Loads the target user, evaluates UserPolicy, and injects the entity into context.
 export function requireUserAccess(action: UserAction, paramName = 'id') {
@@ -14,14 +15,14 @@ export function requireUserAccess(action: UserAction, paramName = 'id') {
     const user = c.get('user')!;
     const policyUser = { id: user.id, roleName: user.roleName, organization: user.organization };
 
-    if (action === 'list') {
+    if (action === USER_ACTIONS.LIST) {
       if (!UserPolicy.list(policyUser)) {
         return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
       }
       return next();
     }
 
-    if (action === 'create') {
+    if (action === USER_ACTIONS.CREATE) {
       if (!UserPolicy.create(policyUser)) {
         return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
       }
@@ -42,15 +43,15 @@ export function requireUserAccess(action: UserAction, paramName = 'id') {
     let allowed = false;
 
     switch (action) {
-      case 'view':
+      case USER_ACTIONS.VIEW:
         allowed = UserPolicy.view(policyUser, targetUser);
         break;
 
-      case 'update':
+      case USER_ACTIONS.UPDATE:
         allowed = UserPolicy.update(policyUser, targetUser);
         break;
 
-      case 'delete':
+      case USER_ACTIONS.DELETE:
         allowed = UserPolicy.delete(policyUser, targetUser);
         break;
     }

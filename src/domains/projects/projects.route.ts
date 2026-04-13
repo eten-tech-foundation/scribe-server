@@ -14,6 +14,7 @@ import { requireProjectAccess } from './project-auth.middleware';
 import * as projectService from './projects.service';
 import {
   createProjectWithUnitsSchema,
+  PROJECT_ACTIONS,
   projectResponseSchema,
   projectWithLanguageNamesSchema,
   updateProjectWithUnitsSchema,
@@ -32,7 +33,7 @@ const listProjectsRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.PROJECT_VIEW),
-    requireProjectAccess('list'),
+    requireProjectAccess(PROJECT_ACTIONS.LIST),
   ] as const,
   summary: 'Get all projects',
   description: 'Project Managers: all projects in their organisation.',
@@ -115,7 +116,7 @@ const getProjectRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.PROJECT_VIEW),
-    requireProjectAccess('read'),
+    requireProjectAccess(PROJECT_ACTIONS.READ),
   ] as const,
   summary: 'Get a project by ID',
   request: { params: idParam },
@@ -154,7 +155,7 @@ const updateProjectRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.PROJECT_UPDATE),
-    requireProjectAccess('update'),
+    requireProjectAccess(PROJECT_ACTIONS.UPDATE),
   ] as const,
   summary: 'Update a project',
   description: 'Project Manager only.',
@@ -213,7 +214,7 @@ const deleteProjectRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.PROJECT_DELETE),
-    requireProjectAccess('delete'),
+    requireProjectAccess(PROJECT_ACTIONS.DELETE),
   ] as const,
   summary: 'Delete a project',
   description: 'Project Manager only.',

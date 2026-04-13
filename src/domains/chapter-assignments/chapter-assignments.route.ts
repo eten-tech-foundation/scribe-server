@@ -13,7 +13,10 @@ import { server } from '@/server/server';
 import { requireChapterAssignmentAccess } from './chapter-assignment-auth.middleware';
 import { ChapterAssignmentPolicy } from './chapter-assignments.policy';
 import * as chapterAssignmentService from './chapter-assignments.service';
-import { chapterAssignmentResponseSchema } from './chapter-assignments.types';
+import {
+  CHAPTER_ASSIGNMENT_ACTIONS,
+  chapterAssignmentResponseSchema,
+} from './chapter-assignments.types';
 
 const chapterAssignmentIdParam = z.object({
   chapterAssignmentId: z.coerce.number().int().positive(),
@@ -105,7 +108,7 @@ const updateChapterAssignmentRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.CONTENT_ASSIGN),
-    requireChapterAssignmentAccess('update'),
+    requireChapterAssignmentAccess(CHAPTER_ASSIGNMENT_ACTIONS.UPDATE),
   ] as const,
   request: {
     params: chapterAssignmentIdParam,
@@ -164,7 +167,7 @@ const submitChapterAssignmentRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.CONTENT_UPDATE),
-    requireChapterAssignmentAccess('submit'),
+    requireChapterAssignmentAccess(CHAPTER_ASSIGNMENT_ACTIONS.SUBMIT),
   ] as const,
   request: { params: chapterAssignmentIdParam },
   responses: {
@@ -220,7 +223,7 @@ const getChapterAssignmentRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.PROJECT_VIEW),
-    requireChapterAssignmentAccess('read'),
+    requireChapterAssignmentAccess(CHAPTER_ASSIGNMENT_ACTIONS.READ),
   ] as const,
   request: { params: chapterAssignmentIdParam },
   responses: {
@@ -263,7 +266,7 @@ const deleteChapterAssignmentRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.CONTENT_ASSIGN),
-    requireChapterAssignmentAccess('delete'),
+    requireChapterAssignmentAccess(CHAPTER_ASSIGNMENT_ACTIONS.DELETE),
   ] as const,
   request: { params: chapterAssignmentIdParam },
   responses: {

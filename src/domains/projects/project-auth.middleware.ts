@@ -5,11 +5,12 @@ import type { AppEnv } from '@/server/context.types';
 
 import { getHttpStatus } from '@/lib/types';
 
+import type { ProjectAction } from './projects.types';
+
 import { ProjectPolicy } from './project.policy';
 import * as projectService from './projects.service';
+import { PROJECT_ACTIONS } from './projects.types';
 import { resolveIsProjectMember } from './users/project-users.service';
-
-export type ProjectAction = 'list' | 'read' | 'update' | 'delete';
 
 // Loads a project, evaluates ProjectPolicy, and injects the entity into context.
 export function requireProjectAccess(action: ProjectAction, paramName = 'id') {
@@ -22,7 +23,7 @@ export function requireProjectAccess(action: ProjectAction, paramName = 'id') {
       organization: user.organization,
     };
 
-    if (action === 'list') {
+    if (action === PROJECT_ACTIONS.LIST) {
       if (!ProjectPolicy.list(policyUser)) {
         return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
       }
@@ -44,28 +45,26 @@ export function requireProjectAccess(action: ProjectAction, paramName = 'id') {
     let isProjectMember = false;
 
     switch (action) {
-      case 'read':
+      case PROJECT_ACTIONS.READ:
         isProjectMember = await resolveIsProjectMember(projectId, user.id, user.roleName);
         allowed = ProjectPolicy.read(policyUser, project, isProjectMember);
         break;
 
-      case 'update':
+      case PROJECT_ACTIONS.UPDATE:
         allowed = ProjectPolicy.update(policyUser, project);
         break;
 
-      case 'delete':
+      case PROJECT_ACTIONS.DELETE:
         allowed = ProjectPolicy.delete(policyUser, project);
         break;
     }
 
     if (!allowed) {
-      const status = action === 'read' ? HttpStatusCodes.FORBIDDEN : HttpStatusCodes.NOT_FOUND;
-      const message = action === 'read' ? 'Forbidden' : 'Project not found';
-      return c.json({ message }, status);
+      return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
     }
 
     c.set('project', project);
-    if (action === 'read') {
+    if (action === PROJECT_ACTIONS.READ) {
       c.set('projectAuthContext', { isProjectMember });
     }
     return next();

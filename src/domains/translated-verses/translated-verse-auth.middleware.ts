@@ -9,10 +9,10 @@ import { ProjectPolicy } from '@/domains/projects/project.policy';
 import * as projectService from '@/domains/projects/projects.service';
 import { resolveIsProjectMember } from '@/domains/projects/users/project-users.service';
 
-import * as translatedVersesService from './translated-verses.service';
+import type { ProjectUnitIdSource, TranslatedVerseAction } from './translated-verses.types';
 
-export type TranslatedVerseAction = 'read' | 'edit';
-export type ProjectUnitIdSource = 'verseParam' | 'query' | 'body';
+import * as translatedVersesService from './translated-verses.service';
+import { PROJECT_UNIT_ID_SOURCES, TRANSLATED_VERSE_ACTIONS } from './translated-verses.types';
 
 // Body fields the middleware needs for auth resolution.
 interface TranslatedVerseAuthBody {
@@ -38,7 +38,7 @@ export function requireTranslatedVerseAccess(
     let projectUnitId: number | undefined;
     let parsedBody: TranslatedVerseAuthBody | undefined;
 
-    if (source === 'verseParam') {
+    if (source === PROJECT_UNIT_ID_SOURCES.VERSE_PARAM) {
       const verseId = Number(c.req.param(verseParamName));
       if (!verseId || Number.isNaN(verseId)) {
         return c.json({ message: 'Missing verse ID' }, HttpStatusCodes.BAD_REQUEST);
@@ -51,9 +51,9 @@ export function requireTranslatedVerseAccess(
 
       c.set('translatedVerse', verseResult.data);
       projectUnitId = verseResult.data.projectUnitId;
-    } else if (source === 'query') {
+    } else if (source === PROJECT_UNIT_ID_SOURCES.QUERY) {
       projectUnitId = Number(c.req.query('projectUnitId'));
-    } else if (source === 'body') {
+    } else if (source === PROJECT_UNIT_ID_SOURCES.BODY) {
       parsedBody = await c.req.json();
       projectUnitId = parsedBody?.projectUnitId;
     }
@@ -62,7 +62,7 @@ export function requireTranslatedVerseAccess(
       return c.json({ message: 'Missing projectUnitId' }, HttpStatusCodes.BAD_REQUEST);
     }
 
-    if (action === 'read') {
+    if (action === TRANSLATED_VERSE_ACTIONS.READ) {
       const unitResult = await projectService.getProjectIdByUnitId(projectUnitId);
       if (!unitResult.ok) {
         return c.json({ message: 'Translated verse not found' }, HttpStatusCodes.NOT_FOUND);
@@ -80,12 +80,12 @@ export function requireTranslatedVerseAccess(
       );
 
       if (!ProjectPolicy.read(policyUser, projectResult.data, isProjectMember)) {
-        return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
+        return c.json({ message: 'Translated verse not found' }, HttpStatusCodes.NOT_FOUND);
       }
 
       c.set('project', projectResult.data);
       c.set('projectAuthContext', { isProjectMember });
-    } else if (action === 'edit') {
+    } else if (action === TRANSLATED_VERSE_ACTIONS.EDIT) {
       // Reuse already-parsed body from source resolution
       const body = parsedBody ?? ((await c.req.json()) as TranslatedVerseAuthBody);
 
@@ -103,7 +103,7 @@ export function requireTranslatedVerseAccess(
         : false;
 
       if (!ChapterAssignmentPolicy.edit(policyUser, assignmentResult.data, isProjectMember)) {
-        return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
+        return c.json({ message: 'Translated verse not found' }, HttpStatusCodes.NOT_FOUND);
       }
     }
 

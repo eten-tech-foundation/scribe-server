@@ -8,11 +8,11 @@ import { ROLES } from '@/lib/roles';
 import { getHttpStatus } from '@/lib/types';
 
 import type { ChapterAssignmentWithAuthContext } from './chapter-assignments.repository';
+import type { ChapterAssignmentAction } from './chapter-assignments.types';
 
 import { ChapterAssignmentPolicy } from './chapter-assignments.policy';
 import * as chapterAssignmentService from './chapter-assignments.service';
-
-export type ChapterAssignmentAction = 'read' | 'update' | 'submit' | 'delete' | 'isParticipant';
+import { CHAPTER_ASSIGNMENT_ACTIONS } from './chapter-assignments.types';
 
 // Loads a chapter assignment with auth context and evaluates the policy.
 export function requireChapterAssignmentAccess(
@@ -49,7 +49,7 @@ export function requireChapterAssignmentAccess(
 
     let allowed = false;
     switch (action) {
-      case 'read':
+      case CHAPTER_ASSIGNMENT_ACTIONS.READ:
         if (user.roleName === ROLES.PROJECT_MANAGER) {
           allowed = ctx.organizationId === user.organization;
         } else if (user.roleName === ROLES.TRANSLATOR) {
@@ -57,25 +57,25 @@ export function requireChapterAssignmentAccess(
         }
         break;
 
-      case 'update':
+      case CHAPTER_ASSIGNMENT_ACTIONS.UPDATE:
         allowed = ChapterAssignmentPolicy.update(policyUser, policyAssignment);
         break;
 
-      case 'submit':
+      case CHAPTER_ASSIGNMENT_ACTIONS.SUBMIT:
         allowed = ChapterAssignmentPolicy.submit(policyUser, policyAssignment, ctx.isProjectMember);
         break;
 
-      case 'delete':
+      case CHAPTER_ASSIGNMENT_ACTIONS.DELETE:
         allowed = ChapterAssignmentPolicy.delete(policyUser, policyAssignment);
         break;
 
-      case 'isParticipant':
+      case CHAPTER_ASSIGNMENT_ACTIONS.IS_PARTICIPANT:
         allowed = ChapterAssignmentPolicy.isParticipant(policyUser, policyAssignment);
         break;
     }
 
     if (!allowed) {
-      return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
+      return c.json({ message: 'Chapter assignment not found' }, HttpStatusCodes.NOT_FOUND);
     }
 
     c.set('chapterAssignment', ctx);

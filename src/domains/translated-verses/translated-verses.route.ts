@@ -12,7 +12,11 @@ import { server } from '@/server/server';
 
 import { requireTranslatedVerseAccess } from './translated-verse-auth.middleware';
 import * as translatedVersesService from './translated-verses.service';
-import { translatedVerseResponseSchema } from './translated-verses.types';
+import {
+  PROJECT_UNIT_ID_SOURCES,
+  TRANSLATED_VERSE_ACTIONS,
+  translatedVerseResponseSchema,
+} from './translated-verses.types';
 
 // ─── GET /translated-verses/:id ───────────────────────────────────────────────
 
@@ -23,7 +27,11 @@ const getTranslatedVerseRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.PROJECT_VIEW),
-    requireTranslatedVerseAccess('read', 'verseParam', 'id'),
+    requireTranslatedVerseAccess(
+      TRANSLATED_VERSE_ACTIONS.READ,
+      PROJECT_UNIT_ID_SOURCES.VERSE_PARAM,
+      'id'
+    ),
   ] as const,
   request: {
     params: z.object({
@@ -71,7 +79,7 @@ const upsertTranslatedVerseRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.CONTENT_UPDATE),
-    requireTranslatedVerseAccess('edit', 'body'),
+    requireTranslatedVerseAccess(TRANSLATED_VERSE_ACTIONS.EDIT, PROJECT_UNIT_ID_SOURCES.BODY),
   ] as const,
   request: {
     body: jsonContent(insertTranslatedVersesSchema, 'The translated verse to create or update'),
@@ -139,7 +147,7 @@ const listTranslatedVersesRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.PROJECT_VIEW),
-    requireTranslatedVerseAccess('read', 'query'),
+    requireTranslatedVerseAccess(TRANSLATED_VERSE_ACTIONS.READ, PROJECT_UNIT_ID_SOURCES.QUERY),
   ] as const,
   request: {
     query: z.object({

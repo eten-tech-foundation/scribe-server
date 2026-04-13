@@ -6,6 +6,7 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { insertUserChapterAssignmentEditorStateSchema } from '@/db/schema';
 import { requireChapterAssignmentAccess } from '@/domains/chapter-assignments/chapter-assignment-auth.middleware';
+import { CHAPTER_ASSIGNMENT_ACTIONS } from '@/domains/chapter-assignments/chapter-assignments.types';
 import { PERMISSIONS } from '@/lib/permissions';
 import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
@@ -35,7 +36,7 @@ const getEditorStateRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.CONTENT_UPDATE),
-    requireChapterAssignmentAccess('isParticipant'),
+    requireChapterAssignmentAccess(CHAPTER_ASSIGNMENT_ACTIONS.IS_PARTICIPANT),
   ] as const,
   request: { params: chapterAssignmentIdParam },
   responses: {
@@ -83,7 +84,7 @@ const saveEditorStateRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.CONTENT_UPDATE),
-    requireChapterAssignmentAccess('isParticipant'),
+    requireChapterAssignmentAccess(CHAPTER_ASSIGNMENT_ACTIONS.IS_PARTICIPANT),
   ] as const,
   request: {
     params: chapterAssignmentIdParam,

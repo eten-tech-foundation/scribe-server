@@ -6,6 +6,7 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-assignments.policy';
 import { requireProjectAccess } from '@/domains/projects/project-auth.middleware';
+import { PROJECT_ACTIONS } from '@/domains/projects/projects.types';
 import { PERMISSIONS } from '@/lib/permissions';
 import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
@@ -29,7 +30,7 @@ const getProjectChapterAssignmentsRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.PROJECT_VIEW),
-    requireProjectAccess('read', 'projectId'),
+    requireProjectAccess(PROJECT_ACTIONS.READ, 'projectId'),
   ] as const,
   summary: 'Get project chapter assignments',
   description: 'Returns a list of chapter assignments for the project.',
@@ -72,7 +73,7 @@ const deleteProjectChapterAssignmentsRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.CONTENT_ASSIGN),
-    requireProjectAccess('update', 'projectId'),
+    requireProjectAccess(PROJECT_ACTIONS.UPDATE, 'projectId'),
   ] as const,
   summary: 'Delete all chapter assignments for a project',
   description: 'Deletes all chapter assignments associated with a specific project. Manager only.',
@@ -126,7 +127,7 @@ const getChapterAssignmentProgressRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.PROJECT_VIEW),
-    requireProjectAccess('read', 'projectId'),
+    requireProjectAccess(PROJECT_ACTIONS.READ, 'projectId'),
   ] as const,
   summary: 'Get chapter assignment progress',
   description: 'Returns chapter assignments with progress completion statistics for a project.',
@@ -169,7 +170,7 @@ const assignAllRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.CONTENT_ASSIGN),
-    requireProjectAccess('update', 'projectId'),
+    requireProjectAccess(PROJECT_ACTIONS.UPDATE, 'projectId'),
   ] as const,
   summary: 'Assign users to all chapters for a project',
   description:

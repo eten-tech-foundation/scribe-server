@@ -14,6 +14,7 @@ import type {
 } from './chapter-assignments.types';
 
 import * as repo from './chapter-assignments.repository';
+import { CHAPTER_ASSIGNMENT_STATUS } from './chapter-assignments.types';
 
 export function toChapterAssignmentResponse(
   record: ChapterAssignmentRecord
@@ -55,7 +56,7 @@ export async function createChapterAssignment(data: CreateChapterAssignmentReque
     try {
       const assignment = await repo.insert(data, tx);
 
-      await repo.insertStatusHistory(tx, assignment.id, 'not_started');
+      await repo.insertStatusHistory(tx, assignment.id, CHAPTER_ASSIGNMENT_STATUS.NOT_STARTED);
 
       if (assignment.assignedUserId) {
         await repo.insertUserAssignmentHistory(
@@ -63,7 +64,7 @@ export async function createChapterAssignment(data: CreateChapterAssignmentReque
           assignment.id,
           assignment.assignedUserId,
           'drafter',
-          'not_started'
+          CHAPTER_ASSIGNMENT_STATUS.NOT_STARTED
         );
       }
       if (assignment.peerCheckerId) {
@@ -72,7 +73,7 @@ export async function createChapterAssignment(data: CreateChapterAssignmentReque
           assignment.id,
           assignment.peerCheckerId,
           'peer_checker',
-          'not_started'
+          CHAPTER_ASSIGNMENT_STATUS.NOT_STARTED
         );
       }
 
@@ -161,28 +162,28 @@ export async function submitChapterAssignment(chapterAssignmentId: number) {
       let snapshotUser: number | null;
 
       switch (current.status) {
-        case 'draft':
-          nextStatus = 'peer_check';
+        case CHAPTER_ASSIGNMENT_STATUS.DRAFT:
+          nextStatus = CHAPTER_ASSIGNMENT_STATUS.PEER_CHECK;
           snapshotUser = current.assignedUserId;
           break;
-        case 'peer_check':
-          nextStatus = 'community_review';
+        case CHAPTER_ASSIGNMENT_STATUS.PEER_CHECK:
+          nextStatus = CHAPTER_ASSIGNMENT_STATUS.COMMUNITY_REVIEW;
           snapshotUser = current.peerCheckerId;
           break;
-        case 'community_review':
-          nextStatus = 'linguist_check';
+        case CHAPTER_ASSIGNMENT_STATUS.COMMUNITY_REVIEW:
+          nextStatus = CHAPTER_ASSIGNMENT_STATUS.LINGUIST_CHECK;
           snapshotUser = current.assignedUserId;
           break;
-        case 'linguist_check':
-          nextStatus = 'theological_check';
+        case CHAPTER_ASSIGNMENT_STATUS.LINGUIST_CHECK:
+          nextStatus = CHAPTER_ASSIGNMENT_STATUS.THEOLOGICAL_CHECK;
           snapshotUser = current.assignedUserId;
           break;
-        case 'theological_check':
-          nextStatus = 'consultant_check';
+        case CHAPTER_ASSIGNMENT_STATUS.THEOLOGICAL_CHECK:
+          nextStatus = CHAPTER_ASSIGNMENT_STATUS.CONSULTANT_CHECK;
           snapshotUser = current.assignedUserId;
           break;
-        case 'consultant_check':
-          nextStatus = 'complete';
+        case CHAPTER_ASSIGNMENT_STATUS.CONSULTANT_CHECK:
+          nextStatus = CHAPTER_ASSIGNMENT_STATUS.COMPLETE;
           snapshotUser = current.assignedUserId;
           break;
         default:
@@ -225,11 +226,11 @@ function applyAutoTransition(
 ): UpdateChapterAssignmentRequestData {
   const hasUserAssignment = data.assignedUserId !== undefined || data.peerCheckerId !== undefined;
   const shouldAutoTransitionToDraft =
-    current.status === 'not_started' && hasUserAssignment && !data.status;
+    current.status === CHAPTER_ASSIGNMENT_STATUS.NOT_STARTED && hasUserAssignment && !data.status;
 
   return {
     ...data,
-    ...(shouldAutoTransitionToDraft && { status: 'draft' as const }),
+    ...(shouldAutoTransitionToDraft && { status: CHAPTER_ASSIGNMENT_STATUS.DRAFT }),
   };
 }
 

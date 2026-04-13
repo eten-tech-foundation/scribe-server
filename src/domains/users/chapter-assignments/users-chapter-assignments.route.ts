@@ -7,6 +7,7 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-assignments.policy';
 import * as chapterAssignmentService from '@/domains/chapter-assignments/chapter-assignments.service';
 import { requireUserAccess } from '@/domains/users/user-auth.middleware';
+import { USER_ACTIONS } from '@/domains/users/users.types';
 import { PERMISSIONS } from '@/lib/permissions';
 import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
@@ -22,7 +23,7 @@ const getChapterAssignmentsByUserIdRoute = createRoute({
   middleware: [
     authenticateUser,
     requirePermission(PERMISSIONS.USER_VIEW),
-    requireUserAccess('view', 'userId'),
+    requireUserAccess(USER_ACTIONS.VIEW, 'userId'),
   ] as const,
   request: {
     params: z.object({
@@ -72,7 +73,7 @@ const assignUsersToChaptersRoute = createRoute({
     requirePermission(PERMISSIONS.CONTENT_ASSIGN),
     // 'view' is intentional — we only verify the target user is visible to the caller.
     // The actual write permission is checked inline via ChapterAssignmentPolicy.assignDrafter.
-    requireUserAccess('view', 'userId'),
+    requireUserAccess(USER_ACTIONS.VIEW, 'userId'),
   ] as const,
   request: {
     params: z.object({
