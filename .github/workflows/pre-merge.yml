@@ -11,16 +11,18 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Node.js version
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22.15.0
+          node-version: 24.14.0
           cache: npm
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
+        env:
+          CXXFLAGS: '-std=c++20'
 
       - name: Lint and format check
         run: |

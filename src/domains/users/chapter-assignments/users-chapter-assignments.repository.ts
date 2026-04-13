@@ -24,6 +24,7 @@ const sourceLang = alias(languages, 'source_lang');
 
 interface QueryRow {
   assignmentId: number;
+  projectId: number;
   projectName: string;
   projectUnitId: number;
   bibleId: number;
@@ -47,6 +48,7 @@ function createBaseQuery() {
   return db
     .select({
       assignmentId: chapter_assignments.id,
+      projectId: projects.id,
       projectName: projects.name,
       projectUnitId: chapter_assignments.projectUnitId,
       bibleId: chapter_assignments.bibleId,
@@ -97,6 +99,7 @@ function createBaseQuery() {
       chapter_assignments.assignedUserId,
       chapter_assignments.peerCheckerId,
       chapter_assignments.updatedAt,
+      projects.id,
       projects.name,
       bibles.name,
       languages.langName,
@@ -110,6 +113,7 @@ function createBaseQuery() {
 function mapRows(rows: QueryRow[]): UserChapterAssignment[] {
   return rows.map((row) => ({
     chapterAssignmentId: row.assignmentId,
+    projectId: row.projectId,
     projectName: row.projectName,
     projectUnitId: row.projectUnitId,
     bibleId: row.bibleId,

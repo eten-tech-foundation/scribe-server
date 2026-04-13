@@ -20,16 +20,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Node.js version
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22.15.0
+          node-version: 24.14.0
           cache: npm
 
       - name: Install all dependencies
         run: npm install --legacy-peer-deps
+        env:
+          CXXFLAGS: '-std=c++20'
 
       - name: Lint and format check
         run: |
@@ -56,6 +58,8 @@ jobs:
         run: |
           cd deployment
           npm install --prod --legacy-peer-deps
+        env:
+          CXXFLAGS: '-std=c++20'
 
       - name: Add WebJob to deployment package
         run: |
@@ -63,7 +67,7 @@ jobs:
           node scripts/setup-webjob.js
 
       - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: node-app
           path: deployment/
@@ -75,16 +79,18 @@ jobs:
     environment: Development
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Node.js version
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22.15.0
+          node-version: 24.14.0
           cache: npm
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
+        env:
+          CXXFLAGS: '-std=c++20'
 
       - name: Run database migrations
         env:
@@ -98,16 +104,18 @@ jobs:
     environment: Production
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Node.js version
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22.15.0
+          node-version: 24.14.0
           cache: npm
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
+        env:
+          CXXFLAGS: '-std=c++20'
 
       - name: Run database migrations
         env:
@@ -123,7 +131,7 @@ jobs:
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     steps:
       - name: Download artifact from build job
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: node-app
           path: deployment/
@@ -162,7 +170,7 @@ jobs:
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     steps:
       - name: Download artifact from build job
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: node-app
           path: deployment/
