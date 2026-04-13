@@ -60,7 +60,6 @@ The backend/server for the Scribe application built with Hono and OpenAPI. This 
 ## Setup
 
 1. **Prerequisites:**
-   
    - **Node.js 24.14.0** or higher
    - PostgreSQL (local or cloud instance)
 
