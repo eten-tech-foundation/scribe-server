@@ -4,8 +4,6 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-assignments.policy';
-import * as chapterAssignmentService from '@/domains/chapter-assignments/chapter-assignments.service';
 import { requireUserAccess } from '@/domains/users/user-auth.middleware';
 import { USER_ACTIONS } from '@/domains/users/users.types';
 import { PERMISSIONS } from '@/lib/permissions';
@@ -60,95 +58,6 @@ server.openapi(getChapterAssignmentsByUserIdRoute, async (c) => {
   const { userId } = c.req.valid('param');
 
   const result = await usersChapterAssignmentsService.getAllChapterAssignmentsByUserId(userId);
-  if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
-  return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
-});
-
-const assignUsersToChaptersRoute = createRoute({
-  tags: ['Users - Chapter Assignments'],
-  method: 'patch',
-  path: '/users/{userId}/chapter-assignments',
-  middleware: [
-    authenticateUser,
-    requirePermission(PERMISSIONS.CONTENT_ASSIGN),
-    // 'view' is intentional — we only verify the target user is visible to the caller.
-    // The actual write permission is checked inline via ChapterAssignmentPolicy.assignDrafter.
-    requireUserAccess(USER_ACTIONS.VIEW, 'userId'),
-  ] as const,
-  request: {
-    params: z.object({
-      userId: z.preprocess(
-        (val) => (val === 'null' ? null : val),
-        z.coerce.number().int().positive().nullable()
-      ),
-    }),
-    body: jsonContent(
-      z.object({
-        chapterAssignmentIds: z
-          .array(z.number().int())
-          .min(1, 'At least one chapter assignment ID is required'),
-        peerCheckerId: z.number().int().nullable(),
-      }),
-      'Add chapter assignment IDs and peer checker ID'
-    ),
-  },
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      z.array(z.number().int()).openapi('UserChapterAssignments'),
-      'Successfully assigned user to chapters'
-    ),
-    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
-      createMessageObjectSchema('Bad Request'),
-      'Invalid request data'
-    ),
-    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      createMessageObjectSchema('Unauthorized'),
-      'Authentication required'
-    ),
-    [HttpStatusCodes.FORBIDDEN]: jsonContent(
-      createMessageObjectSchema('Forbidden'),
-      'Manager access required'
-    ),
-    [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.NOT_FOUND),
-      'User or chapter assignments not found'
-    ),
-    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
-      createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
-      'Internal server error'
-    ),
-  },
-  summary: 'Assign user to specific chapters',
-  description: 'Assigns a user to specific chapter assignments. Manager only.',
-});
-
-server.openapi(assignUsersToChaptersRoute, async (c) => {
-  const assignedUserId = c.req.valid('param').userId; // now number | null
-  const assignmentData = c.req.valid('json'); // peerCheckerId: number | null
-  const currentUser = c.get('user')!;
-  const policyUser = {
-    id: currentUser.id,
-    roleName: currentUser.roleName,
-    organization: currentUser.organization,
-  };
-
-  const firstAssignmentResult = await chapterAssignmentService.getChapterAssignment(
-    assignmentData.chapterAssignmentIds[0]
-  );
-  if (!firstAssignmentResult.ok) {
-    return c.json({ message: 'Chapter assignment not found' }, HttpStatusCodes.NOT_FOUND);
-  }
-
-  if (!ChapterAssignmentPolicy.assignDrafter(policyUser, firstAssignmentResult.data)) {
-    return c.json({ message: 'Forbidden: Insufficient permissions' }, HttpStatusCodes.FORBIDDEN);
-  }
-
-  const result = await usersChapterAssignmentsService.assignUserToChapters(
-    assignedUserId, // now passes null through
-    assignmentData.chapterAssignmentIds,
-    assignmentData.peerCheckerId // now passes null through
-  );
-
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
   return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
