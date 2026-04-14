@@ -59,7 +59,11 @@ The backend/server for the Fluent ecosystem built with Hono and OpenAPI. This is
 
 ## Setup
 
-1. **Clone and install dependencies:**
+1. **Prerequisites:**
+   - **Node.js 24.14.0** or higher
+   - PostgreSQL (local or cloud instance)
+
+2. **Clone and install dependencies:**
 
    ```bash
    git clone <repository-url>
@@ -67,7 +71,7 @@ The backend/server for the Fluent ecosystem built with Hono and OpenAPI. This is
    npm install
    ```
 
-2. **Set up environment variables:**
+3. **Set up environment variables:**
 
    ```bash
    cp .env.example .env
@@ -85,7 +89,7 @@ The backend/server for the Fluent ecosystem built with Hono and OpenAPI. This is
    AUTH0_AUDIENCE=http://localhost:9999
    ```
 
-3. **Set up a local database:**
+4. **Set up a local database:**
 
    Install Postgres locally, create a database, and update your `.env`:
 
@@ -93,19 +97,19 @@ The backend/server for the Fluent ecosystem built with Hono and OpenAPI. This is
    DATABASE_URL=postgresql://user:password@localhost:5432/scribe_dev
    ```
 
-4. **Run database migrations:**
+5. **Run database migrations:**
 
    ```bash
    npm run db:migrate
    ```
 
-5. **Start development server:**
+6. **Start development server:**
 
    ```bash
    npm run dev
    ```
 
-6. **View API documentation:**
+7. **View API documentation:**
    - Open [http://localhost:9999/reference](http://localhost:9999/reference) for interactive API docs
    - Open [http://localhost:9999/doc](http://localhost:9999/doc) for OpenAPI specification
 
