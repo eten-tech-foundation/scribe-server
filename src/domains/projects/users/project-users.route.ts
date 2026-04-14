@@ -4,8 +4,8 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent, jsonContentRequired } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
-import { ProjectPolicy } from '@/domains/projects/project.policy';
-import * as projectService from '@/domains/projects/projects.service';
+import { requireProjectAccess } from '@/domains/projects/project-auth.middleware';
+import { PROJECT_ACTIONS } from '@/domains/projects/projects.types';
 import { PERMISSIONS } from '@/lib/permissions';
 import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
@@ -25,7 +25,11 @@ const getProjectUsersRoute = createRoute({
   tags: ['Projects - Users'],
   method: 'get',
   path: '/projects/{projectId}/users',
-  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_VIEW)] as const,
+  middleware: [
+    authenticateUser,
+    requirePermission(PERMISSIONS.PROJECT_VIEW),
+    requireProjectAccess(PROJECT_ACTIONS.READ, 'projectId'),
+  ] as const,
   request: { params: projectIdParamSchema },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
@@ -55,25 +59,6 @@ const getProjectUsersRoute = createRoute({
 
 server.openapi(getProjectUsersRoute, async (c) => {
   const { projectId } = c.req.valid('param');
-  const currentUser = c.get('user')!;
-
-  const projectResult = await projectService.getProjectById(projectId);
-  if (!projectResult.ok) {
-    return c.json(
-      { message: projectResult.error.message },
-      getHttpStatus(projectResult.error) as never
-    );
-  }
-
-  const isProjectMember = await projectUsersService.resolveIsProjectMember(
-    projectId,
-    currentUser.id,
-    currentUser.roleName
-  );
-
-  if (!ProjectPolicy.read(currentUser, projectResult.data, isProjectMember)) {
-    return c.json({ message: 'Forbidden' }, HttpStatusCodes.FORBIDDEN);
-  }
 
   const result = await projectUsersService.getProjectUsers(projectId);
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
@@ -83,19 +68,23 @@ server.openapi(getProjectUsersRoute, async (c) => {
 
 // ─── POST /projects/:projectId/users ─────────────────────────────────────────
 
-const addProjectUserRoute = createRoute({
+const addProjectUsersRoute = createRoute({
   tags: ['Projects - Users'],
   method: 'post',
   path: '/projects/{projectId}/users',
-  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_UPDATE)] as const,
+  middleware: [
+    authenticateUser,
+    requirePermission(PERMISSIONS.PROJECT_UPDATE),
+    requireProjectAccess(PROJECT_ACTIONS.UPDATE, 'projectId'),
+  ] as const,
   request: {
     params: projectIdParamSchema,
-    body: jsonContentRequired(addProjectUserSchema, 'User to add to the project'),
+    body: jsonContentRequired(addProjectUserSchema, 'Users to add to the project'),
   },
   responses: {
     [HttpStatusCodes.CREATED]: jsonContent(
-      projectUserResponseSchema.openapi('ProjectUserAdded'),
-      'User successfully added to project'
+      projectUserResponseSchema.array().openapi('ProjectUsersAdded'),
+      'User(s) successfully added to project'
     ),
     [HttpStatusCodes.CONFLICT]: jsonContent(
       createMessageObjectSchema('Conflict'),
@@ -103,7 +92,7 @@ const addProjectUserRoute = createRoute({
     ),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema('Not Found'),
-      'Project or User not found'
+      'Project or one or more users not found'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       createMessageObjectSchema('Unauthorized'),
@@ -118,21 +107,15 @@ const addProjectUserRoute = createRoute({
       'Internal server error'
     ),
   },
-  summary: 'Add user to project',
-  description: 'Adds a user to the project. Manager only.',
+  summary: 'Bulk add users to project',
+  description: 'Adds multiple users to the project in one request. Manager only.',
 });
 
-server.openapi(addProjectUserRoute, async (c) => {
+server.openapi(addProjectUsersRoute, async (c) => {
   const { projectId } = c.req.valid('param');
-  const { userId } = c.req.valid('json');
-  const currentUser = c.get('user')!;
+  const { userIds } = c.req.valid('json');
 
-  const projectResult = await projectService.getProjectById(projectId);
-  if (!projectResult.ok || !ProjectPolicy.update(currentUser, projectResult.data)) {
-    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
-  }
-
-  const result = await projectUsersService.addProjectUser(projectId, userId);
+  const result = await projectUsersService.addProjectUsers(projectId, userIds);
   if (result.ok) return c.json(result.data, HttpStatusCodes.CREATED);
 
   return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
@@ -144,7 +127,11 @@ const removeProjectUserRoute = createRoute({
   tags: ['Projects - Users'],
   method: 'delete',
   path: '/projects/{projectId}/users/{userId}',
-  middleware: [authenticateUser, requirePermission(PERMISSIONS.PROJECT_UPDATE)] as const,
+  middleware: [
+    authenticateUser,
+    requirePermission(PERMISSIONS.PROJECT_UPDATE),
+    requireProjectAccess(PROJECT_ACTIONS.UPDATE, 'projectId'),
+  ] as const,
   request: {
     params: removeProjectUserParamSchema,
   },
@@ -180,12 +167,6 @@ const removeProjectUserRoute = createRoute({
 
 server.openapi(removeProjectUserRoute, async (c) => {
   const { projectId, userId } = c.req.valid('param');
-  const currentUser = c.get('user')!;
-
-  const projectResult = await projectService.getProjectById(projectId);
-  if (!projectResult.ok || !ProjectPolicy.update(currentUser, projectResult.data)) {
-    return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
-  }
 
   const result = await projectUsersService.removeProjectUser(projectId, userId);
   if (result.ok) return c.body(null, HttpStatusCodes.NO_CONTENT);
