@@ -1,4 +1,4 @@
-# Deploys Scribe-server Node.js app to Azure Web Apps after merge
+# Deploys Fluent API Node.js app to Azure Web Apps after merge
 name: Post-merge-deploy
 on:
   push:
