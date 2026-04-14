@@ -179,6 +179,93 @@ const updateStatusRoute = createRoute({
 | Specific to one repository query with joins | `repository.ts` |
 | Only needed for a single simple route | Inline in `route.ts` |
 
+## Repository Access Patterns
+
+Services interact with data sources through repositories. The pattern differs based on whether you're accessing data within your domain or from another domain.
+
+### Within the Same Domain
+
+Import your domain's repository as a namespace and call functions directly:
+
+```typescript
+import * as repo from './chapter-assignments.repository';
+
+export function getChapterAssignment(id: number) {
+  return repo.findByIdWithOrg(id);
+}
+
+export async function createChapterAssignment(data: CreateChapterAssignmentData) {
+  return db.transaction(async (tx) => {
+    const assignment = await repo.insert(data, tx);
+    await repo.insertStatusHistory(tx, assignment.id, status);
+    return ok(assignment);
+  });
+}
+```
+
+**Guideline**: Always use namespace import (`import * as repo`) for consistency within the domain.
+
+### Cross-Domain Access
+
+**Never** access another domain's repository directly. Instead, call the other domain's service functions:
+
+```typescript
+// projects.service.ts
+import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapter-assignments.service';
+
+export async function createProject(input: CreateProjectInput) {
+  return db.transaction(async (tx) => {
+    const project = await repo.insert(input, tx);
+    
+    // Delegate to chapter-assignments domain via its service
+    const result = await chapterAssignmentsService.createChapterAssignmentForProjectUnit(
+      projectUnit.id,
+      bibleId,
+      bookId,
+      tx  // Pass transaction for consistency
+    );
+    
+    // Here the error is err(ErrorCode.INTERNAL_ERROR) from the chapter-assignments service
+    if (!result.ok) return result; // return the appropriate error code
+    
+    return ok(project);
+  });
+}
+```
+
+**Key principles for cross-domain calls:**
+
+1. **Import the service, not the repository** — `import * as otherService from '@/domains/{domain}/{domain}.service'`
+2. **Use public service functions** — Only call functions exported from the target domain's service file
+3. **Pass transactions when needed** — For operations within the same transaction, pass the `tx` parameter
+4. **Respect Result types** — Handle `Result<T>` returns from cross-domain calls appropriately
+
+### Decision Matrix
+
+| Scenario | Access Pattern | Example |
+|----------|----------------|---------|
+| Same domain, single repo | `import * as repo from './{domain}.repository'` | `repo.findById(id)` |
+| Same domain, multiple repos in same domain | Still use single repo import per file | `repo.findX()` + `repo.findY()` |
+| Cross-domain read | Call other domain's service function | `userService.getUserById(id)` |
+| Cross-domain write within transaction | Call service function with `tx` param | `otherService.updateX(data, tx)` |
+| Complex cross-domain query | Service function wrapping repository logic | `otherService.searchX(criteria)` |
+
+### Anti-Patterns to Avoid
+
+```typescript
+// ❌ BAD: Direct repository access from another domain
+import * as userRepo from '@/domains/users/users.repository';
+
+// ❌ BAD: Bypassing the service layer
+const user = await userRepo.findById(userId);
+
+// ✅ GOOD: Using the domain's public service API
+import * as userService from '@/domains/users/users.service';
+const result = await userService.getUserById(userId);
+```
+
+**Why this matters:** Direct repository access couples domains at the persistence layer, making it impossible to change one domain's data model without breaking others. Services provide a stable public API.
+
 ## Adding a New Domain
 
 When creating a new domain module:
