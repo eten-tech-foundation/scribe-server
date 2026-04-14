@@ -1,6 +1,6 @@
-# Scribe Server
+# Fluent API
 
-The backend/server for the Scribe application built with Hono and OpenAPI. This is a fully documented, type-safe JSON API with automatic OpenAPI documentation generation.
+The backend/server for the Fluent ecosystem built with Hono and OpenAPI. This is a fully documented, type-safe JSON API with automatic OpenAPI documentation generation.
 
 - [Tech Stack](#tech-stack)
 - [Setup](#setup)
@@ -63,7 +63,7 @@ The backend/server for the Scribe application built with Hono and OpenAPI. This 
 
    ```bash
    git clone <repository-url>
-   cd scribe-server
+   cd fluent-api
    npm install
    ```
 
