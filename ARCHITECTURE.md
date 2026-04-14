@@ -108,6 +108,77 @@ Services return `Result<T>` instead of throwing exceptions, forcing callers to h
 4. **Type safety** — Leverage TypeScript for compile-time correctness
 5. **Minimal cross-domain dependencies** — Keep domains loosely coupled
 
+## Type Organization
+
+Types are distributed across files based on their scope and usage. Follow these guidelines to maintain consistency:
+
+### `{domain}.types.ts` — The Central Type Registry
+
+This file is the **canonical source** for domain types that are shared across layers:
+
+| Category | What belongs here | Examples |
+|----------|-------------------|----------|
+| **Domain Constants** | Enums and action constants used across the domain | `CHAPTER_ASSIGNMENT_STATUS`, `USER_ACTIONS` |
+| **DB-Derived Types** | Types inferred from Drizzle schema | `ChapterAssignmentRecord = z.infer<typeof selectChapterAssignmentsSchema>` |
+| **Service Input Types** | Interfaces for service function parameters | `CreateChapterAssignmentRequestData`, `UpdateUserInput` |
+| **API Response Schemas** | Zod schemas for responses (used in routes and tests) | `chapterAssignmentResponseSchema` |
+| **Reusable Request Schemas** | Zod schemas for request bodies used in multiple routes | `createUserRequestSchema`, `updateUserRequestSchema` |
+
+**Guideline**: If a type is imported by more than one file in the domain, it belongs in `types.ts`.
+
+### `{domain}.repository.ts` — Repository-Specific Types
+
+Define types here **only** when they are:
+
+- Specific to a single repository query (query result shapes with joins)
+- Not needed outside the repository layer
+- Extensions of base types for specific use cases
+
+```typescript
+// Repository-specific type for a complex join query
+export interface ChapterAssignmentWithAuthContext extends ChapterAssignmentRecord {
+  projectId: number;
+  organizationId: number;
+  isProjectMember: boolean;
+}
+```
+
+**Guideline**: Keep these minimal. If another layer needs this type, move it to `types.ts`.
+
+### `{domain}.route.ts` — Route-Specific Schemas
+
+Route files should:
+
+- **Import** request/response schemas from `types.ts` when they are standardized
+- **Define inline** only for one-off request bodies that are not reusable
+
+```typescript
+// Good: Import shared schemas
+import { chapterAssignmentResponseSchema, createChapterAssignmentSchema } from './chapter-assignments.types';
+
+// Acceptable: Inline for simple, non-reusable request bodies
+const updateStatusRoute = createRoute({
+  request: {
+    body: jsonContent(
+      z.object({ status: z.enum(['draft', 'complete']) }),  // Simple, one-off
+      'Status update'
+    ),
+  },
+});
+```
+
+### Decision Matrix
+
+| If the type is... | Put it in... |
+|-------------------|--------------|
+| A domain constant or enum used across files | `types.ts` |
+| Derived from a Drizzle schema | `types.ts` |
+| Service function input/output | `types.ts` |
+| An API response schema | `types.ts` |
+| A request schema used in multiple routes | `types.ts` |
+| Specific to one repository query with joins | `repository.ts` |
+| Only needed for a single simple route | Inline in `route.ts` |
+
 ## Adding a New Domain
 
 When creating a new domain module:
