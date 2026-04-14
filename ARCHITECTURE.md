@@ -26,14 +26,14 @@ src/
 
 Each domain is self-contained and follows a consistent internal structure:
 
-| File | Responsibility |
-|------|---------------|
-| `{domain}.service.ts` | Business logic, orchestration, and use cases |
-| `{domain}.repository.ts` | Data access, persistence, and queries |
-| `{domain}.route.ts` | HTTP route handlers (presentation layer) |
-| `{domain}.types.ts` | Domain-specific TypeScript types |
-| `{domain}.policy.ts` | Authorization and access control rules |
-| `{domain}.middleware.ts` | Domain-specific request processing |
+| File                     | Responsibility                               |
+| ------------------------ | -------------------------------------------- |
+| `{domain}.service.ts`    | Business logic, orchestration, and use cases |
+| `{domain}.repository.ts` | Data access, persistence, and queries        |
+| `{domain}.route.ts`      | HTTP route handlers (presentation layer)     |
+| `{domain}.types.ts`      | Domain-specific TypeScript types             |
+| `{domain}.policy.ts`     | Authorization and access control rules       |
+| `{domain}.middleware.ts` | Domain-specific request processing           |
 
 ### Cross-Domain Relationships
 
@@ -116,13 +116,13 @@ Types are distributed across files based on their scope and usage. Follow these 
 
 This file is the **canonical source** for domain types that are shared across layers:
 
-| Category | What belongs here | Examples |
-|----------|-------------------|----------|
-| **Domain Constants** | Enums and action constants used across the domain | `CHAPTER_ASSIGNMENT_STATUS`, `USER_ACTIONS` |
-| **DB-Derived Types** | Types inferred from Drizzle schema | `ChapterAssignmentRecord = z.infer<typeof selectChapterAssignmentsSchema>` |
-| **Service Input Types** | Interfaces for service function parameters | `CreateChapterAssignmentRequestData`, `UpdateUserInput` |
-| **API Response Schemas** | Zod schemas for responses (used in routes and tests) | `chapterAssignmentResponseSchema` |
-| **Reusable Request Schemas** | Zod schemas for request bodies used in multiple routes | `createUserRequestSchema`, `updateUserRequestSchema` |
+| Category                     | What belongs here                                      | Examples                                                                   |
+| ---------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------- |
+| **Domain Constants**         | Enums and action constants used across the domain      | `CHAPTER_ASSIGNMENT_STATUS`, `USER_ACTIONS`                                |
+| **DB-Derived Types**         | Types inferred from Drizzle schema                     | `ChapterAssignmentRecord = z.infer<typeof selectChapterAssignmentsSchema>` |
+| **Service Input Types**      | Interfaces for service function parameters             | `CreateChapterAssignmentRequestData`, `UpdateUserInput`                    |
+| **API Response Schemas**     | Zod schemas for responses (used in routes and tests)   | `chapterAssignmentResponseSchema`                                          |
+| **Reusable Request Schemas** | Zod schemas for request bodies used in multiple routes | `createUserRequestSchema`, `updateUserRequestSchema`                       |
 
 **Guideline**: If a type is imported by more than one file in the domain, it belongs in `types.ts`.
 
@@ -154,13 +154,16 @@ Route files should:
 
 ```typescript
 // Good: Import shared schemas
-import { chapterAssignmentResponseSchema, createChapterAssignmentSchema } from './chapter-assignments.types';
+import {
+  chapterAssignmentResponseSchema,
+  createChapterAssignmentSchema,
+} from './chapter-assignments.types';
 
 // Acceptable: Inline for simple, non-reusable request bodies
 const updateStatusRoute = createRoute({
   request: {
     body: jsonContent(
-      z.object({ status: z.enum(['draft', 'complete']) }),  // Simple, one-off
+      z.object({ status: z.enum(['draft', 'complete']) }), // Simple, one-off
       'Status update'
     ),
   },
@@ -169,15 +172,15 @@ const updateStatusRoute = createRoute({
 
 ### Decision Matrix
 
-| If the type is... | Put it in... |
-|-------------------|--------------|
-| A domain constant or enum used across files | `types.ts` |
-| Derived from a Drizzle schema | `types.ts` |
-| Service function input/output | `types.ts` |
-| An API response schema | `types.ts` |
-| A request schema used in multiple routes | `types.ts` |
-| Specific to one repository query with joins | `repository.ts` |
-| Only needed for a single simple route | Inline in `route.ts` |
+| If the type is...                           | Put it in...         |
+| ------------------------------------------- | -------------------- |
+| A domain constant or enum used across files | `types.ts`           |
+| Derived from a Drizzle schema               | `types.ts`           |
+| Service function input/output               | `types.ts`           |
+| An API response schema                      | `types.ts`           |
+| A request schema used in multiple routes    | `types.ts`           |
+| Specific to one repository query with joins | `repository.ts`      |
+| Only needed for a single simple route       | Inline in `route.ts` |
 
 ## Repository Access Patterns
 
@@ -216,18 +219,18 @@ import * as chapterAssignmentsService from '@/domains/chapter-assignments/chapte
 export async function createProject(input: CreateProjectInput) {
   return db.transaction(async (tx) => {
     const project = await repo.insert(input, tx);
-    
+
     // Delegate to chapter-assignments domain via its service
     const result = await chapterAssignmentsService.createChapterAssignmentForProjectUnit(
       projectUnit.id,
       bibleId,
       bookId,
-      tx  // Pass transaction for consistency
+      tx // Pass transaction for consistency
     );
-    
+
     // Here the error is err(ErrorCode.INTERNAL_ERROR) from the chapter-assignments service
     if (!result.ok) return result; // return the appropriate error code
-    
+
     return ok(project);
   });
 }
@@ -242,25 +245,24 @@ export async function createProject(input: CreateProjectInput) {
 
 ### Decision Matrix
 
-| Scenario | Access Pattern | Example |
-|----------|----------------|---------|
-| Same domain, single repo | `import * as repo from './{domain}.repository'` | `repo.findById(id)` |
-| Same domain, multiple repos in same domain | Still use single repo import per file | `repo.findX()` + `repo.findY()` |
-| Cross-domain read | Call other domain's service function | `userService.getUserById(id)` |
-| Cross-domain write within transaction | Call service function with `tx` param | `otherService.updateX(data, tx)` |
-| Complex cross-domain query | Service function wrapping repository logic | `otherService.searchX(criteria)` |
+| Scenario                                   | Access Pattern                                  | Example                          |
+| ------------------------------------------ | ----------------------------------------------- | -------------------------------- |
+| Same domain, single repo                   | `import * as repo from './{domain}.repository'` | `repo.findById(id)`              |
+| Same domain, multiple repos in same domain | Still use single repo import per file           | `repo.findX()` + `repo.findY()`  |
+| Cross-domain read                          | Call other domain's service function            | `userService.getUserById(id)`    |
+| Cross-domain write within transaction      | Call service function with `tx` param           | `otherService.updateX(data, tx)` |
+| Complex cross-domain query                 | Service function wrapping repository logic      | `otherService.searchX(criteria)` |
 
 ### Anti-Patterns to Avoid
 
 ```typescript
 // ❌ BAD: Direct repository access from another domain
 import * as userRepo from '@/domains/users/users.repository';
+// ✅ GOOD: Using the domain's public service API
+import * as userService from '@/domains/users/users.service';
 
 // ❌ BAD: Bypassing the service layer
 const user = await userRepo.findById(userId);
-
-// ✅ GOOD: Using the domain's public service API
-import * as userService from '@/domains/users/users.service';
 const result = await userService.getUserById(userId);
 ```
 
@@ -275,8 +277,9 @@ Tests focus on **service layer behavior** with mocked repositories. This isolate
 ```typescript
 // src/domains/users/users.service.test.ts
 import { describe, expect, it, vi } from 'vitest';
-import * as userService from './users.service';
+
 import * as repo from './users.repository';
+import * as userService from './users.service';
 
 // Mock the repository, not the database connection
 vi.mock('./users.repository', () => ({
@@ -310,13 +313,13 @@ describe('createUser', () => {
 
 ### Testing Guidelines
 
-| Do | Don't |
-|----|-------|
-| Mock the repository layer (`repo.insert`, `repo.findById`) | Mock the database connection or Drizzle directly |
-| Test both success and error paths using `Result<T>` | Only test happy paths |
-| Assert on `result.ok`, `result.data`, `result.error` | Assert on thrown exceptions |
-| Verify repository functions are called with correct arguments | Test implementation details like SQL queries |
-| Use `vi.mocked()` for type-safe mocks | Use `any` type casts for mocks |
+| Do                                                            | Don't                                            |
+| ------------------------------------------------------------- | ------------------------------------------------ |
+| Mock the repository layer (`repo.insert`, `repo.findById`)    | Mock the database connection or Drizzle directly |
+| Test both success and error paths using `Result<T>`           | Only test happy paths                            |
+| Assert on `result.ok`, `result.data`, `result.error`          | Assert on thrown exceptions                      |
+| Verify repository functions are called with correct arguments | Test implementation details like SQL queries     |
+| Use `vi.mocked()` for type-safe mocks                         | Use `any` type casts for mocks                   |
 
 ### Cross-Domain Testing
 
@@ -367,13 +370,15 @@ export const ChapterAssignmentPolicy = {
 
   submit(user: PolicyUser, assignment: PolicyAssignment): boolean {
     // Different rules for different actions
-    return user.id === assignment.assignedUserId &&
-           assignment.status === CHAPTER_ASSIGNMENT_STATUS.DRAFT;
+    return (
+      user.id === assignment.assignedUserId && assignment.status === CHAPTER_ASSIGNMENT_STATUS.DRAFT
+    );
   },
 };
 ```
 
 **Policy Best Practices:**
+
 - Keep policies **pure** — no side effects, no database calls
 - Include **organization/tenant isolation** as the first check in every policy
 - Accept only primitive values and simple objects, not full entities
@@ -401,10 +406,13 @@ export function requireChapterAssignmentAccess(action: ChapterAssignmentAction) 
 
     // Build policy inputs
     const policyUser = { id: user.id, roleName: user.roleName, organization: user.organization };
-    const policyResource = { organizationId: ctx.organizationId, assignedUserId: ctx.assignedUserId };
+    const policyResource = {
+      organizationId: ctx.organizationId,
+      assignedUserId: ctx.assignedUserId,
+    };
 
     // Evaluate policy
-    const allowed = ChapterAssignmentPolicy[policyUser, policyResource];
+    const allowed = ChapterAssignmentPolicy[(policyUser, policyResource)];
 
     if (!allowed) {
       // Return 404 (not 403) to prevent resource enumeration
@@ -419,6 +427,7 @@ export function requireChapterAssignmentAccess(action: ChapterAssignmentAction) 
 ```
 
 **Middleware Best Practices:**
+
 - Load resource context once — avoid N+1 queries in route handlers
 - Use **404 for authorization failures** (not 403) to prevent information leakage
 - Attach loaded resource to Hono context so handlers don't re-fetch
@@ -444,13 +453,13 @@ const updateRoute = createRoute({
 
 ### Decision Matrix
 
-| Concern | Belongs In | Example |
-|---------|-----------|---------|
-| Can user X do action Y on resource Z? | Policy | `ChapterAssignmentPolicy.edit(user, assignment)` |
-| Load resource with auth context | Service | `service.getWithAuthContext(id, userId, roleName)` |
-| Extract user from JWT, validate params | Middleware | `requireChapterAssignmentAccess(action)` |
-| HTTP response (401, 404, etc.) | Middleware | `c.json({ message }, status)` |
-| Tenant isolation check | Policy | `user.organization === resource.organizationId` |
+| Concern                                | Belongs In | Example                                            |
+| -------------------------------------- | ---------- | -------------------------------------------------- |
+| Can user X do action Y on resource Z?  | Policy     | `ChapterAssignmentPolicy.edit(user, assignment)`   |
+| Load resource with auth context        | Service    | `service.getWithAuthContext(id, userId, roleName)` |
+| Extract user from JWT, validate params | Middleware | `requireChapterAssignmentAccess(action)`           |
+| HTTP response (401, 404, etc.)         | Middleware | `c.json({ message }, status)`                      |
+| Tenant isolation check                 | Policy     | `user.organization === resource.organizationId`    |
 
 ## Adding a New Domain
 
