@@ -266,6 +266,192 @@ const result = await userService.getUserById(userId);
 
 **Why this matters:** Direct repository access couples domains at the persistence layer, making it impossible to change one domain's data model without breaking others. Services provide a stable public API.
 
+## Testing Patterns
+
+Tests focus on **service layer behavior** with mocked repositories. This isolates business logic from database dependencies and ensures fast, deterministic tests.
+
+### Test Structure
+
+```typescript
+// src/domains/users/users.service.test.ts
+import { describe, expect, it, vi } from 'vitest';
+import * as userService from './users.service';
+import * as repo from './users.repository';
+
+// Mock the repository, not the database connection
+vi.mock('./users.repository', () => ({
+  findById: vi.fn(),
+  insert: vi.fn(),
+  update: vi.fn(),
+}));
+
+describe('createUser', () => {
+  it('should create and return a new user', async () => {
+    const mockUser = { id: 1, email: 'test@example.com' };
+    vi.mocked(repo.insert).mockResolvedValue(mockUser);
+
+    const result = await userService.createUser(input);
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual(mockUser);
+    expect(repo.insert).toHaveBeenCalledWith(input);
+  });
+
+  it('should return error when email already exists', async () => {
+    vi.mocked(repo.findByEmail).mockResolvedValue(existingUser);
+
+    const result = await userService.createUser(input);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe(ErrorCode.USER_ALREADY_EXISTS);
+  });
+});
+```
+
+### Testing Guidelines
+
+| Do | Don't |
+|----|-------|
+| Mock the repository layer (`repo.insert`, `repo.findById`) | Mock the database connection or Drizzle directly |
+| Test both success and error paths using `Result<T>` | Only test happy paths |
+| Assert on `result.ok`, `result.data`, `result.error` | Assert on thrown exceptions |
+| Verify repository functions are called with correct arguments | Test implementation details like SQL queries |
+| Use `vi.mocked()` for type-safe mocks | Use `any` type casts for mocks |
+
+### Cross-Domain Testing
+
+When testing services that call other domains:
+
+```typescript
+import * as otherService from '@/domains/other/other.service';
+
+vi.mock('@/domains/other/other.service', () => ({
+  someFunction: vi.fn(),
+}));
+
+it('should delegate to other domain', async () => {
+  vi.mocked(otherService.someFunction).mockResolvedValue(ok(mockData));
+  // Test that your service calls otherService correctly
+});
+```
+
+## Authorization and Middleware
+
+Authorization follows a **Policy + Middleware** pattern that separates access rules from request handling.
+
+### Pattern Overview
+
+```
+Route → Middleware (loads context + checks policy) → Handler
+```
+
+### Policy Layer (`{domain}.policy.ts`)
+
+Policies are **pure functions** that evaluate access based on user context and resource state:
+
+```typescript
+// chapter-assignments.policy.ts
+export const ChapterAssignmentPolicy = {
+  edit(user: PolicyUser, assignment: PolicyAssignment): boolean {
+    // Organization isolation check
+    if (user.organization !== assignment.organizationId) {
+      return false;
+    }
+    // Role-based logic
+    if (user.roleName === ROLES.PROJECT_MANAGER) {
+      return true;
+    }
+    // Resource ownership check
+    return assignment.assignedUserId === user.id;
+  },
+
+  submit(user: PolicyUser, assignment: PolicyAssignment): boolean {
+    // Different rules for different actions
+    return user.id === assignment.assignedUserId &&
+           assignment.status === CHAPTER_ASSIGNMENT_STATUS.DRAFT;
+  },
+};
+```
+
+**Policy Best Practices:**
+- Keep policies **pure** — no side effects, no database calls
+- Include **organization/tenant isolation** as the first check in every policy
+- Accept only primitive values and simple objects, not full entities
+- Return `boolean` — the middleware handles the HTTP response
+
+### Middleware Layer (`{domain}.middleware.ts`)
+
+Middleware loads resource context and applies policies:
+
+```typescript
+// chapter-assignment-auth.middleware.ts
+export function requireChapterAssignmentAccess(action: ChapterAssignmentAction) {
+  return createMiddleware<AppEnv>(async (c, next) => {
+    const user = c.get('user')!;
+    const resourceId = Number(c.req.param('chapterAssignmentId'));
+
+    // Load resource with auth context (includes org, membership, etc.)
+    const result = await service.getWithAuthContext(resourceId, user.id, user.roleName);
+
+    if (!result.ok) {
+      return c.json({ message: result.error.message }, getHttpStatus(result.error));
+    }
+
+    const ctx = result.data;
+
+    // Build policy inputs
+    const policyUser = { id: user.id, roleName: user.roleName, organization: user.organization };
+    const policyResource = { organizationId: ctx.organizationId, assignedUserId: ctx.assignedUserId };
+
+    // Evaluate policy
+    const allowed = ChapterAssignmentPolicy[policyUser, policyResource];
+
+    if (!allowed) {
+      // Return 404 (not 403) to prevent resource enumeration
+      return c.json({ message: 'Not found' }, HttpStatusCodes.NOT_FOUND);
+    }
+
+    // Attach resource to context for handler use
+    c.set('chapterAssignment', ctx);
+    return next();
+  });
+}
+```
+
+**Middleware Best Practices:**
+- Load resource context once — avoid N+1 queries in route handlers
+- Use **404 for authorization failures** (not 403) to prevent information leakage
+- Attach loaded resource to Hono context so handlers don't re-fetch
+- Keep policy evaluation logic minimal — delegate to policy functions
+
+### Route Integration
+
+```typescript
+const updateRoute = createRoute({
+  method: 'put',
+  path: '/chapter-assignments/:chapterAssignmentId',
+  middleware: [
+    authenticateUser,
+    requireChapterAssignmentAccess(CHAPTER_ASSIGNMENT_ACTIONS.UPDATE),
+  ] as const,
+  handler: async (c) => {
+    // Resource already loaded and authorized by middleware
+    const assignment = c.get('chapterAssignment');
+    // ... handle update
+  },
+});
+```
+
+### Decision Matrix
+
+| Concern | Belongs In | Example |
+|---------|-----------|---------|
+| Can user X do action Y on resource Z? | Policy | `ChapterAssignmentPolicy.edit(user, assignment)` |
+| Load resource with auth context | Service | `service.getWithAuthContext(id, userId, roleName)` |
+| Extract user from JWT, validate params | Middleware | `requireChapterAssignmentAccess(action)` |
+| HTTP response (401, 404, etc.) | Middleware | `c.json({ message }, status)` |
+| Tenant isolation check | Policy | `user.organization === resource.organizationId` |
+
 ## Adding a New Domain
 
 When creating a new domain module:
