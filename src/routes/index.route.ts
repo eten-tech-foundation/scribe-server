@@ -10,14 +10,14 @@ const indexRoute = createRoute({
   method: 'get',
   path: '/',
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(createMessageObjectSchema('Scribe API'), 'Scribe API Index'),
+    [HttpStatusCodes.OK]: jsonContent(createMessageObjectSchema('Fluent API'), 'Fluent API Index'),
   },
 });
 
 server.openapi(indexRoute, (c) => {
   return c.json(
     {
-      message: 'Scribe API',
+      message: 'Fluent API',
     },
     HttpStatusCodes.OK
   );
