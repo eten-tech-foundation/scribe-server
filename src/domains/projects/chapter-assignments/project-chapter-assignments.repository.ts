@@ -19,10 +19,7 @@ import {
 import { logger } from '@/lib/logger';
 import { err, ErrorCode, ok } from '@/lib/types';
 
-import type {
-  AssignSelectedItem,
-  ChapterAssignmentProgress,
-} from './project-chapter-assignments.types';
+import type { ChapterAssignmentProgress } from './project-chapter-assignments.types';
 
 export async function getByProject(projectId: number): Promise<Result<ChapterAssignmentRecord[]>> {
   try {
@@ -231,50 +228,6 @@ export async function findUserIdsNotInProjectOrg(
   return userIds.filter((id) => !validIds.has(id));
 }
 
-export async function findAssignmentIdsNotInProject(
-  projectId: number,
-  chapterAssignmentIds: number[],
-  tx: DbTransaction
-): Promise<number[]> {
-  const rows = await tx
-    .select({ id: chapter_assignments.id })
-    .from(chapter_assignments)
-    .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
-    .where(
-      and(
-        inArray(chapter_assignments.id, chapterAssignmentIds),
-        eq(project_units.projectId, projectId)
-      )
-    );
-
-  const validIds = new Set(rows.map((r) => r.id));
-  return chapterAssignmentIds.filter((id) => !validIds.has(id));
-}
-
-export interface CurrentAssignmentSnapshot {
-  id: number;
-  status: string;
-  assignedUserId: number | null;
-  peerCheckerId: number | null;
-  projectUnitId: number;
-}
-
-export async function findCurrentAssignments(
-  ids: number[],
-  tx: DbTransaction
-): Promise<CurrentAssignmentSnapshot[]> {
-  return tx
-    .select({
-      id: chapter_assignments.id,
-      status: chapter_assignments.status,
-      assignedUserId: chapter_assignments.assignedUserId,
-      peerCheckerId: chapter_assignments.peerCheckerId,
-      projectUnitId: chapter_assignments.projectUnitId,
-    })
-    .from(chapter_assignments)
-    .where(inArray(chapter_assignments.id, ids));
-}
-
 export async function findNotAssignedProjectIds(
   projectUnitIds: number[],
   tx: DbTransaction
@@ -290,45 +243,6 @@ export async function findNotAssignedProjectIds(
 export async function activateProjects(projectIds: number[], tx: DbTransaction): Promise<void> {
   if (projectIds.length === 0) return;
   await tx.update(projects).set({ status: 'active' }).where(inArray(projects.id, projectIds));
-}
-
-export interface PerAssignmentUpdateResult {
-  id: number;
-  status: string;
-  assignedUserId: number | null;
-  peerCheckerId: number | null;
-}
-
-export async function updateAssignmentsIndividually(
-  items: AssignSelectedItem[],
-  tx: DbTransaction
-): Promise<PerAssignmentUpdateResult[]> {
-  const results: PerAssignmentUpdateResult[] = [];
-
-  for (const item of items) {
-    const [row] = await tx
-      .update(chapter_assignments)
-      .set({
-        assignedUserId: item.drafterId,
-        peerCheckerId: item.peerCheckerId,
-        status: sql`
-          CASE
-            WHEN ${chapter_assignments.status} = 'not_started' THEN 'draft'::chapter_status
-            ELSE ${chapter_assignments.status}
-          END`,
-      })
-      .where(eq(chapter_assignments.id, item.chapterAssignmentId))
-      .returning({
-        id: chapter_assignments.id,
-        status: chapter_assignments.status,
-        assignedUserId: chapter_assignments.assignedUserId,
-        peerCheckerId: chapter_assignments.peerCheckerId,
-      });
-
-    if (row) results.push(row);
-  }
-
-  return results;
 }
 
 export async function findFullAssignmentsByIds(
@@ -421,6 +335,16 @@ export async function findFullAssignmentsByIds(
     updatedAt: row.updatedAt,
     submittedTime: row.submittedTime,
   }));
+}
+export async function findProjectUnitIdsByAssignmentIds(
+  ids: number[],
+  tx: DbTransaction
+): Promise<number[]> {
+  const rows = await tx
+    .select({ projectUnitId: chapter_assignments.projectUnitId })
+    .from(chapter_assignments)
+    .where(inArray(chapter_assignments.id, ids));
+  return [...new Set(rows.map((r) => r.projectUnitId))];
 }
 
 export const MAX_CHAPTER_ASSIGNMENTS_PER_REQUEST = 1000;

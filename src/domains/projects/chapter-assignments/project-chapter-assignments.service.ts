@@ -1,11 +1,6 @@
-import type { ChapterAssignmentStatus } from '@/domains/chapter-assignments/chapter-assignments.types';
 import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
-import {
-  chapter_assignment_assigned_user_history,
-  chapter_assignment_status_history,
-} from '@/db/schema';
 import * as chapterAssignmentService from '@/domains/chapter-assignments/chapter-assignments.service';
 import { toChapterAssignmentResponse } from '@/domains/chapter-assignments/chapter-assignments.service';
 import { logger } from '@/lib/logger';
@@ -17,6 +12,7 @@ import type {
   ChapterAssignmentProgress,
 } from './project-chapter-assignments.types';
 
+import * as projectRepo from '../projects.repository';
 import * as repo from './project-chapter-assignments.repository';
 
 export async function getProjectChapterAssignments(projectId: number) {
@@ -83,7 +79,7 @@ export async function assignSelectedChapters(
   try {
     return await db.transaction(async (tx) => {
       const chapterAssignmentIds = assignments.map((a) => a.chapterAssignmentId);
-      const invalidAssignmentIds = await repo.findAssignmentIdsNotInProject(
+      const invalidAssignmentIds = await projectRepo.findAssignmentIdsNotInProject(
         projectId,
         chapterAssignmentIds,
         tx
@@ -110,70 +106,23 @@ export async function assignSelectedChapters(
         }
       }
 
-      const currentAssignments = await repo.findCurrentAssignments(chapterAssignmentIds, tx);
-      const projectUnitIds = [...new Set(currentAssignments.map((a) => a.projectUnitId))];
+      const projectUnitIds = await repo.findProjectUnitIdsByAssignmentIds(chapterAssignmentIds, tx);
       if (projectUnitIds.length > 0) {
         const projectIdsToActivate = await repo.findNotAssignedProjectIds(projectUnitIds, tx);
         await repo.activateProjects(projectIdsToActivate, tx);
       }
 
-      const updated = await repo.updateAssignmentsIndividually(assignments, tx);
-      const assignedUserHistoryRecords: {
-        chapterAssignmentId: number;
-        assignedUserId: number;
-        role: 'drafter' | 'peer_checker';
-        status: ChapterAssignmentStatus;
-      }[] = [];
-
-      const statusHistoryRecords: {
-        chapterAssignmentId: number;
-        status: ChapterAssignmentStatus;
-      }[] = [];
-
-      for (const updatedRow of updated) {
-        const current = currentAssignments.find((a) => a.id === updatedRow.id);
-        if (!current) continue;
-
-        const item = assignments.find((a) => a.chapterAssignmentId === updatedRow.id);
-        if (!item) continue;
-
-        if (item.drafterId !== null && current.assignedUserId !== item.drafterId) {
-          assignedUserHistoryRecords.push({
-            chapterAssignmentId: updatedRow.id,
-            assignedUserId: item.drafterId,
-            role: 'drafter',
-            status: updatedRow.status as ChapterAssignmentStatus,
-          });
-        }
-
-        if (item.peerCheckerId !== null && current.peerCheckerId !== item.peerCheckerId) {
-          assignedUserHistoryRecords.push({
-            chapterAssignmentId: updatedRow.id,
-            assignedUserId: item.peerCheckerId,
-            role: 'peer_checker',
-            status: updatedRow.status as ChapterAssignmentStatus,
-          });
-        }
-
-        if (current.status !== updatedRow.status) {
-          statusHistoryRecords.push({
-            chapterAssignmentId: updatedRow.id,
-            status: updatedRow.status as ChapterAssignmentStatus,
-          });
-        }
+      const updatedIds: number[] = [];
+      for (const item of assignments) {
+        const result = await chapterAssignmentService.updateChapterAssignment(
+          item.chapterAssignmentId,
+          { assignedUserId: item.drafterId, peerCheckerId: item.peerCheckerId },
+          tx
+        );
+        if (!result.ok) return result;
+        updatedIds.push(item.chapterAssignmentId);
       }
 
-      if (assignedUserHistoryRecords.length > 0) {
-        await tx
-          .insert(chapter_assignment_assigned_user_history)
-          .values(assignedUserHistoryRecords);
-      }
-
-      if (statusHistoryRecords.length > 0) {
-        await tx.insert(chapter_assignment_status_history).values(statusHistoryRecords);
-      }
-
-      const updatedIds = updated.map((r) => r.id);
       return ok(await repo.findFullAssignmentsByIds(updatedIds, tx));
     });
   } catch (e) {

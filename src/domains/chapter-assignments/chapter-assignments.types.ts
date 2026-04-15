@@ -49,8 +49,8 @@ export interface CreateChapterAssignmentRequestData {
 }
 
 export interface UpdateChapterAssignmentRequestData {
-  assignedUserId?: number;
-  peerCheckerId?: number;
+  assignedUserId?: number | null;
+  peerCheckerId?: number | null;
   status?: ChapterAssignmentStatus;
   submittedTime?: Date;
 }
