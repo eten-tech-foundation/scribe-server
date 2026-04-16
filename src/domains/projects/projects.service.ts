@@ -13,6 +13,10 @@ export function getProjectsByOrganization(organizationId: number) {
   return repo.getByOrganization(organizationId);
 }
 
+export function getProjectsByUserId(userId: number) {
+  return repo.getByUserId(userId);
+}
+
 export function getProjectById(id: number) {
   return repo.getById(id);
 }
@@ -72,9 +76,9 @@ export async function createProject(input: CreateProjectServiceInput): Promise<R
 
       return ok(project);
     });
-  } catch (e) {
+  } catch (error) {
     logger.error({
-      cause: e,
+      cause: error,
       message: 'Failed to create project',
       context: {
         organization: input.organization,
@@ -106,9 +110,9 @@ export async function updateProject(
 
       return ok(updatedProject);
     });
-  } catch (e) {
+  } catch (error) {
     logger.error({
-      cause: e,
+      cause: error,
       message: 'Failed to update project',
       context: { projectId: id },
     });
