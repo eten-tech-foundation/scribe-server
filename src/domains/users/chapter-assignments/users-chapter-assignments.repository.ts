@@ -1,7 +1,7 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-import type { DbTransaction, Result } from '@/lib/types';
+import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import {
@@ -19,7 +19,6 @@ import { err, ErrorCode, ok } from '@/lib/types';
 
 import type { UserChapterAssignment } from './users-chapter-assignments.types';
 
-const MAX_CHAPTER_ASSIGNMENTS_PER_REQUEST = 1000;
 const sourceLang = alias(languages, 'source_lang');
 
 interface QueryRow {
@@ -166,72 +165,3 @@ export async function findPeerCheckByUserId(
     return err(ErrorCode.INTERNAL_ERROR);
   }
 }
-
-export interface CurrentAssignmentRow {
-  id: number;
-  status: string;
-  assignedUserId: number | null;
-  peerCheckerId: number | null;
-  projectUnitId: number;
-}
-
-export async function findCurrentAssignments(
-  ids: number[],
-  tx: DbTransaction
-): Promise<CurrentAssignmentRow[]> {
-  return tx
-    .select({
-      id: chapter_assignments.id,
-      status: chapter_assignments.status,
-      assignedUserId: chapter_assignments.assignedUserId,
-      peerCheckerId: chapter_assignments.peerCheckerId,
-      projectUnitId: chapter_assignments.projectUnitId,
-    })
-    .from(chapter_assignments)
-    .where(inArray(chapter_assignments.id, ids));
-}
-
-export async function findNotAssignedProjectIds(
-  projectUnitIds: number[],
-  tx: DbTransaction
-): Promise<number[]> {
-  const rows = await tx
-    .select({ projectId: project_units.projectId })
-    .from(project_units)
-    .innerJoin(projects, eq(project_units.projectId, projects.id))
-    .where(and(inArray(project_units.id, projectUnitIds), eq(projects.status, 'not_assigned')));
-  return rows.map((r) => r.projectId);
-}
-
-export async function activateProjects(projectIds: number[], tx: DbTransaction): Promise<void> {
-  if (projectIds.length === 0) return;
-  await tx.update(projects).set({ status: 'active' }).where(inArray(projects.id, projectIds));
-}
-
-export interface BulkUpdateResult {
-  id: number;
-  status: string;
-}
-
-export async function bulkUpdateAssignments(
-  ids: number[],
-  assignedUserId: number,
-  peerCheckerId: number,
-  tx: DbTransaction
-): Promise<BulkUpdateResult[]> {
-  return tx
-    .update(chapter_assignments)
-    .set({
-      assignedUserId,
-      peerCheckerId,
-      status: sql`
-        CASE
-          WHEN ${chapter_assignments.status} = 'not_started' THEN 'draft'::chapter_status
-          ELSE ${chapter_assignments.status}
-        END`,
-    })
-    .where(inArray(chapter_assignments.id, ids))
-    .returning({ id: chapter_assignments.id, status: chapter_assignments.status });
-}
-
-export { MAX_CHAPTER_ASSIGNMENTS_PER_REQUEST };
