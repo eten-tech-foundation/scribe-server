@@ -31,10 +31,11 @@ export async function createProject(input: CreateProjectServiceInput): Promise<R
     const hasInvalidBooks = input.bookId.some((id) => !validBookIds.includes(id));
 
     if (hasInvalidBooks) {
-      return err(ErrorCode.INVALID_BIBLE_BOOKS, {
-        requestedBooks: input.bookId,
-        bibleId: input.bibleId,
+      logger.error({
+        message: 'Invalid bible books requested',
+        context: { requestedBooks: input.bookId, bibleId: input.bibleId },
       });
+      return err(ErrorCode.INVALID_BIBLE_BOOKS);
     }
 
     return await db.transaction(async (tx) => {

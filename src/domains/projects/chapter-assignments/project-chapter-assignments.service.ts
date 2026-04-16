@@ -85,9 +85,7 @@ export async function assignSelectedChapters(
         tx
       );
       if (invalidAssignmentIds.length > 0) {
-        return err(ErrorCode.NOT_FOUND, {
-          message: `Chapter assignments not found in project: ${invalidAssignmentIds.join(', ')}`,
-        });
+        return err(ErrorCode.NOT_FOUND);
       }
 
       const allUserIds = [
@@ -100,9 +98,7 @@ export async function assignSelectedChapters(
       if (allUserIds.length > 0) {
         const invalidUserIds = await repo.findUserIdsNotInProjectOrg(projectId, allUserIds, tx);
         if (invalidUserIds.length > 0) {
-          return err(ErrorCode.NOT_FOUND, {
-            message: `Users not found in project organization: ${invalidUserIds.join(', ')}`,
-          });
+          return err(ErrorCode.NOT_FOUND);
         }
       }
 

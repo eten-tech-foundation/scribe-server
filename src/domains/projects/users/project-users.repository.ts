@@ -4,19 +4,12 @@ import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import { chapter_assignments, project_units, project_users, users } from '@/db/schema';
+import { handleUniqueConstraintError } from '@/lib/db-errors';
 import { logger } from '@/lib/logger';
 import { ROLES } from '@/lib/roles';
 import { err, ErrorCode, ok } from '@/lib/types';
 
 import type { ProjectUserRecord } from './project-users.types';
-
-function handleUniqueConstraintError(error: unknown): boolean {
-  if (error && typeof error === 'object' && 'cause' in error) {
-    const cause = (error as { cause?: { code?: string } }).cause;
-    return cause?.code === '23505';
-  }
-  return false;
-}
 
 // Repository functions
 
