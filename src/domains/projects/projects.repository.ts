@@ -1,10 +1,11 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 import type { DbTransaction, Result } from '@/lib/types';
 
 import { db } from '@/db';
 import {
   bible_books,
+  chapter_assignments,
   chapterStatusEnum,
   project_unit_bible_books,
   project_units,
@@ -154,4 +155,24 @@ export async function getProjectIdByUnitId(projectUnitId: number): Promise<Resul
   } catch {
     return err(ErrorCode.INTERNAL_ERROR);
   }
+}
+
+export async function findAssignmentIdsNotInProject(
+  projectId: number,
+  chapterAssignmentIds: number[],
+  tx: DbTransaction
+): Promise<number[]> {
+  const rows = await tx
+    .select({ id: chapter_assignments.id })
+    .from(chapter_assignments)
+    .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
+    .where(
+      and(
+        inArray(chapter_assignments.id, chapterAssignmentIds),
+        eq(project_units.projectId, projectId)
+      )
+    );
+
+  const validIds = new Set(rows.map((r) => r.id));
+  return chapterAssignmentIds.filter((id) => !validIds.has(id));
 }
