@@ -47,5 +47,29 @@ export async function lookupBcp(query: BcpLookupQuery) {
     }
   }
 
-  return ok(merged.map(toResponse));
+  // Exact match precedence logic
+  const lowerTerms = languageTerms.map((t) => t.toLowerCase());
+  const exactMatchNames = new Set(
+    merged
+      .filter((row) => lowerTerms.includes(row.languageName.toLowerCase()))
+      .map((row) => row.languageName.toLowerCase())
+  );
+
+  const finalResults = merged.filter((row) => {
+    const rowName = row.languageName.toLowerCase();
+    
+    // Always keep exact matches or rows found via ISO code (exact by definition)
+    if (lowerTerms.includes(rowName) || isoCodes.length > 0) {
+      return true;
+    }
+
+    // This is a partial match. Find which terms it matched.
+    const matchedTerms = lowerTerms.filter((t) => rowName.includes(t));
+
+    // Keep it ONLY if it partially matches a term that DOES NOT have an exact match.
+    // If every term it matched already has a perfect exact match, discard this noise.
+    return matchedTerms.some((t) => !exactMatchNames.has(t));
+  });
+
+  return ok(finalResults.map(toResponse));
 }
