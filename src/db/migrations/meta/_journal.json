@@ -71,6 +71,13 @@
       "when": 1774517640951,
       "tag": "0009_adding_more_project_status_",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1777352942792,
+      "tag": "0010_add_language_bcp_codes",
+      "breakpoints": true
     }
   ]
 }

@@ -26,6 +26,9 @@ const EnvSchema = z.object({
   EMAIL_SERVICE_DOMAIN: z.string(),
   EMAIL_SERVICE_SENDER: z.string(),
   FRONTEND_URL: z.string(),
+  // ─── Vachan AI (optional — only required for AI translation feature) ────────
+  VACHAN_API_URL: z.string().url(),
+  VACHAN_API_TOKEN: z.string(),
 });
 
 export type env = z.infer<typeof EnvSchema>;

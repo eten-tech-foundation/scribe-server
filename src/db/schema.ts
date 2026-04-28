@@ -415,6 +415,23 @@ export const active_chapter_editors = pgTable(
   ]
 );
 
+// ─── BCP lookup table (seeded from languages.csv) ────────────────────────────
+export const language_bcp_codes = pgTable(
+  'language_bcp_codes',
+  {
+    id: serial('id').primaryKey(),
+    languageName: varchar('language_name', { length: 255 }).notNull(),
+    bcp47Code: varchar('bcp47_code', { length: 50 }),
+    iso6393Code: varchar('iso639_3_code', { length: 50 }),
+    iso6391Code: varchar('iso639_1_code', { length: 10 }),
+  },
+  (table) => [
+    index('idx_lang_bcp_codes_name').on(table.languageName),
+    index('idx_lang_bcp_codes_iso3').on(table.iso6393Code),
+    index('idx_lang_bcp_codes_iso1').on(table.iso6391Code),
+  ]
+);
+
 const { createInsertSchema, createSelectSchema } = createSchemaFactory({
   zodInstance: z,
 });
@@ -448,6 +465,7 @@ export const selectProjectUsersSchema = createSelectSchema(project_users);
 export const selectPermissionsSchema = createSelectSchema(permissions);
 export const selectRolePermissionsSchema = createSelectSchema(role_permissions);
 export const selectActiveChapterEditorsSchema = createSelectSchema(active_chapter_editors);
+export const selectLanguageBcpCodesSchema = createSelectSchema(language_bcp_codes);
 
 export const insertUsersSchema = createInsertSchema(users, {
   username: (schema) => schema.min(1).max(100),
