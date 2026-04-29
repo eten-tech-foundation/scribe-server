@@ -57,7 +57,7 @@ export async function lookupBcp(query: BcpLookupQuery) {
 
   const finalResults = merged.filter((row) => {
     const rowName = row.languageName.toLowerCase();
-    
+
     // Always keep exact matches or rows found via ISO code (exact by definition)
     if (lowerTerms.includes(rowName) || isoCodes.length > 0) {
       return true;
