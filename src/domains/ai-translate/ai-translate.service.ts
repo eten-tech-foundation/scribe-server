@@ -1,3 +1,5 @@
+import { GoogleGenAI } from '@google/genai';
+
 import type { Result } from '@/lib/types';
 
 import * as bcpService from '@/domains/bcp-lookup/bcp-lookup.service';
@@ -25,8 +27,10 @@ async function resolveLanguage(input: string): Promise<{ name: string; bcp47: st
   // Hackathon specific aliases to match UI names with CSV official names
   const aliases: Record<string, string> = {
     'koli kachchi': 'Kachi Koli',
-    kukna: 'Kokna',
-    kutchi: 'Kachchi',
+    'kachi koli': 'Kachi Koli',
+    'kachchi koli': 'Kachi Koli',
+    kukna: 'Kukna',
+    kutchi: 'Kutchi',
     surjapuri: 'Surjapuri',
   };
 
@@ -66,46 +70,14 @@ export const activeTranslationJobs = new Set<number>();
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function submitTranslationJob(
-  req: TranslateRequest
+async function submitVachanTranslation(
+  req: TranslateRequest,
+  source: { name: string; bcp47: string | null },
+  target: { name: string; bcp47: string | null },
+  modelName: string
 ): Promise<Result<TranslateResponse>> {
-  if (!env.VACHAN_API_URL || !env.VACHAN_API_TOKEN) {
-    return err(ErrorCode.INTERNAL_ERROR);
-  }
-
-  const [source, target] = await Promise.all([
-    resolveLanguage(req.sourceLanguage),
-    resolveLanguage(req.targetLanguage),
-  ]);
-
-  // Known custom models from Vachan API
-  const customModels: Record<string, string> = {
-    'english-nagamese': 'nllb_finetuned_eng_naga',
-    'english-zeme': 'nllb_finetuned_eng_zeme',
-    'gujarati-koli-kachchi': 'nllb_finetuned_guj_kolikachi',
-    'gujarati-kachi-koli': 'nllb_finetuned_guj_kolikachi',
-    'gujarati-kokna': 'nllb_finetuned_guj_kukna',
-    'gujarati-kukna': 'nllb_finetuned_guj_kukna',
-    'gujarati-kachchi': 'nllb_finetuned_guj_kachi',
-    'gujarati-kutchi': 'nllb_finetuned_guj_kachi',
-    'hindi-surjapuri': 'nllb_finetuned_hin_surj',
-  };
-
   const sourceLangArg = source.bcp47 || slugify(source.name);
   const targetLangArg = target.bcp47 || slugify(target.name);
-
-  // Determine model name
-  const pairKey = `${slugify(source.name)}-${slugify(target.name)}`;
-  let modelName = req.modelName;
-
-  // If the UI sends the generic nllb-600M or nothing, but we have a custom model for this pair, override it
-  if (!modelName || modelName === 'nllb-600M') {
-    if (customModels[pairKey]) {
-      modelName = customModels[pairKey];
-    } else {
-      modelName = 'nllb-600M'; // Default generic model
-    }
-  }
 
   const url = new URL(`${env.VACHAN_API_URL}/v2/ai/model/text/translate`);
   url.searchParams.set('device', req.device);
@@ -129,31 +101,36 @@ export async function submitTranslationJob(
     if (!response.ok) {
       const errorText = await response.text();
       logger.error({ status: response.status, errorText }, 'Vachan API translate request failed');
-      return err(ErrorCode.INTERNAL_ERROR);
+
+      let errorMessage = 'Vachan API request failed';
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.message || errorMessage;
+      } catch {
+        if (errorText) errorMessage = errorText;
+      }
+
+      return { ok: false, error: { message: errorMessage, code: ErrorCode.VACHAN_API_ERROR } };
     }
 
     const vachanData = (await response.json()) as VachanTranslateResponse;
     const jobId = vachanData.data.jobId;
 
-    // Track job ID in memory
     activeTranslationJobs.add(jobId);
 
-    // Poll Vachan API until the job completes
     let finalStatus = vachanData.data.status;
     let output: string[] = [];
     let attempts = 0;
-    const maxAttempts = 30; // 1 minute maximum polling wait
+    const maxAttempts = 30;
 
     while (activeTranslationJobs.has(jobId) && attempts < maxAttempts) {
-      await sleep(2000); // 2 second polling interval
+      await sleep(2000);
       attempts++;
 
       const statusResult = await getJobStatus(jobId);
       if (statusResult.ok) {
         finalStatus = statusResult.data.status;
 
-        // Vachan API might return various statuses (e.g., 'Background task completed successfully')
-        // We check if it has output or specifically says completed/error
         if (
           finalStatus.toLowerCase().includes('complet') ||
           finalStatus.toLowerCase().includes('error') ||
@@ -166,8 +143,22 @@ export async function submitTranslationJob(
       }
     }
 
-    // Safety cleanup in case of timeout
     activeTranslationJobs.delete(jobId);
+
+    if (finalStatus.toLowerCase().includes('error')) {
+      const errMsg = output.length > 0 ? output[0] : 'Vachan API translation job failed';
+      return { ok: false, error: { message: errMsg, code: ErrorCode.VACHAN_API_ERROR } };
+    }
+
+    if (output.length === 0) {
+      return {
+        ok: false,
+        error: {
+          message: 'Vachan API translation job returned no output',
+          code: ErrorCode.VACHAN_API_ERROR,
+        },
+      };
+    }
 
     return ok({
       jobId,
@@ -181,9 +172,145 @@ export async function submitTranslationJob(
       output,
     });
   } catch (error) {
+    let errorMessage = 'Failed to connect to Vachan API';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
     logger.error({ cause: error }, 'Failed to connect to Vachan API');
+    return { ok: false, error: { message: errorMessage, code: ErrorCode.VACHAN_API_ERROR } };
+  }
+}
+
+async function callGeminiTranslation(
+  req: TranslateRequest,
+  source: { name: string; bcp47: string | null },
+  target: { name: string; bcp47: string | null }
+): Promise<Result<TranslateResponse>> {
+  if (!env.GOOGLE_AI_API_KEY) {
     return err(ErrorCode.INTERNAL_ERROR);
   }
+
+  const ai = new GoogleGenAI({ apiKey: env.GOOGLE_AI_API_KEY });
+  const model = env.GOOGLE_AI_MODEL || 'gemini-2.5-flash-lite';
+
+  const prompt = `Translate the following array of text from ${source.name} to ${target.name}.
+Return ONLY a valid JSON array of strings containing the translated text, maintaining the exact same order as the input. Do not include any markdown formatting like \`\`\`json.
+Input text:
+${JSON.stringify(req.verses)}`;
+
+  try {
+    logger.info(
+      { model, source: source.name, target: target.name },
+      'Submitting translation job to Gemini API'
+    );
+
+    const response = await ai.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        temperature: 0.1,
+      },
+    });
+
+    const text = response.text;
+    if (!text) {
+      return {
+        ok: false,
+        error: { message: 'Gemini returned empty response', code: ErrorCode.INTERNAL_ERROR },
+      };
+    }
+
+    let parsed: string[];
+    try {
+      const cleanedText = text
+        .replace(/^```json\n?/, '')
+        .replace(/\n?```$/, '')
+        .trim();
+      parsed = JSON.parse(cleanedText);
+    } catch {
+      logger.error({ text }, 'Failed to parse Gemini response as JSON');
+      return {
+        ok: false,
+        error: {
+          message: 'Failed to parse Gemini response as JSON',
+          code: ErrorCode.INTERNAL_ERROR,
+        },
+      };
+    }
+
+    if (!Array.isArray(parsed) || parsed.length !== req.verses.length) {
+      logger.error(
+        { parsedLen: Array.isArray(parsed) ? parsed.length : 0, expected: req.verses.length },
+        'Gemini response length mismatch'
+      );
+      return {
+        ok: false,
+        error: { message: 'Gemini response array length mismatch', code: ErrorCode.INTERNAL_ERROR },
+      };
+    }
+
+    return ok({
+      jobId: -1,
+      status: 'completed',
+      sourceLanguage: source.name,
+      targetLanguage: target.name,
+      sourceBcp47: source.bcp47,
+      targetBcp47: target.bcp47,
+      modelName: model,
+      verseCount: req.verses.length,
+      output: parsed,
+    });
+  } catch (error) {
+    let errorMessage = 'Failed to call Gemini API';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    logger.error({ cause: error }, 'Failed to call Gemini API');
+    return { ok: false, error: { message: errorMessage, code: ErrorCode.INTERNAL_ERROR } };
+  }
+}
+
+export async function submitTranslationJob(
+  req: TranslateRequest
+): Promise<Result<TranslateResponse>> {
+  if (!env.VACHAN_API_URL || !env.VACHAN_API_TOKEN) {
+    return err(ErrorCode.INTERNAL_ERROR);
+  }
+
+  const [source, target] = await Promise.all([
+    resolveLanguage(req.sourceLanguage),
+    resolveLanguage(req.targetLanguage),
+  ]);
+
+  const customModels: Record<string, string> = {
+    'english-nagamese': 'nllb-english-nagamese',
+    'english-zeme-naga': 'nllb-english-zeme',
+    'gujarati-koli-kachi': 'nllb-gujrathi-koli_kachchi',
+    'gujarati-kachi-koli': 'nllb-gujrathi-koli_kachchi',
+    'gujarati-kukna': 'nllb-gujarati-kukna',
+    'gujarati-kutchi': 'nllb-gujarati-kutchi',
+    'hindi-surjapuri': 'nllb-hindi-surjapuri',
+  };
+
+  const pairKey = `${slugify(source.name)}-${slugify(target.name)}`;
+  let modelName = req.modelName;
+
+  if (!modelName || modelName === 'nllb-600M') {
+    if (customModels[pairKey]) {
+      modelName = customModels[pairKey];
+    } else {
+      modelName = 'nllb-600M';
+    }
+  }
+
+  const vachanResult = await submitVachanTranslation(req, source, target, modelName);
+
+  if (!vachanResult.ok && env.GOOGLE_AI_API_KEY) {
+    logger.warn({ error: vachanResult.error }, 'Vachan API failed, falling back to Gemini');
+    return callGeminiTranslation(req, source, target);
+  }
+
+  return vachanResult;
 }
 
 export async function getJobStatus(jobId: number): Promise<Result<JobStatusResponse>> {
@@ -206,7 +333,16 @@ export async function getJobStatus(jobId: number): Promise<Result<JobStatusRespo
     if (!response.ok) {
       const errorText = await response.text();
       logger.error({ status: response.status, errorText }, 'Vachan API job status request failed');
-      return err(ErrorCode.INTERNAL_ERROR);
+
+      let errorMessage = 'Vachan API status request failed';
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.message || errorMessage;
+      } catch {
+        if (errorText) errorMessage = errorText;
+      }
+
+      return { ok: false, error: { message: errorMessage, code: ErrorCode.VACHAN_API_ERROR } };
     }
 
     const vachanData = (await response.json()) as any;
@@ -239,7 +375,11 @@ export async function getJobStatus(jobId: number): Promise<Result<JobStatusRespo
       output: outputStrings,
     });
   } catch (error) {
+    let errorMessage = 'Failed to fetch job status from Vachan API';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
     logger.error({ cause: error }, 'Failed to fetch job status from Vachan API');
-    return err(ErrorCode.INTERNAL_ERROR);
+    return { ok: false, error: { message: errorMessage, code: ErrorCode.VACHAN_API_ERROR } };
   }
 }

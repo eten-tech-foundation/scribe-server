@@ -29,6 +29,9 @@ const EnvSchema = z.object({
   // ─── Vachan AI (optional — only required for AI translation feature) ────────
   VACHAN_API_URL: z.string().url(),
   VACHAN_API_TOKEN: z.string(),
+  // ─── Google AI Fallback ────────
+  GOOGLE_AI_API_KEY: z.string().optional(),
+  GOOGLE_AI_MODEL: z.string().default('gemini-2.5-flash-lite'),
 });
 
 export type env = z.infer<typeof EnvSchema>;

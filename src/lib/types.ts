@@ -104,6 +104,7 @@ export const ErrorCode = {
   EMAIL_SERVICE_ERROR: 'EMAIL_SERVICE_ERROR',
   // Feature domain errors
   LANGUAGE_NOT_FOUND: 'LANGUAGE_NOT_FOUND',
+  VACHAN_API_ERROR: 'VACHAN_API_ERROR',
 } as const;
 
 // eslint-disable-next-line ts/no-redeclare
@@ -140,6 +141,7 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   AUTH0_ERROR: 'Authentication service error',
   EMAIL_SERVICE_ERROR: 'Email service error',
   LANGUAGE_NOT_FOUND: 'Language not found',
+  VACHAN_API_ERROR: 'Failed to communicate with Vachan API',
 };
 
 // ─── HTTP status map ──────────────────────────────────────────────────────────
@@ -148,6 +150,7 @@ export const ErrorHttpStatus: Record<ErrorCode, number> = {
   INTERNAL_ERROR: 500,
   AUTH0_ERROR: 500,
   EMAIL_SERVICE_ERROR: 500,
+  VACHAN_API_ERROR: 502, // Bad Gateway
   LANGUAGE_NOT_FOUND: 404,
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
