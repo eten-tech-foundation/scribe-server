@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 
 import type { Result } from '@/lib/types';
 
@@ -194,7 +194,10 @@ async function callGeminiTranslation(
   const model = env.GOOGLE_AI_MODEL || 'gemini-2.5-flash-lite';
 
   const prompt = `Translate the following array of text from ${source.name} to ${target.name}.
-Return ONLY a valid JSON array of strings containing the translated text, maintaining the exact same order as the input. Do not include any markdown formatting like \`\`\`json.
+CRITICAL INSTRUCTIONS:
+1. Return ONLY a valid JSON array of strings containing the translated text, maintaining the exact same order as the input.
+2. Ensure you use the native script/alphabet of the target language (${target.name}). DO NOT transliterate into English/Latin characters. Use the correct Unicode characters for the target language.
+
 Input text:
 ${JSON.stringify(req.verses)}`;
 
@@ -209,6 +212,13 @@ ${JSON.stringify(req.verses)}`;
       contents: prompt,
       config: {
         temperature: 0.1,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.STRING,
+          },
+        },
       },
     });
 
@@ -222,11 +232,7 @@ ${JSON.stringify(req.verses)}`;
 
     let parsed: string[];
     try {
-      const cleanedText = text
-        .replace(/^```json\n?/, '')
-        .replace(/\n?```$/, '')
-        .trim();
-      parsed = JSON.parse(cleanedText);
+      parsed = JSON.parse(text);
     } catch {
       logger.error({ text }, 'Failed to parse Gemini response as JSON');
       return {
