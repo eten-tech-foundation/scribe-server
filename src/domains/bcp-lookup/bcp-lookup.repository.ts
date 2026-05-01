@@ -4,6 +4,7 @@ import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import { language_bcp_codes } from '@/db/schema';
+import { withDatabaseRetry } from '@/lib/db-retry';
 import { logger } from '@/lib/logger';
 import { err, ErrorCode, ok } from '@/lib/types';
 
@@ -16,11 +17,13 @@ import type { LanguageBcpCode } from './bcp-lookup.types';
 export async function findByLanguageNames(names: string[]): Promise<Result<LanguageBcpCode[]>> {
   try {
     const conditions = names.map((n) => ilike(language_bcp_codes.languageName, `%${n.trim()}%`));
-    const rows = await db
-      .select()
-      .from(language_bcp_codes)
-      .where(or(...conditions))
-      .limit(200);
+    const rows = await withDatabaseRetry(() =>
+      db
+        .select()
+        .from(language_bcp_codes)
+        .where(or(...conditions))
+        .limit(200)
+    );
     return ok(rows);
   } catch (error) {
     logger.error({
@@ -40,15 +43,17 @@ export async function findByIsoCodes(codes: string[]): Promise<Result<LanguageBc
   try {
     const trimmed = codes.map((c) => c.trim()).filter(Boolean);
 
-    const rows = await db
-      .select()
-      .from(language_bcp_codes)
-      .where(
-        or(
-          inArray(language_bcp_codes.iso6393Code, trimmed),
-          inArray(language_bcp_codes.iso6391Code, trimmed)
+    const rows = await withDatabaseRetry(() =>
+      db
+        .select()
+        .from(language_bcp_codes)
+        .where(
+          or(
+            inArray(language_bcp_codes.iso6393Code, trimmed),
+            inArray(language_bcp_codes.iso6391Code, trimmed)
+          )
         )
-      );
+    );
     return ok(rows);
   } catch (error) {
     logger.error({ cause: error, message: 'Failed to search by ISO codes', context: { codes } });

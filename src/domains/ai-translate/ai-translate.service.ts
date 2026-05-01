@@ -14,6 +14,13 @@ import type {
   VachanTranslateResponse,
 } from './ai-translate.types';
 
+// ──────────────────────────────────────────────────────────────
+// DEMO TOGGLE: Change this to switch translation provider
+// 'vachan' = Try Vachan first, fall back to Gemini on failure
+// 'gemini' = Skip Vachan entirely, go straight to Gemini
+const TRANSLATION_PROVIDER: 'vachan' | 'gemini' = 'vachan';
+// ──────────────────────────────────────────────────────────────
+
 /** Utility to generate a slug for custom models (e.g. 'Koli Kachchi' -> 'koli-kachchi') */
 function slugify(text: string): string {
   return text
@@ -201,79 +208,102 @@ CRITICAL INSTRUCTIONS:
 Input text:
 ${JSON.stringify(req.verses)}`;
 
-  try {
-    logger.info(
-      { model, source: source.name, target: target.name },
-      'Submitting translation job to Gemini API'
-    );
+  const maxAttempts = 3;
+  let attempt = 0;
 
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        temperature: 0.1,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.STRING,
+  while (attempt < maxAttempts) {
+    attempt++;
+    try {
+      logger.info(
+        { model, source: source.name, target: target.name, attempt },
+        'Submitting translation job to Gemini API'
+      );
+
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          temperature: 0.1,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.STRING,
+            },
           },
         },
-      },
-    });
+      });
 
-    const text = response.text;
-    if (!text) {
-      return {
-        ok: false,
-        error: { message: 'Gemini returned empty response', code: ErrorCode.INTERNAL_ERROR },
-      };
-    }
+      const text = response.text;
+      if (!text) {
+        return {
+          ok: false,
+          error: { message: 'Gemini returned empty response', code: ErrorCode.INTERNAL_ERROR },
+        };
+      }
 
-    let parsed: string[];
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      logger.error({ text }, 'Failed to parse Gemini response as JSON');
-      return {
-        ok: false,
-        error: {
-          message: 'Failed to parse Gemini response as JSON',
-          code: ErrorCode.INTERNAL_ERROR,
-        },
-      };
-    }
+      let parsed: string[];
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        logger.error({ text }, 'Failed to parse Gemini response as JSON');
+        return {
+          ok: false,
+          error: {
+            message: 'Failed to parse Gemini response as JSON',
+            code: ErrorCode.INTERNAL_ERROR,
+          },
+        };
+      }
 
-    if (!Array.isArray(parsed) || parsed.length !== req.verses.length) {
-      logger.error(
-        { parsedLen: Array.isArray(parsed) ? parsed.length : 0, expected: req.verses.length },
-        'Gemini response length mismatch'
-      );
-      return {
-        ok: false,
-        error: { message: 'Gemini response array length mismatch', code: ErrorCode.INTERNAL_ERROR },
-      };
-    }
+      if (!Array.isArray(parsed) || parsed.length !== req.verses.length) {
+        logger.error(
+          { parsedLen: Array.isArray(parsed) ? parsed.length : 0, expected: req.verses.length },
+          'Gemini response length mismatch'
+        );
+        return {
+          ok: false,
+          error: {
+            message: 'Gemini response array length mismatch',
+            code: ErrorCode.INTERNAL_ERROR,
+          },
+        };
+      }
 
-    return ok({
-      jobId: -1,
-      status: 'completed',
-      sourceLanguage: source.name,
-      targetLanguage: target.name,
-      sourceBcp47: source.bcp47,
-      targetBcp47: target.bcp47,
-      modelName: model,
-      verseCount: req.verses.length,
-      output: parsed,
-    });
-  } catch (error) {
-    let errorMessage = 'Failed to call Gemini API';
-    if (error instanceof Error) {
-      errorMessage = error.message;
+      return ok({
+        jobId: -1,
+        status: 'completed',
+        sourceLanguage: source.name,
+        targetLanguage: target.name,
+        sourceBcp47: source.bcp47,
+        targetBcp47: target.bcp47,
+        modelName: model,
+        verseCount: req.verses.length,
+        output: parsed,
+      });
+    } catch (error) {
+      const isRateLimit = (error as any)?.status === 429;
+
+      if (isRateLimit && attempt < maxAttempts) {
+        const delay = attempt * 2000;
+        logger.warn({ attempt, delay }, 'Gemini API rate limited, retrying...');
+        await sleep(delay);
+        continue;
+      }
+
+      let errorMessage = 'Failed to call Gemini API';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      logger.error({ cause: error, attempt }, 'Failed to call Gemini API');
+      return { ok: false, error: { message: errorMessage, code: ErrorCode.INTERNAL_ERROR } };
     }
-    logger.error({ cause: error }, 'Failed to call Gemini API');
-    return { ok: false, error: { message: errorMessage, code: ErrorCode.INTERNAL_ERROR } };
   }
+
+  return {
+    ok: false,
+    error: { message: 'Gemini API failed after retries', code: ErrorCode.INTERNAL_ERROR },
+  };
 }
 
 export async function submitTranslationJob(
@@ -309,6 +339,13 @@ export async function submitTranslationJob(
     }
   }
 
+  // Use Gemini directly if toggled
+  if (TRANSLATION_PROVIDER === 'gemini') {
+    logger.info('TRANSLATION_PROVIDER=gemini, skipping Vachan');
+    return callGeminiTranslation(req, source, target);
+  }
+
+  // Default: try Vachan, fall back to Gemini on failure
   const vachanResult = await submitVachanTranslation(req, source, target, modelName);
 
   if (!vachanResult.ok && env.GOOGLE_AI_API_KEY) {
