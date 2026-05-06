@@ -1,11 +1,27 @@
 import { z } from '@hono/zod-openapi';
 
-export const projectUserResponseSchema = z.object({
+import type { insertProjectUserRolesSchema, selectProjectUserRolesSchema } from '@/db/schema';
+
+// ─── DB-derived types ─────────────────────────────────────────────────────────
+
+export type ProjectUserRole = z.infer<typeof selectProjectUserRolesSchema>;
+export type CreateProjectUserRoleInput = z.infer<typeof insertProjectUserRolesSchema>;
+
+// ─── API response schema ──────────────────────────────────────────────────────
+
+export const projectUserRoleResponseSchema = z.object({
   projectId: z.number().int(),
   userId: z.number().int(),
+  projectRole: z.enum(['project_manager', 'translator', 'peer_checker', 'observer']),
   displayName: z.string(),
-  roleID: z.number().int(),
-  createdAt: z.union([z.date(), z.string()]).nullable(),
+  createdAt: z.date().nullable(),
+});
+
+export type ProjectUserRoleResponse = z.infer<typeof projectUserRoleResponseSchema>;
+
+export const addProjectUserRoleRequestSchema = z.object({
+  userIds: z.array(z.number().int()).min(1),
+  projectRole: z.enum(['project_manager', 'translator', 'peer_checker', 'observer']),
 });
 
 export const projectIdParamSchema = z.object({
@@ -34,12 +50,3 @@ export const removeProjectUserParamSchema = z.object({
       param: { name: 'userId', in: 'path', required: true },
     }),
 });
-
-export const addProjectUserSchema = z.object({
-  userIds: z.array(z.number().int().positive()).min(1, 'At least one user ID is required'),
-});
-
-// Domain types inferred from zod
-
-export type ProjectUserRecord = z.infer<typeof projectUserResponseSchema>;
-export type AddProjectUserInput = z.infer<typeof addProjectUserSchema>;

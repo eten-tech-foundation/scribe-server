@@ -55,9 +55,11 @@ const listProjectsRoute = createRoute({
 });
 
 server.openapi(listProjectsRoute, async (c) => {
-  const currentUser = c.get('user')!;
-
-  const result = await projectService.getProjectsByOrganization(currentUser.organization);
+  const orgMembership = c.get('orgMembership');
+  if (!orgMembership) {
+    return c.json({ message: 'Org context required' }, HttpStatusCodes.FORBIDDEN as never);
+  }
+  const result = await projectService.getProjectsByOrganization(orgMembership.orgId);
   if (result.ok) return c.json(result.data, HttpStatusCodes.OK);
   return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
@@ -96,11 +98,16 @@ const createProjectRoute = createRoute({
 server.openapi(createProjectRoute, async (c) => {
   const projectData = c.req.valid('json');
   const currentUser = c.get('user')!;
+  const orgMembership = c.get('orgMembership');
+
+  if (!orgMembership) {
+    return c.json({ message: 'Org context required' }, HttpStatusCodes.FORBIDDEN as never);
+  }
 
   const result = await projectService.createProject({
     ...projectData,
     createdBy: currentUser.id,
-    organization: currentUser.organization,
+    organization: orgMembership.orgId,
   });
 
   if (result.ok) return c.json(result.data, HttpStatusCodes.CREATED);

@@ -3,6 +3,8 @@ import * as HttpStatusCodes from 'stoker/http-status-codes';
 
 import type { AppEnv } from '@/server/context.types';
 
+import { ORG_ROLES } from '@/lib/roles';
+import type { ProjectRoleName } from '@/lib/roles';
 import { getHttpStatus } from '@/lib/types';
 
 import type { ProjectAction } from './projects.types';
@@ -10,17 +12,21 @@ import type { ProjectAction } from './projects.types';
 import { ProjectPolicy } from './project.policy';
 import * as projectService from './projects.service';
 import { PROJECT_ACTIONS } from './projects.types';
-import { resolveIsProjectMember } from './users/project-users.service';
+import { getProjectRolesForUser, resolveIsProjectMember } from './users/project-users.service';
 
-// Loads a project, evaluates ProjectPolicy, and injects the entity into context.
 export function requireProjectAccess(action: ProjectAction, paramName = 'id') {
   return createMiddleware<AppEnv>(async (c, next) => {
     const user = c.get('user')!;
+    const orgMembership = c.get('orgMembership');
+
+    const orgRole = orgMembership?.orgRole ?? ORG_ROLES.MEMBER;
+    const orgId = orgMembership?.orgId ?? 0;
+
     const policyUser = {
       id: user.id,
-      role: user.role,
-      roleName: user.roleName,
-      organization: user.organization,
+      orgId,
+      orgRole,
+      projectRoles: [] as ProjectRoleName[],
     };
 
     if (action === PROJECT_ACTIONS.LIST) {
@@ -41,19 +47,22 @@ export function requireProjectAccess(action: ProjectAction, paramName = 'id') {
     }
 
     const project = result.data;
+
+    const projectRolesResult = await getProjectRolesForUser(projectId, user.id);
+    const projectRoles = projectRolesResult.ok ? (projectRolesResult.data as ProjectRoleName[]) : [];
+    policyUser.projectRoles = projectRoles;
+
     let allowed = false;
     let isProjectMember = false;
 
     switch (action) {
       case PROJECT_ACTIONS.READ:
-        isProjectMember = await resolveIsProjectMember(projectId, user.id, user.roleName);
+        isProjectMember = await resolveIsProjectMember(projectId, user.id);
         allowed = ProjectPolicy.read(policyUser, project, isProjectMember);
         break;
-
       case PROJECT_ACTIONS.UPDATE:
         allowed = ProjectPolicy.update(policyUser, project);
         break;
-
       case PROJECT_ACTIONS.DELETE:
         allowed = ProjectPolicy.delete(policyUser, project);
         break;
@@ -65,7 +74,7 @@ export function requireProjectAccess(action: ProjectAction, paramName = 'id') {
 
     c.set('project', project);
     if (action === PROJECT_ACTIONS.READ) {
-      c.set('projectAuthContext', { isProjectMember });
+      c.set('projectAuthContext', { isProjectMember, projectRoles });
     }
     return next();
   });

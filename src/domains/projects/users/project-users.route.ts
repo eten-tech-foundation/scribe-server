@@ -13,9 +13,9 @@ import { server } from '@/server/server';
 
 import * as projectUsersService from './project-users.service';
 import {
-  addProjectUserSchema,
+  addProjectUserRoleRequestSchema,
   projectIdParamSchema,
-  projectUserResponseSchema,
+  projectUserRoleResponseSchema,
   removeProjectUserParamSchema,
 } from './project-users.types';
 
@@ -33,7 +33,7 @@ const getProjectUsersRoute = createRoute({
   request: { params: projectIdParamSchema },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      projectUserResponseSchema.array().openapi('ProjectUsers'),
+      projectUserRoleResponseSchema.array().openapi('ProjectUsers'),
       'List of users in the project'
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
@@ -79,11 +79,11 @@ const addProjectUsersRoute = createRoute({
   ] as const,
   request: {
     params: projectIdParamSchema,
-    body: jsonContentRequired(addProjectUserSchema, 'Users to add to the project'),
+    body: jsonContentRequired(addProjectUserRoleRequestSchema, 'Users to add to the project'),
   },
   responses: {
     [HttpStatusCodes.CREATED]: jsonContent(
-      projectUserResponseSchema.array().openapi('ProjectUsersAdded'),
+      projectUserRoleResponseSchema.array().openapi('ProjectUsersAdded'),
       'User(s) successfully added to project'
     ),
     [HttpStatusCodes.CONFLICT]: jsonContent(
@@ -108,15 +108,15 @@ const addProjectUsersRoute = createRoute({
     ),
   },
   summary: 'Bulk add users to project',
-  description: 'Adds multiple users to the project in one request. Manager only.',
+  description: 'Adds multiple users to the project with a specified role. Manager only.',
 });
 
 server.openapi(addProjectUsersRoute, async (c) => {
   const { projectId } = c.req.valid('param');
-  const { userIds } = c.req.valid('json');
+  const { userIds, projectRole } = c.req.valid('json');
 
-  const result = await projectUsersService.addProjectUsers(projectId, userIds);
-  if (result.ok) return c.json(result.data, HttpStatusCodes.CREATED);
+  const result = await projectUsersService.addProjectUsers(projectId, userIds, projectRole);
+  if (result.ok) return c.json(result.data as any, HttpStatusCodes.CREATED);
 
   return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
