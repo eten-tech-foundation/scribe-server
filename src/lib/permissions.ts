@@ -29,6 +29,12 @@ export const PERMISSIONS = {
   USER_CREATE: 'user:create',
   USER_UPDATE: 'user:update',
   USER_DELETE: 'user:delete',
+
+  // ── Org Membership ──────────────────────────────────────────────────────────
+  ORG_MEMBER_VIEW: 'org_member:view',
+  ORG_MEMBER_INVITE: 'org_member:invite',
+  ORG_MEMBER_UPDATE: 'org_member:update',
+  ORG_MEMBER_REMOVE: 'org_member:remove',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
