@@ -12,7 +12,6 @@ import {
   getUserByEmailOrUsername,
   getUserById,
   getUserByUsername,
-  getUsersByOrganization,
   toUserResponse,
   updateUser,
 } from './users.service';
@@ -68,36 +67,6 @@ describe('user Service Functions', () => {
     });
   });
 
-  describe('getUsersByOrganization', () => {
-    it('should return users by organization mapped to response shape', async () => {
-      const mockUsers = [mockUser];
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(mockUsers),
-        }),
-      });
-
-      const result = await getUsersByOrganization(1);
-
-      expect(result).toEqual({ ok: true, data: mockUsers.map(toUserResponse) });
-    });
-
-    it('should return an error result if db call throws', async () => {
-      (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockRejectedValue(new Error('DB error')),
-        }),
-      });
-
-      const result = await getUsersByOrganization(999);
-
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.error.message).toBe(ErrorMessages.INTERNAL_ERROR);
-      }
-    });
-  });
-
   describe('getUserById', () => {
     it('should return user by ID mapped to response shape', async () => {
       (db.select as any).mockReturnValue({
@@ -128,33 +97,26 @@ describe('user Service Functions', () => {
   });
 
   describe('getUserByEmail', () => {
-    it('should return user by email with roleName mapped to response shape', async () => {
+    it('should return user by email mapped to response shape', async () => {
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
-          innerJoin: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue([{ user: mockUser, roleName: 'Manager' }]),
-            }),
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([sampleUsers.user1]),
           }),
         }),
       });
 
-      const result = await getUserByEmail(mockUser.email);
+      const result = await getUserByEmail(sampleUsers.user1.email);
 
-      expect(result).toEqual({
-        ok: true,
-        data: { ...toUserResponse(mockUser), roleName: 'Manager' },
-      });
+      expect(result).toEqual({ ok: true, data: toUserResponse(sampleUsers.user1) });
     });
 
     it('should convert email to lowercase before querying', async () => {
       const whereMock = vi.fn().mockReturnValue({
-        limit: vi.fn().mockResolvedValue([{ user: mockUser, roleName: 'Manager' }]),
+        limit: vi.fn().mockResolvedValue([sampleUsers.user1]),
       });
       (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          innerJoin: vi.fn().mockReturnValue({ where: whereMock }),
-        }),
+        from: vi.fn().mockReturnValue({ where: whereMock }),
       });
 
       await getUserByEmail('TEST@EXAMPLE.COM');
@@ -164,9 +126,7 @@ describe('user Service Functions', () => {
     it('should return an error result when user not found', async () => {
       (db.select as any).mockReturnValue({
         from: vi.fn().mockReturnValue({
-          innerJoin: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }),
-          }),
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }),
         }),
       });
 

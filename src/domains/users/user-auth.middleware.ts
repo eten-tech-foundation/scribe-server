@@ -3,6 +3,7 @@ import * as HttpStatusCodes from 'stoker/http-status-codes';
 
 import type { AppEnv } from '@/server/context.types';
 
+import type { ProjectRoleName } from '@/lib/roles';
 import { getHttpStatus } from '@/lib/types';
 
 import type { UserAction } from './users.types';
@@ -15,7 +16,13 @@ import { USER_ACTIONS } from './users.types';
 export function requireUserAccess(action: UserAction, paramName = 'id') {
   return createMiddleware<AppEnv>(async (c, next) => {
     const user = c.get('user')!;
-    const policyUser = { id: user.id, roleName: user.roleName, organization: user.organization };
+    const orgMembership = c.get('orgMembership');
+    const policyUser = {
+      id: user.id,
+      orgId: orgMembership?.orgId ?? 0,
+      orgRole: orgMembership?.orgRole ?? ('member' as const),
+      projectRoles: [] as ProjectRoleName[],
+    };
 
     if (action === USER_ACTIONS.LIST) {
       if (!UserPolicy.list(policyUser)) {

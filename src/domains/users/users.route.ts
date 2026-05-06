@@ -6,7 +6,7 @@ import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from '@/lib/constants';
 import { PERMISSIONS } from '@/lib/permissions';
-import { ROLES } from '@/lib/roles';
+import type { ProjectRoleName } from '@/lib/roles';
 import { createUserWithInvitation } from '@/lib/services/auth/auth0.service';
 import { ErrorCode, ErrorMessages, getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
@@ -56,9 +56,7 @@ const listUsersRoute = createRoute({
 });
 
 server.openapi(listUsersRoute, async (c) => {
-  const currentUser = c.get('user')!;
-
-  const result = await userService.getUsersByOrganization(currentUser.organization);
+  const result = await userService.getAllUsers();
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
   }
@@ -117,15 +115,8 @@ const createUserRoute = createRoute({
 
 server.openapi(createUserRoute, async (c) => {
   const requestData = c.req.valid('json');
-  const currentUser = c.get('user')!;
 
-  // Safely map the API request schema into the DB-bound input type
-  const userData = {
-    ...requestData,
-    organization: currentUser.organization,
-  };
-
-  const result = await userService.createUser(userData);
+  const result = await userService.createUser(requestData);
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.CREATED);
   }
@@ -187,14 +178,8 @@ const createUserWithInvitationRoute = createRoute({
 
 server.openapi(createUserWithInvitationRoute, async (c) => {
   const requestData = c.req.valid('json');
-  const currentUser = c.get('user')!;
 
-  const userData = {
-    ...requestData,
-    organization: currentUser.organization,
-  };
-
-  const result = await createUserWithInvitation(userData);
+  const result = await createUserWithInvitation(requestData);
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.CREATED);
   }
@@ -243,10 +228,12 @@ const getUserByEmailRoute = createRoute({
 server.openapi(getUserByEmailRoute, async (c) => {
   const { email } = c.req.valid('param');
   const currentUser = c.get('user')!;
+  const orgMembership = c.get('orgMembership');
   const policyUser = {
     id: currentUser.id,
-    roleName: currentUser.roleName,
-    organization: currentUser.organization,
+    orgId: orgMembership?.orgId ?? 0,
+    orgRole: orgMembership?.orgRole ?? ('member' as const),
+    projectRoles: [] as ProjectRoleName[],
   };
 
   const result = await userService.getUserByEmail(email.toLowerCase());
@@ -255,7 +242,7 @@ server.openapi(getUserByEmailRoute, async (c) => {
     return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
   }
 
-  const { roleName: _roleName, ...targetUser } = result.data;
+  const targetUser = result.data;
 
   // Returning 404 instead of 403 to prevent email enumeration across orgs
   if (!UserPolicy.view(policyUser, targetUser)) {
@@ -370,7 +357,6 @@ const updateUserRoute = createRoute({
 server.openapi(updateUserRoute, async (c) => {
   const { id } = c.req.valid('param');
   const updates = c.req.valid('json');
-  const currentUser = c.get('user')!;
 
   if (Object.keys(updates).length === 0) {
     return c.json(
@@ -389,10 +375,6 @@ server.openapi(updateUserRoute, async (c) => {
       },
       HttpStatusCodes.UNPROCESSABLE_ENTITY
     );
-  }
-
-  if (currentUser.roleName === ROLES.TRANSLATOR) {
-    delete (updates as Record<string, unknown>).role;
   }
 
   const result = await userService.updateUser(id, updates);
