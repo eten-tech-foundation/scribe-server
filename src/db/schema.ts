@@ -83,13 +83,13 @@ export const org_memberships = pgTable(
   {
     userId: integer('user_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+      .references(() => users.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     orgId: integer('org_id')
       .notNull()
-      .references(() => organizations.id, { onDelete: 'cascade' }),
+      .references(() => organizations.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     orgRole: orgRoleEnum('org_role').notNull().default('member'),
     status: userStatusEnum('status').notNull().default('invited'),
-    createdBy: integer('created_by').references((): AnyPgColumn => users.id),
+    createdBy: integer('created_by').references((): AnyPgColumn => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
@@ -384,6 +384,9 @@ export const project_user_roles = pgTable(
       .references(() => users.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     projectRole: projectRoleEnum('project_role').notNull(),
     createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     primaryKey({ columns: [table.projectId, table.userId, table.projectRole] }),
@@ -727,7 +730,7 @@ export const insertProjectUserRolesSchema = createInsertSchema(project_user_role
   projectRole: z.enum(['project_manager', 'translator', 'peer_checker', 'observer']),
 })
   .required({ projectId: true, userId: true, projectRole: true })
-  .omit({ createdAt: true });
+  .omit({ createdAt: true, updatedAt: true });
 
 export const insertPermissionsSchema = createInsertSchema(permissions, {
   name: (schema) => schema.min(1).max(100),
