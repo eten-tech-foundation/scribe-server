@@ -11,11 +11,7 @@ export function getProjectRolesForUser(projectId: number, userId: number) {
   return repo.getProjectRolesForUser(projectId, userId);
 }
 
-export async function addProjectUsers(
-  projectId: number,
-  userIds: number[],
-  projectRole: string
-) {
+export async function addProjectUsers(projectId: number, userIds: number[], projectRole: string) {
   const usersResult = await usersService.getUsersByIds(userIds);
   if (!usersResult.ok) return err(ErrorCode.INTERNAL_ERROR);
 

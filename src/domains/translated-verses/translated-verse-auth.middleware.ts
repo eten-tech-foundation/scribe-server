@@ -1,6 +1,7 @@
 import { createMiddleware } from 'hono/factory';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 
+import type { ProjectRoleName } from '@/lib/roles';
 import type { AppEnv } from '@/server/context.types';
 
 import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-assignments.policy';
@@ -8,7 +9,7 @@ import * as chapterAssignmentService from '@/domains/chapter-assignments/chapter
 import { ProjectPolicy } from '@/domains/projects/project.policy';
 import * as projectService from '@/domains/projects/projects.service';
 import { getProjectRolesForUser } from '@/domains/projects/users/project-users.service';
-import { ORG_ROLES, type ProjectRoleName } from '@/lib/roles';
+import { ORG_ROLES } from '@/lib/roles';
 import { getHttpStatus } from '@/lib/types';
 
 import type { ProjectUnitIdSource, TranslatedVerseAction } from './translated-verses.types';
@@ -71,7 +72,9 @@ export function requireTranslatedVerseAccess(
       }
 
       const projectRolesResult = await getProjectRolesForUser(unitResult.data.projectId, user.id);
-      const projectRoles = (projectRolesResult.ok ? projectRolesResult.data : []) as ProjectRoleName[];
+      const projectRoles = (
+        projectRolesResult.ok ? projectRolesResult.data : []
+      ) as ProjectRoleName[];
       const isProjectMember = projectRoles.length > 0;
 
       const policyUser = {

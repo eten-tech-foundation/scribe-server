@@ -4,10 +4,12 @@ import * as HttpStatusPhrases from 'stoker/http-status-phrases';
 import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
+import type { ProjectRoleName } from '@/lib/roles';
+
 import * as projectHandler from '@/domains/projects/projects.service';
 import { getProjectRolesForUser } from '@/domains/projects/users/project-users.service';
 import { PERMISSIONS } from '@/lib/permissions';
-import { ORG_ROLES, type ProjectRoleName } from '@/lib/roles';
+import { ORG_ROLES } from '@/lib/roles';
 import { ErrorCode, getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';

@@ -89,7 +89,9 @@ export const org_memberships = pgTable(
       .references(() => organizations.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     orgRole: orgRoleEnum('org_role').notNull().default('member'),
     status: userStatusEnum('status').notNull().default('invited'),
-    createdBy: integer('created_by').references((): AnyPgColumn => users.id, { onDelete: 'set null' }),
+    createdBy: integer('created_by').references((): AnyPgColumn => users.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at')
       .defaultNow()

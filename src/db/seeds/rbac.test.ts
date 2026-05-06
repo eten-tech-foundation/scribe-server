@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { PERMISSIONS } from '@/lib/permissions';
 import { ORG_ROLES, PROJECT_ROLES } from '@/lib/roles';
 
-describe('RBAC constants coverage', () => {
+describe('rBAC constants coverage', () => {
   it('org roles are defined', () => {
     expect(ORG_ROLES.ORG_OWNER).toBe('org_owner');
     expect(ORG_ROLES.ORG_MANAGER).toBe('org_manager');

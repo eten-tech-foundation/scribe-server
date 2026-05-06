@@ -9,7 +9,7 @@ import {
   chapterStatusEnum,
   project_unit_bible_books,
   project_units,
-  project_users,
+  project_user_roles,
   projects,
 } from '@/db/schema';
 import { logger } from '@/lib/logger';
@@ -75,8 +75,8 @@ export async function getByOrganization(
 export async function getByUserId(userId: number): Promise<Result<ProjectWithLanguageNames[]>> {
   try {
     const rawProjects = await baseJoinQuery()
-      .innerJoin(project_users, eq(project_users.projectId, projects.id))
-      .where(eq(project_users.userId, userId));
+      .innerJoin(project_user_roles, eq(project_user_roles.projectId, projects.id))
+      .where(eq(project_user_roles.userId, userId));
     return ok(rawProjects.map(mapToProjectWithLanguages));
   } catch (error) {
     logger.error({

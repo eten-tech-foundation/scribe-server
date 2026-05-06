@@ -15,11 +15,7 @@ export const ProjectPolicy = {
     return _isOrgAdmin(user);
   },
 
-  read(
-    user: AppPolicyUser,
-    project: ProjectWithLanguageNames,
-    isProjectMember = false
-  ): boolean {
+  read(user: AppPolicyUser, project: ProjectWithLanguageNames, isProjectMember = false): boolean {
     if (_isOrgAdmin(user)) return project.organization === user.orgId;
     return isProjectMember;
   },

@@ -28,7 +28,7 @@ export const UserPolicy = {
     return user.id === targetUser.id;
   },
 
-  delete(user: AppPolicyUser, targetUser: PolicyTargetUser): boolean {
+  delete(user: AppPolicyUser, _targetUser: PolicyTargetUser): boolean {
     return _isOrgAdmin(user);
   },
 };

@@ -1,9 +1,9 @@
 import { createMiddleware } from 'hono/factory';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 
+import type { ProjectRoleName } from '@/lib/roles';
 import type { AppEnv } from '@/server/context.types';
 
-import type { ProjectRoleName } from '@/lib/roles';
 import { getHttpStatus } from '@/lib/types';
 
 import type { UserAction } from './users.types';

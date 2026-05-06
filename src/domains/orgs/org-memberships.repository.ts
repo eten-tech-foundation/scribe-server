@@ -44,10 +44,7 @@ export async function findByUserAndOrg(
 
 export async function findAllByUser(userId: number): Promise<Result<OrgMembership[]>> {
   try {
-    const rows = await db
-      .select()
-      .from(org_memberships)
-      .where(eq(org_memberships.userId, userId));
+    const rows = await db.select().from(org_memberships).where(eq(org_memberships.userId, userId));
     return ok(rows);
   } catch (error) {
     logger.error({

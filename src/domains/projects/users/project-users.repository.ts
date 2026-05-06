@@ -10,7 +10,9 @@ import { err, ErrorCode, ok } from '@/lib/types';
 
 import type { ProjectUserRoleResponse } from './project-users.types';
 
-export async function getProjectUsers(projectId: number): Promise<Result<ProjectUserRoleResponse[]>> {
+export async function getProjectUsers(
+  projectId: number
+): Promise<Result<ProjectUserRoleResponse[]>> {
   try {
     const rows = await db
       .select({
@@ -44,7 +46,9 @@ export async function getProjectRolesForUser(
     const rows = await db
       .select({ projectRole: project_user_roles.projectRole })
       .from(project_user_roles)
-      .where(and(eq(project_user_roles.projectId, projectId), eq(project_user_roles.userId, userId)));
+      .where(
+        and(eq(project_user_roles.projectId, projectId), eq(project_user_roles.userId, userId))
+      );
     return ok(rows.map((r) => r.projectRole));
   } catch (error) {
     logger.error({
@@ -60,7 +64,9 @@ export async function addProjectUserRoles(
   projectId: number,
   userIds: number[],
   projectRole: string
-): Promise<Result<{ projectId: number; userId: number; projectRole: string; createdAt: Date | null }[]>> {
+): Promise<
+  Result<{ projectId: number; userId: number; projectRole: string; createdAt: Date | null }[]>
+> {
   if (userIds.length === 0) return ok([]);
   try {
     const inserted = await db
@@ -98,10 +104,7 @@ export async function removeAllProjectUserRoles(
       .from(chapter_assignments)
       .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
       .where(
-        and(
-          eq(project_units.projectId, projectId),
-          eq(chapter_assignments.assignedUserId, userId)
-        )
+        and(eq(project_units.projectId, projectId), eq(chapter_assignments.assignedUserId, userId))
       )
       .limit(1);
 
@@ -124,16 +127,11 @@ export async function removeAllProjectUserRoles(
   }
 }
 
-export async function resolveIsProjectMember(
-  projectId: number,
-  userId: number
-): Promise<boolean> {
+export async function resolveIsProjectMember(projectId: number, userId: number): Promise<boolean> {
   const [member] = await db
     .select({ projectId: project_user_roles.projectId })
     .from(project_user_roles)
-    .where(
-      and(eq(project_user_roles.projectId, projectId), eq(project_user_roles.userId, userId))
-    )
+    .where(and(eq(project_user_roles.projectId, projectId), eq(project_user_roles.userId, userId)))
     .limit(1);
 
   return member !== undefined;

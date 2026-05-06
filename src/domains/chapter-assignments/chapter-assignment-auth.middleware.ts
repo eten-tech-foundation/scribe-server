@@ -1,11 +1,12 @@
 import { createMiddleware } from 'hono/factory';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 
+import type { ProjectRoleName } from '@/lib/roles';
 import type { Result } from '@/lib/types';
 import type { AppEnv } from '@/server/context.types';
 
 import { getProjectRolesForUser } from '@/domains/projects/users/project-users.service';
-import { ORG_ROLES, type ProjectRoleName } from '@/lib/roles';
+import { ORG_ROLES } from '@/lib/roles';
 import { getHttpStatus } from '@/lib/types';
 
 import type { ChapterAssignmentWithAuthContext } from './chapter-assignments.repository';
@@ -39,7 +40,9 @@ export function requireChapterAssignmentAccess(
     const ctx = result.data;
 
     const projectRolesResult = await getProjectRolesForUser(ctx.projectId, user.id);
-    const projectRoles = (projectRolesResult.ok ? projectRolesResult.data : []) as ProjectRoleName[];
+    const projectRoles = (
+      projectRolesResult.ok ? projectRolesResult.data : []
+    ) as ProjectRoleName[];
     const isProjectMember = projectRoles.length > 0;
 
     const policyUser = {

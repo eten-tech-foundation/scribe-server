@@ -1,10 +1,10 @@
 import { createMiddleware } from 'hono/factory';
 import * as HttpStatusCodes from 'stoker/http-status-codes';
 
+import type { ProjectRoleName } from '@/lib/roles';
 import type { AppEnv } from '@/server/context.types';
 
 import { ORG_ROLES } from '@/lib/roles';
-import type { ProjectRoleName } from '@/lib/roles';
 import { getHttpStatus } from '@/lib/types';
 
 import type { ProjectAction } from './projects.types';
@@ -49,7 +49,9 @@ export function requireProjectAccess(action: ProjectAction, paramName = 'id') {
     const project = result.data;
 
     const projectRolesResult = await getProjectRolesForUser(projectId, user.id);
-    const projectRoles = projectRolesResult.ok ? (projectRolesResult.data as ProjectRoleName[]) : [];
+    const projectRoles = projectRolesResult.ok
+      ? (projectRolesResult.data as ProjectRoleName[])
+      : [];
     policyUser.projectRoles = projectRoles;
 
     let allowed = false;

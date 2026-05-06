@@ -38,10 +38,7 @@ server.openapi(
         createMessageObjectSchema('Unauthorized'),
         'Unauthorized'
       ),
-      [HttpStatusCodes.FORBIDDEN]: jsonContent(
-        createMessageObjectSchema('Forbidden'),
-        'Forbidden'
-      ),
+      [HttpStatusCodes.FORBIDDEN]: jsonContent(createMessageObjectSchema('Forbidden'), 'Forbidden'),
       [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
         createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
         'Internal server error'
@@ -73,10 +70,7 @@ server.openapi(
         createMessageObjectSchema('Unauthorized'),
         'Unauthorized'
       ),
-      [HttpStatusCodes.FORBIDDEN]: jsonContent(
-        createMessageObjectSchema('Forbidden'),
-        'Forbidden'
-      ),
+      [HttpStatusCodes.FORBIDDEN]: jsonContent(createMessageObjectSchema('Forbidden'), 'Forbidden'),
       [HttpStatusCodes.CONFLICT]: jsonContent(
         createMessageObjectSchema('Conflict'),
         'Already a member'
@@ -126,10 +120,7 @@ server.openapi(
         createMessageObjectSchema('Unauthorized'),
         'Unauthorized'
       ),
-      [HttpStatusCodes.FORBIDDEN]: jsonContent(
-        createMessageObjectSchema('Forbidden'),
-        'Forbidden'
-      ),
+      [HttpStatusCodes.FORBIDDEN]: jsonContent(createMessageObjectSchema('Forbidden'), 'Forbidden'),
       [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
         createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
         'Internal server error'
@@ -163,10 +154,7 @@ server.openapi(
         createMessageObjectSchema('Unauthorized'),
         'Unauthorized'
       ),
-      [HttpStatusCodes.FORBIDDEN]: jsonContent(
-        createMessageObjectSchema('Forbidden'),
-        'Forbidden'
-      ),
+      [HttpStatusCodes.FORBIDDEN]: jsonContent(createMessageObjectSchema('Forbidden'), 'Forbidden'),
       [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
         createMessageObjectSchema(HttpStatusPhrases.INTERNAL_SERVER_ERROR),
         'Internal server error'
