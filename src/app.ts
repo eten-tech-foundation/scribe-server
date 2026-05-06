@@ -17,6 +17,7 @@ import '@/domains/bibles/bible-texts/bible-texts.route';
 import '@/domains/translated-verses/translated-verses.route';
 import '@/domains/usfm/usfm.route';
 import '@/domains/chapter-assignments/editor-state/user-chapter-assignment-editor-state.route';
+import '@/domains/orgs/org-memberships.route';
 import '@/domains/projects/users/project-users.route';
 import '@/domains/users/projects/user-projects.route';
 import '@/domains/chapter-assignments/presence/chapter-assignments-presence.route';
