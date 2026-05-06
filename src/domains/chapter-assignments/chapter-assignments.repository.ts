@@ -21,6 +21,7 @@ import {
   users,
 } from '@/db/schema';
 import { logger } from '@/lib/logger';
+import { ROLES } from '@/lib/roles';
 import { err, ErrorCode, ok } from '@/lib/types';
 import { convertUSFMToUSJ, generateUSFMText } from '@/lib/usfm-converter';
 
@@ -121,7 +122,7 @@ export async function findByIdWithAuthContext(
           eq(project_users.projectId, projects.id),
           eq(project_users.userId, userId),
           // Only check membership for translators (per resolveIsProjectMember logic)
-          roleName === 'translator' ? sql`1=1` : sql`1=0`
+          roleName === ROLES.TRANSLATOR ? sql`1=1` : sql`1=0`
         )
       )
       .where(eq(chapter_assignments.id, id))
