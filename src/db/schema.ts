@@ -40,6 +40,13 @@ export const chapterStatusEnum = pgEnum('chapter_status', [
   'complete',
 ]);
 export const assignmentRoleEnum = pgEnum('assignment_role', ['drafter', 'peer_checker']);
+export const orgRoleEnum = pgEnum('org_role', ['org_owner', 'org_manager', 'member']);
+export const projectRoleEnum = pgEnum('project_role', [
+  'project_manager',
+  'translator',
+  'peer_checker',
+  'observer',
+]);
 
 export const roles = pgTable('roles', {
   id: serial('id').primaryKey(),
@@ -65,19 +72,35 @@ export const users = pgTable('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   firstName: varchar('first_name', { length: 100 }),
   lastName: varchar('last_name', { length: 100 }),
-  role: integer('role')
-    .notNull()
-    .references(() => roles.id),
-  organization: integer('organization')
-    .notNull()
-    .references(() => organizations.id),
-  status: userStatusEnum('status').notNull().default('invited'),
-  createdBy: integer('created_by').references((): AnyPgColumn => users.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
     .$onUpdate(() => new Date()),
 });
+
+export const org_memberships = pgTable(
+  'org_memberships',
+  {
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    orgId: integer('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    orgRole: orgRoleEnum('org_role').notNull().default('member'),
+    status: userStatusEnum('status').notNull().default('invited'),
+    createdBy: integer('created_by').references((): AnyPgColumn => users.id),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.orgId] }),
+    index('idx_org_memberships_user').on(table.userId),
+    index('idx_org_memberships_org').on(table.orgId),
+  ]
+);
 
 export const languages = pgTable('languages', {
   id: serial('id').primaryKey(),
@@ -350,8 +373,8 @@ export const user_chapter_assignment_editor_state = pgTable(
   ]
 );
 
-export const project_users = pgTable(
-  'project_users',
+export const project_user_roles = pgTable(
+  'project_user_roles',
   {
     projectId: integer('project_id')
       .notNull()
@@ -359,12 +382,13 @@ export const project_users = pgTable(
     userId: integer('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    projectRole: projectRoleEnum('project_role').notNull(),
     createdAt: timestamp('created_at').defaultNow(),
   },
   (table) => [
-    primaryKey({ columns: [table.projectId, table.userId] }),
-    index('idx_project_users_project').on(table.projectId),
-    index('idx_project_users_user').on(table.userId),
+    primaryKey({ columns: [table.projectId, table.userId, table.projectRole] }),
+    index('idx_project_user_roles_project').on(table.projectId),
+    index('idx_project_user_roles_user').on(table.userId),
   ]
 );
 
@@ -444,7 +468,8 @@ export const selectChapterAssignmentStatusHistorySchema = createSelectSchema(
 export const selectUserChapterAssignmentEditorStateSchema = createSelectSchema(
   user_chapter_assignment_editor_state
 );
-export const selectProjectUsersSchema = createSelectSchema(project_users);
+export const selectOrgMembershipsSchema = createSelectSchema(org_memberships);
+export const selectProjectUserRolesSchema = createSelectSchema(project_user_roles);
 export const selectPermissionsSchema = createSelectSchema(permissions);
 export const selectRolePermissionsSchema = createSelectSchema(role_permissions);
 export const selectActiveChapterEditorsSchema = createSelectSchema(active_chapter_editors);
@@ -454,19 +479,9 @@ export const insertUsersSchema = createInsertSchema(users, {
   email: (schema) => schema.email().max(255),
   firstName: (schema) => schema.max(100).optional(),
   lastName: (schema) => schema.max(100).optional(),
-  status: z.enum(['invited', 'verified', 'inactive']).default('invited'),
 })
-  .required({
-    username: true,
-    email: true,
-    role: true,
-    organization: true,
-  })
-  .omit({
-    id: true,
-    createdAt: true,
-    updatedAt: true,
-  });
+  .required({ username: true, email: true })
+  .omit({ id: true, createdAt: true, updatedAt: true });
 
 export const insertRolesSchema = createInsertSchema(roles, {
   name: (schema) => schema.min(1).max(255),
@@ -696,17 +711,23 @@ export const insertUserChapterAssignmentEditorStateSchema = createInsertSchema(
     updatedAt: true,
   });
 
-export const insertProjectUsersSchema = createInsertSchema(project_users, {
+export const insertOrgMembershipsSchema = createInsertSchema(org_memberships, {
+  userId: (schema) => schema.int(),
+  orgId: (schema) => schema.int(),
+  orgRole: z.enum(['org_owner', 'org_manager', 'member']).default('member'),
+  status: z.enum(['invited', 'verified', 'inactive']).default('invited'),
+  createdBy: (schema) => schema.int().optional(),
+})
+  .required({ userId: true, orgId: true })
+  .omit({ createdAt: true, updatedAt: true });
+
+export const insertProjectUserRolesSchema = createInsertSchema(project_user_roles, {
   projectId: (schema) => schema.int(),
   userId: (schema) => schema.int(),
+  projectRole: z.enum(['project_manager', 'translator', 'peer_checker', 'observer']),
 })
-  .required({
-    projectId: true,
-    userId: true,
-  })
-  .omit({
-    createdAt: true,
-  });
+  .required({ projectId: true, userId: true, projectRole: true })
+  .omit({ createdAt: true });
 
 export const insertPermissionsSchema = createInsertSchema(permissions, {
   name: (schema) => schema.min(1).max(100),
@@ -752,7 +773,8 @@ export const patchChapterAssignmentStatusHistorySchema =
   insertChapterAssignmentStatusHistorySchema.partial();
 export const patchUserChapterAssignmentEditorStateSchema =
   insertUserChapterAssignmentEditorStateSchema.partial();
-export const patchProjectUsersSchema = insertProjectUsersSchema.partial();
+export const patchOrgMembershipsSchema = insertOrgMembershipsSchema.partial();
+export const patchProjectUserRolesSchema = insertProjectUserRolesSchema.partial();
 export const patchPermissionsSchema = insertPermissionsSchema.partial();
 export const patchRolePermissionsSchema = insertRolePermissionsSchema.partial();
 
@@ -761,6 +783,4 @@ export const patchProjectsClientSchema = patchProjectsSchema.omit({
   createdBy: true,
 });
 
-export const patchUsersClientSchema = patchUsersSchema.omit({
-  organization: true,
-});
+export const patchUsersClientSchema = patchUsersSchema;
