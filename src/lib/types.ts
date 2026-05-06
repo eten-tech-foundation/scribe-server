@@ -5,6 +5,7 @@ import type { Schema } from 'hono';
 import type { PinoLogger } from 'hono-pino';
 
 import type * as schema from '@/db/schema';
+import type { OrgRoleName, ProjectRoleName } from './roles';
 
 // Auth0 JWT Payload types
 export interface Auth0JWTPayload {
@@ -40,10 +41,6 @@ export interface UserInvitationResult {
 export interface User {
   id: number;
   email: string;
-  role: number;
-  roleName: string;
-  organization: number;
-  status: 'invited' | 'verified' | 'inactive';
   [key: string]: any;
 }
 
@@ -104,6 +101,8 @@ export const ErrorCode = {
   EMAIL_SERVICE_ERROR: 'EMAIL_SERVICE_ERROR',
   // Feature domain errors
   LANGUAGE_NOT_FOUND: 'LANGUAGE_NOT_FOUND',
+  ORG_MEMBER_NOT_FOUND: 'ORG_MEMBER_NOT_FOUND',
+  ORG_MEMBERSHIP_CONFLICT: 'ORG_MEMBERSHIP_CONFLICT',
 } as const;
 
 // eslint-disable-next-line ts/no-redeclare
@@ -140,6 +139,8 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   AUTH0_ERROR: 'Authentication service error',
   EMAIL_SERVICE_ERROR: 'Email service error',
   LANGUAGE_NOT_FOUND: 'Language not found',
+  ORG_MEMBER_NOT_FOUND: 'Org membership not found',
+  ORG_MEMBERSHIP_CONFLICT: 'User is already a member of this organization',
 };
 
 // ─── HTTP status map ──────────────────────────────────────────────────────────
@@ -173,6 +174,8 @@ export const ErrorHttpStatus: Record<ErrorCode, number> = {
   BOOK_NOT_FOUND: 404,
   BIBLE_BOOK_NOT_FOUND: 404,
   TRANSLATED_VERSE_NOT_FOUND: 404,
+  ORG_MEMBER_NOT_FOUND: 404,
+  ORG_MEMBERSHIP_CONFLICT: 409,
 };
 
 export interface AppError {
@@ -185,8 +188,9 @@ export interface AppError {
  */
 export interface AppPolicyUser {
   id: number;
-  roleName: string;
-  organization: number;
+  orgId: number;
+  orgRole: OrgRoleName;
+  projectRoles: ProjectRoleName[];
 }
 
 // ─── Result type + factories ──────────────────────────────────────────────────
