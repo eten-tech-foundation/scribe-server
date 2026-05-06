@@ -4,7 +4,8 @@ import * as HttpStatusCodes from 'stoker/http-status-codes';
 import type { Result } from '@/lib/types';
 import type { AppEnv } from '@/server/context.types';
 
-import { ROLES } from '@/lib/roles';
+import { getProjectRolesForUser } from '@/domains/projects/users/project-users.service';
+import { ORG_ROLES, type ProjectRoleName } from '@/lib/roles';
 import { getHttpStatus } from '@/lib/types';
 
 import type { ChapterAssignmentWithAuthContext } from './chapter-assignments.repository';
@@ -21,6 +22,7 @@ export function requireChapterAssignmentAccess(
 ) {
   return createMiddleware<AppEnv>(async (c, next) => {
     const user = c.get('user')!;
+    const orgMembership = c.get('orgMembership');
 
     const chapterAssignmentId = Number(c.req.param(paramName));
     if (!chapterAssignmentId || Number.isNaN(chapterAssignmentId)) {
@@ -28,18 +30,25 @@ export function requireChapterAssignmentAccess(
     }
 
     const result: Result<ChapterAssignmentWithAuthContext> =
-      await chapterAssignmentService.getChapterAssignmentWithAuthContext(
-        chapterAssignmentId,
-        user.id,
-        user.roleName
-      );
+      await chapterAssignmentService.getChapterAssignmentWithAuthContext(chapterAssignmentId);
 
     if (!result.ok) {
       return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
     }
 
     const ctx = result.data;
-    const policyUser = { id: user.id, roleName: user.roleName, organization: user.organization };
+
+    const projectRolesResult = await getProjectRolesForUser(ctx.projectId, user.id);
+    const projectRoles = (projectRolesResult.ok ? projectRolesResult.data : []) as ProjectRoleName[];
+    const isProjectMember = projectRoles.length > 0;
+
+    const policyUser = {
+      id: user.id,
+      orgId: orgMembership?.orgId ?? ctx.organizationId,
+      orgRole: orgMembership?.orgRole ?? ORG_ROLES.MEMBER,
+      projectRoles,
+    };
+
     const policyAssignment = {
       organizationId: ctx.organizationId,
       assignedUserId: ctx.assignedUserId,
@@ -50,11 +59,7 @@ export function requireChapterAssignmentAccess(
     let allowed = false;
     switch (action) {
       case CHAPTER_ASSIGNMENT_ACTIONS.READ:
-        if (user.roleName === ROLES.PROJECT_MANAGER) {
-          allowed = ctx.organizationId === user.organization;
-        } else if (user.roleName === ROLES.TRANSLATOR) {
-          allowed = ctx.isProjectMember;
-        }
+        allowed = ChapterAssignmentPolicy.view(policyUser, policyAssignment);
         break;
 
       case CHAPTER_ASSIGNMENT_ACTIONS.UPDATE:
@@ -62,7 +67,7 @@ export function requireChapterAssignmentAccess(
         break;
 
       case CHAPTER_ASSIGNMENT_ACTIONS.SUBMIT:
-        allowed = ChapterAssignmentPolicy.submit(policyUser, policyAssignment, ctx.isProjectMember);
+        allowed = ChapterAssignmentPolicy.submit(policyUser, policyAssignment, isProjectMember);
         break;
 
       case CHAPTER_ASSIGNMENT_ACTIONS.DELETE:

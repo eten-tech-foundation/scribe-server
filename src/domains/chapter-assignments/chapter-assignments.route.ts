@@ -5,7 +5,9 @@ import { jsonContent } from 'stoker/openapi/helpers';
 import { createMessageObjectSchema } from 'stoker/openapi/schemas';
 
 import * as projectHandler from '@/domains/projects/projects.service';
+import { getProjectRolesForUser } from '@/domains/projects/users/project-users.service';
 import { PERMISSIONS } from '@/lib/permissions';
+import { ORG_ROLES, type ProjectRoleName } from '@/lib/roles';
 import { ErrorCode, getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
@@ -75,7 +77,7 @@ const createChapterAssignmentRoute = createRoute({
 server.openapi(createChapterAssignmentRoute, async (c) => {
   const requestData = c.req.valid('json');
   const user = c.get('user')!;
-  const policyUser = { id: user.id, roleName: user.roleName, organization: user.organization };
+  const orgMembership = c.get('orgMembership');
 
   const unitResult = await projectHandler.getProjectIdByUnitId(requestData.projectUnitId);
   if (!unitResult.ok) {
@@ -86,6 +88,14 @@ server.openapi(createChapterAssignmentRoute, async (c) => {
   if (!projectResult.ok) {
     return c.json({ message: 'Project not found' }, HttpStatusCodes.NOT_FOUND);
   }
+
+  const projectRolesResult = await getProjectRolesForUser(unitResult.data.projectId, user.id);
+  const policyUser = {
+    id: user.id,
+    orgId: orgMembership?.orgId ?? projectResult.data.organization,
+    orgRole: orgMembership?.orgRole ?? ORG_ROLES.MEMBER,
+    projectRoles: (projectRolesResult.ok ? projectRolesResult.data : []) as ProjectRoleName[],
+  };
 
   if (!ChapterAssignmentPolicy.create(policyUser, projectResult.data.organization)) {
     return c.json(

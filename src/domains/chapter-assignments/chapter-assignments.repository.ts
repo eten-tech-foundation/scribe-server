@@ -15,13 +15,11 @@ import {
   chapter_assignments,
   languages,
   project_units,
-  project_users,
   projects,
   translated_verses,
   users,
 } from '@/db/schema';
 import { logger } from '@/lib/logger';
-import { ROLES } from '@/lib/roles';
 import { err, ErrorCode, ok } from '@/lib/types';
 import { convertUSFMToUSJ, generateUSFMText } from '@/lib/usfm-converter';
 
@@ -88,9 +86,7 @@ export async function findByIdWithOrg(id: number): Promise<Result<ChapterAssignm
 }
 
 export async function findByIdWithAuthContext(
-  id: number,
-  userId: number,
-  roleName: string
+  id: number
 ): Promise<Result<ChapterAssignmentWithAuthContext>> {
   try {
     const [assignment] = await db
@@ -110,31 +106,22 @@ export async function findByIdWithAuthContext(
         // Project context
         projectId: projects.id,
         organizationId: projects.organization,
-        // Project membership (LEFT JOIN to handle non-members)
-        isProjectMember: sql<boolean>`CASE WHEN ${project_users.userId} IS NOT NULL THEN true ELSE false END`,
       })
       .from(chapter_assignments)
       .innerJoin(project_units, eq(chapter_assignments.projectUnitId, project_units.id))
       .innerJoin(projects, eq(project_units.projectId, projects.id))
-      .leftJoin(
-        project_users,
-        and(
-          eq(project_users.projectId, projects.id),
-          eq(project_users.userId, userId),
-          // Only check membership for translators (per resolveIsProjectMember logic)
-          roleName === ROLES.TRANSLATOR ? sql`1=1` : sql`1=0`
-        )
-      )
       .where(eq(chapter_assignments.id, id))
       .limit(1);
 
     if (!assignment) return err(ErrorCode.CHAPTER_ASSIGNMENT_NOT_FOUND);
-    return ok(assignment);
+
+    // isProjectMember is resolved separately by the middleware using getProjectRolesForUser
+    return ok({ ...assignment, isProjectMember: false });
   } catch (error) {
     logger.error({
       cause: error,
       message: 'Failed to fetch chapter assignment with auth context',
-      context: { id, userId },
+      context: { id },
     });
     return err(ErrorCode.INTERNAL_ERROR);
   }

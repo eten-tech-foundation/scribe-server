@@ -7,7 +7,7 @@
 
 import type { AppPolicyUser } from '@/lib/types';
 
-import { ROLES } from '@/lib/roles';
+import { ORG_ROLES, PROJECT_ROLES } from '@/lib/roles';
 
 import { CHAPTER_ASSIGNMENT_STATUS } from './chapter-assignments.types';
 
@@ -18,6 +18,14 @@ export interface PolicyChapterAssignment {
   status?: string | null;
 }
 
+const _isProjectManager = (user: AppPolicyUser): boolean =>
+  user.orgRole === ORG_ROLES.ORG_OWNER ||
+  user.orgRole === ORG_ROLES.ORG_MANAGER ||
+  user.projectRoles.includes(PROJECT_ROLES.PROJECT_MANAGER);
+
+const _isTranslator = (user: AppPolicyUser): boolean =>
+  user.projectRoles.includes(PROJECT_ROLES.TRANSLATOR);
+
 export const ChapterAssignmentPolicy = {
   /**
    * Can this user edit the content of this chapter assignment?
@@ -27,11 +35,11 @@ export const ChapterAssignmentPolicy = {
     assignment: PolicyChapterAssignment,
     isProjectMember: boolean
   ): boolean {
-    if (user.organization !== assignment.organizationId) {
+    if (user.orgId !== assignment.organizationId) {
       return false;
     }
 
-    if (user.roleName === ROLES.PROJECT_MANAGER) {
+    if (_isProjectManager(user)) {
       return (
         assignment.status === CHAPTER_ASSIGNMENT_STATUS.COMMUNITY_REVIEW ||
         assignment.status === CHAPTER_ASSIGNMENT_STATUS.LINGUIST_CHECK ||
@@ -41,7 +49,7 @@ export const ChapterAssignmentPolicy = {
     }
 
     // future roles can be prevented access using this
-    if (user.roleName !== ROLES.TRANSLATOR) {
+    if (!_isTranslator(user)) {
       return false;
     }
 
@@ -67,62 +75,56 @@ export const ChapterAssignmentPolicy = {
    * Can this user view a list of all chapter assignments in this org?
    */
   viewAll(user: AppPolicyUser, targetOrganizationId: number): boolean {
-    return user.organization === targetOrganizationId;
+    return user.orgId === targetOrganizationId;
   },
 
   /**
    * Can this user view this specific chapter assignment?
    */
   view(user: AppPolicyUser, assignment: PolicyChapterAssignment): boolean {
-    return user.organization === assignment.organizationId;
+    return user.orgId === assignment.organizationId;
   },
 
   /**
    * Can this user create a chapter assignment?
    */
   create(user: AppPolicyUser, targetOrganizationId: number): boolean {
-    return user.roleName === ROLES.PROJECT_MANAGER && user.organization === targetOrganizationId;
+    return _isProjectManager(user) && user.orgId === targetOrganizationId;
   },
 
   /**
    * Can this user update this chapter assignment (e.g., metadata, non-content)?
    */
   update(user: AppPolicyUser, assignment: PolicyChapterAssignment): boolean {
-    return (
-      user.roleName === ROLES.PROJECT_MANAGER && user.organization === assignment.organizationId
-    );
+    return _isProjectManager(user) && user.orgId === assignment.organizationId;
   },
 
   /**
    * Can this user delete this chapter assignment?
    */
   delete(user: AppPolicyUser, assignment: PolicyChapterAssignment): boolean {
-    return (
-      user.roleName === ROLES.PROJECT_MANAGER && user.organization === assignment.organizationId
-    );
+    return _isProjectManager(user) && user.orgId === assignment.organizationId;
   },
 
   /**
    * Can this user delete all chapter assignments for a project/org?
    */
   deleteAll(user: AppPolicyUser, targetOrganizationId: number): boolean {
-    return user.roleName === ROLES.PROJECT_MANAGER && user.organization === targetOrganizationId;
+    return _isProjectManager(user) && user.orgId === targetOrganizationId;
   },
 
   /**
    * Can this user assign all chapter assignments for a project/org?
    */
   assignAll(user: AppPolicyUser, targetOrganizationId: number): boolean {
-    return user.roleName === ROLES.PROJECT_MANAGER && user.organization === targetOrganizationId;
+    return _isProjectManager(user) && user.orgId === targetOrganizationId;
   },
 
   /**
    * Base assignment logic (Internal abstraction)
    */
   _assign(user: AppPolicyUser, assignment: PolicyChapterAssignment): boolean {
-    return (
-      user.roleName === ROLES.PROJECT_MANAGER && user.organization === assignment.organizationId
-    );
+    return _isProjectManager(user) && user.orgId === assignment.organizationId;
   },
 
   /**
@@ -148,11 +150,11 @@ export const ChapterAssignmentPolicy = {
     isProjectMember: boolean
   ): boolean {
     // 1. Strict Organization Boundary Check
-    if (user.organization !== assignment.organizationId) {
+    if (user.orgId !== assignment.organizationId) {
       return false;
     }
 
-    if (user.roleName === ROLES.PROJECT_MANAGER) {
+    if (_isProjectManager(user)) {
       return (
         assignment.status === CHAPTER_ASSIGNMENT_STATUS.COMMUNITY_REVIEW ||
         assignment.status === CHAPTER_ASSIGNMENT_STATUS.LINGUIST_CHECK ||
@@ -161,7 +163,7 @@ export const ChapterAssignmentPolicy = {
       );
     }
 
-    if (user.roleName !== ROLES.TRANSLATOR) {
+    if (!_isTranslator(user)) {
       return false;
     }
 
@@ -189,11 +191,11 @@ export const ChapterAssignmentPolicy = {
    */
   isParticipant(user: AppPolicyUser, assignment: PolicyChapterAssignment): boolean {
     // 1. Strict Organization Boundary Check
-    if (user.organization !== assignment.organizationId) {
+    if (user.orgId !== assignment.organizationId) {
       return false;
     }
 
-    if (user.roleName !== ROLES.TRANSLATOR) {
+    if (!_isTranslator(user)) {
       return false;
     }
 

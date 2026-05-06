@@ -41,11 +41,9 @@ export function getChapterAssignment(id: number) {
 
 // Fetch a chapter assignment with auth context for middleware policy evaluation.
 export function getChapterAssignmentWithAuthContext(
-  id: number,
-  userId: number,
-  roleName: string
+  id: number
 ): Promise<Result<ChapterAssignmentWithAuthContext>> {
-  return repo.findByIdWithAuthContext(id, userId, roleName);
+  return repo.findByIdWithAuthContext(id);
 }
 
 export function getAssignmentsProgress(

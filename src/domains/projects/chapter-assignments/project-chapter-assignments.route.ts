@@ -8,6 +8,7 @@ import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-a
 import { requireProjectAccess } from '@/domains/projects/project-auth.middleware';
 import { PROJECT_ACTIONS } from '@/domains/projects/projects.types';
 import { PERMISSIONS } from '@/lib/permissions';
+import { ORG_ROLES, type ProjectRoleName } from '@/lib/roles';
 import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
@@ -104,11 +105,14 @@ const deleteProjectChapterAssignmentsRoute = createRoute({
 server.openapi(deleteProjectChapterAssignmentsRoute, async (c) => {
   const { projectId } = c.req.valid('param');
   const currentUser = c.get('user')!;
+  const orgMembership = c.get('orgMembership');
   const project = c.get('project')!;
+  const projectAuthContext = c.get('projectAuthContext');
   const policyUser = {
     id: currentUser.id,
-    roleName: currentUser.roleName,
-    organization: currentUser.organization,
+    orgId: orgMembership?.orgId ?? project.organization,
+    orgRole: orgMembership?.orgRole ?? ORG_ROLES.MEMBER,
+    projectRoles: (projectAuthContext?.projectRoles ?? []) as ProjectRoleName[],
   };
 
   if (!ChapterAssignmentPolicy.deleteAll(policyUser, project.organization)) {
@@ -210,11 +214,14 @@ server.openapi(assignAllRoute, async (c) => {
   const { projectId } = c.req.valid('param');
   const assignmentData = c.req.valid('json');
   const currentUser = c.get('user')!;
+  const orgMembership = c.get('orgMembership');
   const project = c.get('project')!;
+  const projectAuthContext = c.get('projectAuthContext');
   const policyUser = {
     id: currentUser.id,
-    roleName: currentUser.roleName,
-    organization: currentUser.organization,
+    orgId: orgMembership?.orgId ?? project.organization,
+    orgRole: orgMembership?.orgRole ?? ORG_ROLES.MEMBER,
+    projectRoles: (projectAuthContext?.projectRoles ?? []) as ProjectRoleName[],
   };
 
   if (!ChapterAssignmentPolicy.assignAll(policyUser, project.organization)) {
@@ -279,12 +286,15 @@ server.openapi(assignSelectedRoute, async (c) => {
   const { projectId } = c.req.valid('param');
   const { assignments } = c.req.valid('json');
   const currentUser = c.get('user')!;
+  const orgMembership = c.get('orgMembership');
   const project = c.get('project')!;
+  const projectAuthContext = c.get('projectAuthContext');
 
   const policyUser = {
     id: currentUser.id,
-    roleName: currentUser.roleName,
-    organization: currentUser.organization,
+    orgId: orgMembership?.orgId ?? project.organization,
+    orgRole: orgMembership?.orgRole ?? ORG_ROLES.MEMBER,
+    projectRoles: (projectAuthContext?.projectRoles ?? []) as ProjectRoleName[],
   };
 
   if (!ChapterAssignmentPolicy.assignAll(policyUser, project.organization)) {

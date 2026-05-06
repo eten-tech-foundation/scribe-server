@@ -7,7 +7,8 @@ import { ChapterAssignmentPolicy } from '@/domains/chapter-assignments/chapter-a
 import * as chapterAssignmentService from '@/domains/chapter-assignments/chapter-assignments.service';
 import { ProjectPolicy } from '@/domains/projects/project.policy';
 import * as projectService from '@/domains/projects/projects.service';
-import { resolveIsProjectMember } from '@/domains/projects/users/project-users.service';
+import { getProjectRolesForUser } from '@/domains/projects/users/project-users.service';
+import { ORG_ROLES, type ProjectRoleName } from '@/lib/roles';
 import { getHttpStatus } from '@/lib/types';
 
 import type { ProjectUnitIdSource, TranslatedVerseAction } from './translated-verses.types';
@@ -29,12 +30,7 @@ export function requireTranslatedVerseAccess(
 ) {
   return createMiddleware<AppEnv>(async (c, next) => {
     const user = c.get('user')!;
-    const policyUser = {
-      id: user.id,
-      role: user.role,
-      roleName: user.roleName,
-      organization: user.organization,
-    };
+    const orgMembership = c.get('orgMembership');
 
     let projectUnitId: number | undefined;
     let parsedBody: TranslatedVerseAuthBody | undefined;
@@ -74,18 +70,23 @@ export function requireTranslatedVerseAccess(
         return c.json({ message: 'Translated verse not found' }, HttpStatusCodes.NOT_FOUND);
       }
 
-      const isProjectMember = await resolveIsProjectMember(
-        unitResult.data.projectId,
-        user.id,
-        user.roleName
-      );
+      const projectRolesResult = await getProjectRolesForUser(unitResult.data.projectId, user.id);
+      const projectRoles = (projectRolesResult.ok ? projectRolesResult.data : []) as ProjectRoleName[];
+      const isProjectMember = projectRoles.length > 0;
+
+      const policyUser = {
+        id: user.id,
+        orgId: orgMembership?.orgId ?? projectResult.data.organization,
+        orgRole: orgMembership?.orgRole ?? ORG_ROLES.MEMBER,
+        projectRoles,
+      };
 
       if (!ProjectPolicy.read(policyUser, projectResult.data, isProjectMember)) {
         return c.json({ message: 'Translated verse not found' }, HttpStatusCodes.NOT_FOUND);
       }
 
       c.set('project', projectResult.data);
-      c.set('projectAuthContext', { isProjectMember });
+      c.set('projectAuthContext', { isProjectMember, projectRoles });
     } else if (action === TRANSLATED_VERSE_ACTIONS.EDIT) {
       // Reuse already-parsed body from source resolution
       const body = parsedBody ?? ((await c.req.json()) as TranslatedVerseAuthBody);
@@ -102,9 +103,21 @@ export function requireTranslatedVerseAccess(
       }
 
       const unitResult = await projectService.getProjectIdByUnitId(projectUnitId);
-      const isProjectMember = unitResult.ok
-        ? await resolveIsProjectMember(unitResult.data.projectId, user.id, user.roleName)
-        : false;
+
+      let projectRoles: ProjectRoleName[] = [];
+      let isProjectMember = false;
+      if (unitResult.ok) {
+        const projectRolesResult = await getProjectRolesForUser(unitResult.data.projectId, user.id);
+        projectRoles = (projectRolesResult.ok ? projectRolesResult.data : []) as ProjectRoleName[];
+        isProjectMember = projectRoles.length > 0;
+      }
+
+      const policyUser = {
+        id: user.id,
+        orgId: orgMembership?.orgId ?? assignmentResult.data.organizationId,
+        orgRole: orgMembership?.orgRole ?? ORG_ROLES.MEMBER,
+        projectRoles,
+      };
 
       if (!ChapterAssignmentPolicy.edit(policyUser, assignmentResult.data, isProjectMember)) {
         return c.json({ message: 'Translated verse not found' }, HttpStatusCodes.NOT_FOUND);
