@@ -44,13 +44,29 @@ echo_running() { echo -e "${YELLOW}>>> $1${NC}"; }
 echo_success() { echo -e "${GREEN}>>> $1${NC}"; }
 echo_error()   { echo -e "${RED}>>> $1${NC}"; }
 
-# ── Podman pod configuration ──────────────────────────────────────────────────
+# ── Mode derivation (ecosystem vs standalone) ─────────────────────────────────
 
-POD_NAME="fluent-api"
-# 5432 is the canonical port for fluent-api's DB — the platform web tier owns it.
-# Set DATABASE_URL in .env to point at a different host (e.g. the platform DB).
-DB_PORT="${DB_PORT:-5432}"
-API_PORT="${API_PORT:-9999}"
+if [[ -n "${FLUENT_ECOSYSTEM:-}" ]]; then
+  POD_NAME="$FLUENT_POD_NAME"
+  CONTAINER_PREFIX="$FLUENT_CONTAINER_PREFIX"
+  DB_CONTAINER="${CONTAINER_PREFIX}db"
+  API_CONTAINER="${CONTAINER_PREFIX}api"
+  WORKER_CONTAINER="${CONTAINER_PREFIX}worker"
+  PGDATA_VOLUME="${FLUENT_PGDATA_VOLUME:-fluent-pgdata}"
+  DB_PORT="${FLUENT_DB_PORT:-5432}"
+  API_PORT="${FLUENT_API_PORT:-9999}"
+  SKIP_DB=1
+else
+  POD_NAME="fluent-api"
+  CONTAINER_PREFIX="fluent-api-"
+  DB_CONTAINER="fluent-api-db"
+  API_CONTAINER="fluent-api-api"
+  WORKER_CONTAINER="fluent-api-worker"
+  PGDATA_VOLUME="fluent-api-pgdata"
+  DB_PORT="${DB_PORT:-5432}"
+  API_PORT="${API_PORT:-9999}"
+  SKIP_DB=0
+fi
 
 # ── Podman volume / pod management ───────────────────────────────────────────
 
@@ -76,12 +92,12 @@ pod_destroy() {
 
 create_volumes() {
   echo_running "Creating volumes..."
-  $RUNTIME volume create fluent-api-pgdata 2>/dev/null || true
+  $RUNTIME volume create $PGDATA_VOLUME 2>/dev/null || true
 }
 
 wait_for_db() {
   echo_running "Waiting for database to be ready..."
-  while ! $RUNTIME exec fluent-api-db pg_isready -U postgres -d fluent 2>/dev/null; do
+  while ! $RUNTIME exec $DB_CONTAINER pg_isready -U postgres -d fluent 2>/dev/null; do
     sleep 2
   done
   echo_success "Database is ready"
@@ -91,7 +107,7 @@ wait_for_api() {
   echo_running "Waiting for API to be ready..."
   local retries=30
   while [ "$retries" -gt 0 ]; do
-    if $RUNTIME exec fluent-api-api curl -sf http://localhost:9999/health 2>/dev/null; then
+    if $RUNTIME exec $API_CONTAINER curl -sf http://localhost:9999/health 2>/dev/null; then
       echo_success "API is ready"
       return
     fi
@@ -107,18 +123,18 @@ wait_for_api() {
 # ── Podman container start functions ──────────────────────────────────────────
 
 start_db_container() {
-  if $RUNTIME container exists fluent-api-db 2>/dev/null; then
+  if $RUNTIME container exists $DB_CONTAINER 2>/dev/null; then
     echo_success "Database container already exists"
     return
   fi
   echo_running "Starting database container..."
   $RUNTIME run -d \
-    --name fluent-api-db \
+    --name $DB_CONTAINER \
     --pod "$POD_NAME" \
     -e POSTGRES_USER=postgres \
     -e POSTGRES_PASSWORD=postgres \
     -e POSTGRES_DB=fluent \
-    -v fluent-api-pgdata:/var/lib/postgresql/data \
+    -v $PGDATA_VOLUME:/var/lib/postgresql/data \
     -v "$SCRIPT_DIR/db/init:/docker-entrypoint-initdb.d:ro" \
     --health-cmd "pg_isready -U postgres -d fluent" \
     --health-interval 5s \
@@ -129,7 +145,7 @@ start_db_container() {
 }
 
 start_api_container() {
-  if $RUNTIME container exists fluent-api-api 2>/dev/null; then
+  if $RUNTIME container exists $API_CONTAINER 2>/dev/null; then
     echo_success "API container already exists"
     return
   fi
@@ -148,7 +164,7 @@ start_api_container() {
 
   echo_running "Starting API container..."
   $RUNTIME run -d \
-    --name fluent-api-api \
+    --name $API_CONTAINER \
     --pod "$POD_NAME" \
     "${env_flags[@]}" \
     -v "$SCRIPT_DIR/src:/app/src:ro" \
@@ -167,7 +183,7 @@ start_api_container() {
 }
 
 start_worker_container() {
-  if $RUNTIME container exists fluent-api-worker 2>/dev/null; then
+  if $RUNTIME container exists $WORKER_CONTAINER 2>/dev/null; then
     echo_success "Worker container already exists"
     return
   fi
@@ -183,7 +199,7 @@ start_worker_container() {
 
   echo_running "Starting worker container..."
   $RUNTIME run -d \
-    --name fluent-api-worker \
+    --name $WORKER_CONTAINER \
     --pod "$POD_NAME" \
     "${env_flags[@]}" \
     -v "$SCRIPT_DIR/src:/app/src:ro" \
@@ -206,10 +222,12 @@ podman_up() {
   local service="${1:-all}"
   case "$service" in
     all)
-      create_volumes
-      pod_create
-      start_db_container
-      wait_for_db
+      if [[ "$SKIP_DB" -eq 0 ]]; then
+        create_volumes
+        pod_create
+        start_db_container
+        wait_for_db
+      fi
       start_api_container
       wait_for_api
       start_worker_container
@@ -245,7 +263,7 @@ podman_down() {
     echo_success "All services stopped."
   else
     echo_running "Stopping $service..."
-    $RUNTIME rm -f "fluent-api-$service" 2>/dev/null || true
+    $RUNTIME rm -f "${CONTAINER_PREFIX}$service" 2>/dev/null || true
     echo_success "$service stopped."
   fi
 }
@@ -257,7 +275,7 @@ podman_restart() {
     podman_up all
   else
     echo_running "Restarting $service..."
-    $RUNTIME rm -f "fluent-api-$service" 2>/dev/null || true
+    $RUNTIME rm -f "${CONTAINER_PREFIX}$service" 2>/dev/null || true
     case "$service" in
       db)     start_db_container ;;
       api)    start_api_container ;;
@@ -275,7 +293,7 @@ podman_logs() {
   else
     # Route through pod logs --container to avoid name-resolution bugs
     # in some Podman builds where 'podman logs <hyphenated-name>' fails.
-    $RUNTIME pod logs --container "fluent-api-$service" -f "$POD_NAME"
+    $RUNTIME pod logs --container "${CONTAINER_PREFIX}$service" -f "$POD_NAME"
   fi
 }
 
@@ -291,35 +309,35 @@ podman_status() {
 podman_shell() {
   local service="${1:-api}"
   if [ "$service" = "db" ]; then
-    $RUNTIME exec -it fluent-api-db psql -U postgres -d fluent
+    $RUNTIME exec -it $DB_CONTAINER psql -U postgres -d fluent
   else
-    $RUNTIME exec -it "fluent-api-$service" sh
+    $RUNTIME exec -it "${CONTAINER_PREFIX}$service" sh
   fi
 }
 
 podman_exec_api() {
-  if ! $RUNTIME container exists fluent-api-api 2>/dev/null; then
+  if ! $RUNTIME container exists $API_CONTAINER 2>/dev/null; then
     echo_error "API container is not running. Run './fapi.sh up api' first."
     exit 1
   fi
-  $RUNTIME exec fluent-api-api "$@"
+  $RUNTIME exec $API_CONTAINER "$@"
 }
 
 podman_clean() {
   local service="${1:-all}"
   if [ "$service" = "all" ]; then
     pod_destroy
-    $RUNTIME volume rm fluent-api-pgdata 2>/dev/null || true
+    $RUNTIME volume rm $PGDATA_VOLUME 2>/dev/null || true
     echo_success "All containers and volumes removed."
   else
-    $RUNTIME rm -f "fluent-api-$service" 2>/dev/null || true
+    $RUNTIME rm -f "${CONTAINER_PREFIX}$service" 2>/dev/null || true
     echo_success "$service container removed."
   fi
 }
 
 podman_fresh() {
   pod_destroy
-  $RUNTIME volume rm fluent-api-pgdata 2>/dev/null || true
+  $RUNTIME volume rm $PGDATA_VOLUME 2>/dev/null || true
   $RUNTIME rmi -f fluent-api 2>/dev/null || true
   echo_success "Removed all containers, volumes, and images."
 }
@@ -337,7 +355,7 @@ podman_build() {
 }
 
 podman_db_psql() {
-  $RUNTIME exec -it fluent-api-db psql -U postgres -d fluent
+  $RUNTIME exec -it $DB_CONTAINER psql -U postgres -d fluent
 }
 
 # ── Docker Compose command functions ──────────────────────────────────────────
@@ -431,20 +449,20 @@ exec_api() {
 
 # ── Runtime mode display ──────────────────────────────────────────────────────
 
-echo "Runtime mode: $RUNTIME_MODE"
-if [ "$RUNTIME_MODE" = "podman-pod" ]; then
-  echo "Using native Podman pods"
-else
-  echo "Using Docker Compose (${COMPOSE_CMD})"
-fi
-echo ""
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  detect_runtime
+  echo "Runtime mode: $RUNTIME_MODE"
+  if [ "$RUNTIME_MODE" = "podman-pod" ]; then
+    echo "Using native Podman pods"
+  else
+    echo "Using Docker Compose (${COMPOSE_CMD})"
+  fi
+  echo ""
 
-# ── Commands ──────────────────────────────────────────────────────────────────
+  cmd="${1:-help}"
+  shift || true
 
-cmd="${1:-help}"
-shift || true
-
-case "$cmd" in
+  case "$cmd" in
   up)
     if [ "$RUNTIME_MODE" = "podman-pod" ]; then
       podman_up "${1:-all}"
@@ -592,7 +610,7 @@ case "$cmd" in
 -- Then commit to fluent-ai/db/init/ to update the standalone DB snapshot.
 HEADER
       if [ "$RUNTIME_MODE" = "podman-pod" ]; then
-        $RUNTIME exec fluent-api-db pg_dump -U postgres --schema-only --schema=public fluent
+        $RUNTIME exec $DB_CONTAINER pg_dump -U postgres --schema-only --schema=public fluent
       else
         $COMPOSE_CMD exec -T db pg_dump -U postgres --schema-only --schema=public fluent
       fi
@@ -705,4 +723,5 @@ Environment variables:
   DATABASE_URL           Override DB connection (set in .env to use platform DB)
 USAGE
     ;;
-esac
+  esac
+fi
