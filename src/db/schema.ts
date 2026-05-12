@@ -40,6 +40,12 @@ export const chapterStatusEnum = pgEnum('chapter_status', [
   'complete',
 ]);
 export const assignmentRoleEnum = pgEnum('assignment_role', ['drafter', 'peer_checker']);
+export const aiSuggestionJobStatusEnum = pgEnum('ai_suggestion_job_status', [
+  'queued',
+  'processing',
+  'completed',
+  'failed',
+]);
 
 export const roles = pgTable('roles', {
   id: serial('id').primaryKey(),
@@ -764,3 +770,67 @@ export const patchProjectsClientSchema = patchProjectsSchema.omit({
 export const patchUsersClientSchema = patchUsersSchema.omit({
   organization: true,
 });
+
+export const ai_suggestion_jobs = pgTable('ai_suggestion_jobs', {
+  id: serial('id').primaryKey(),
+  projectUnitId: integer('project_unit_id')
+    .notNull()
+    .references(() => project_units.id, { onDelete: 'cascade' }),
+  bibleId: integer('bible_id')
+    .notNull()
+    .references(() => bibles.id),
+  bookCode: varchar('book_code', { length: 50 }).notNull(),
+  chapterNumber: integer('chapter_number').notNull(),
+  verseStart: integer('verse_start').notNull(),
+  verseEnd: integer('verse_end').notNull(),
+  status: aiSuggestionJobStatusEnum('status').notNull().default('queued'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+}, (table) => [
+  index('idx_ai_jobs_project_unit').on(table.projectUnitId),
+  index('idx_ai_jobs_status').on(table.status),
+  uniqueIndex('uq_ai_jobs_range').on(table.projectUnitId, table.bookCode, table.chapterNumber, table.verseStart, table.verseEnd),
+]);
+
+export const ai_suggestions = pgTable('ai_suggestions', {
+  id: serial('id').primaryKey(),
+  bibleTextId: integer('bible_text_id')
+    .notNull()
+    .references(() => bible_texts.id, { onDelete: 'cascade' }),
+  projectUnitId: integer('project_unit_id')
+    .notNull()
+    .references(() => project_units.id, { onDelete: 'cascade' }),
+  suggestedText: varchar('suggested_text').notNull(),
+  modelInfo: varchar('model_info', { length: 100 }),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => [
+  index('idx_ai_suggestions_bible_text').on(table.bibleTextId),
+  uniqueIndex('uq_ai_suggestions_per_text_unit').on(table.bibleTextId, table.projectUnitId),
+]);
+
+export const selectAiSuggestionJobsSchema = createSelectSchema(ai_suggestion_jobs);
+export const selectAiSuggestionsSchema = createSelectSchema(ai_suggestions);
+
+export const insertAiSuggestionJobsSchema = createInsertSchema(ai_suggestion_jobs, {
+  projectUnitId: (schema) => schema.int(),
+  bibleId: (schema) => schema.int(),
+  bookCode: (schema) => schema.min(1),
+  chapterNumber: (schema) => schema.int().min(1),
+  verseStart: (schema) => schema.int().min(1),
+  verseEnd: (schema) => schema.int().min(1),
+})
+.required({ projectUnitId: true, bibleId: true, bookCode: true, chapterNumber: true, verseStart: true, verseEnd: true })
+.omit({ id: true, status: true, createdAt: true, updatedAt: true });
+
+export const insertAiSuggestionsSchema = createInsertSchema(ai_suggestions, {
+  bibleTextId: (schema) => schema.int(),
+  projectUnitId: (schema) => schema.int(),
+  suggestedText: (schema) => schema.min(1),
+})
+.required({ bibleTextId: true, projectUnitId: true, suggestedText: true })
+.omit({ id: true, createdAt: true });
+
+export const patchAiSuggestionJobsSchema = insertAiSuggestionJobsSchema.partial();
+export const patchAiSuggestionsSchema = insertAiSuggestionsSchema.partial();
