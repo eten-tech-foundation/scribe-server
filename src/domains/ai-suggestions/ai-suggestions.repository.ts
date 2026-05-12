@@ -7,7 +7,6 @@ import { ai_suggestion_jobs, ai_suggestions } from '@/db/schema';
 import { logger } from '@/lib/logger';
 import { err, ErrorCode, ok } from '@/lib/types';
 
-
 export async function queueAiSuggestionJobs(
   jobs: {
     projectUnitId: number;

@@ -27,10 +27,7 @@ const getAiSuggestionsRoute = createRoute({
     query: getAiSuggestionsQuerySchema,
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      aiSuggestionsListResponseSchema,
-      'List of AI suggestions'
-    ),
+    [HttpStatusCodes.OK]: jsonContent(aiSuggestionsListResponseSchema, 'List of AI suggestions'),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
       createMessageObjectSchema('Bad Request'),
       'Validation error'
@@ -74,10 +71,7 @@ const queueNextVersesRoute = createRoute({
     body: jsonContent(queueNextVersesRequestSchema, 'Verses context'),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      createMessageObjectSchema('Successfully queued'),
-      'Queued'
-    ),
+    [HttpStatusCodes.OK]: jsonContent(createMessageObjectSchema('Successfully queued'), 'Queued'),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
       createMessageObjectSchema('Bad Request'),
       'Validation error'
@@ -96,7 +90,8 @@ const queueNextVersesRoute = createRoute({
     ),
   },
   summary: 'Queue pre-generation of AI suggestions',
-  description: 'Triggers the queue to generate suggestions for the next few verses ahead of the drafter.',
+  description:
+    'Triggers the queue to generate suggestions for the next few verses ahead of the drafter.',
 });
 
 server.openapi(queueNextVersesRoute, async (c) => {

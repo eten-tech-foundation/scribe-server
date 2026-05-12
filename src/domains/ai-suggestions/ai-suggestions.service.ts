@@ -1,28 +1,34 @@
 import { and, asc, eq, gt } from 'drizzle-orm';
 
-import type {Result} from '@/lib/types';
+import type { Result } from '@/lib/types';
 
 import { db } from '@/db';
 import { bible_texts, books } from '@/db/schema';
 import { logger } from '@/lib/logger';
-import { err, ErrorCode, ok  } from '@/lib/types';
+import { err, ErrorCode, ok } from '@/lib/types';
 
 import type { AiSuggestionsListResponse, GetAiSuggestionsQuery } from './ai-suggestions.types';
 
-import { getAiSuggestions as getAiSuggestionsRepo, queueAiSuggestionJobs } from './ai-suggestions.repository';
+import {
+  getAiSuggestions as getAiSuggestionsRepo,
+  queueAiSuggestionJobs,
+} from './ai-suggestions.repository';
 
 export async function getAiSuggestions(
   query: GetAiSuggestionsQuery
 ): Promise<Result<AiSuggestionsListResponse>> {
-  const ids = query.bibleTextIds.split(',').map(id => Number.parseInt(id.trim(), 10)).filter(id => !Number.isNaN(id));
-  
+  const ids = query.bibleTextIds
+    .split(',')
+    .map((id) => Number.parseInt(id.trim(), 10))
+    .filter((id) => !Number.isNaN(id));
+
   const suggestionsResult = await getAiSuggestionsRepo(query.projectUnitId, ids);
 
   if (!suggestionsResult.ok) {
     return suggestionsResult;
   }
 
-  const data = suggestionsResult.data.map(suggestion => ({
+  const data = suggestionsResult.data.map((suggestion) => ({
     bibleTextId: suggestion.bibleTextId,
     suggestedText: suggestion.suggestedText,
     modelInfo: suggestion.modelInfo,
@@ -59,7 +65,7 @@ export async function queueNextVerses(
     if (nextVerses.length === 0) return ok(undefined);
 
     // 2. Queue them
-    const jobs = nextVerses.map(v => ({
+    const jobs = nextVerses.map((v) => ({
       projectUnitId,
       bibleId,
       bookCode,
