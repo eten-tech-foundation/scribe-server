@@ -26,7 +26,7 @@ To deploy or review this system, the following environment variables are require
 ### Backend (`scribe-server/.env`)
 
 - `BETTER_AUTH_SECRET`: A secure 32-character random string used to sign sessions and tokens.
-  - **Generation**: You can generate one using `openssl rand -hex 32` or `npx better-auth secret`.
+  - **Generation**: You can generate one using `openssl rand -hex 32`.
 - `BETTER_AUTH_URL`: The full URL of the auth API (e.g., `http://localhost:9999/api/auth`).
 - `FRONTEND_URL`: The URL of your web application (used for CORS and trusted redirects).
 
