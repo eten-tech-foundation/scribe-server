@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { db } from '@/db';
 import { organizations } from '@/db/schema';
 
-const DEFAULT_ORGANIZATIONS = [{ name: 'ETEN Tech' }];
+const DEFAULT_ORGANIZATIONS = [{ name: 'Fluent Dev' }];
 
 export async function seedOrganizations() {
   await db

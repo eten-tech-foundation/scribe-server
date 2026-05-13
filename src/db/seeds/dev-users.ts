@@ -18,14 +18,14 @@ type DevUserConfig = {
 export async function seedDevUsers() {
   const DEV_USERS: DevUserConfig[] = [
     {
-      email: process.env.SEED_MANAGER_EMAIL ?? 'admin@fluent.local',
-      password: process.env.SEED_MANAGER_PASSWORD ?? 'Manager@1234',
-      username: 'admin',
+      email: process.env.SEED_MANAGER_EMAIL ?? 'pm@fluent.local',
+      password: process.env.SEED_MANAGER_PASSWORD ?? 'pm@123456',
+      username: 'devpm',
       roleName: ROLES.PROJECT_MANAGER,
     },
     {
-      email: process.env.SEED_TRANSLATOR_EMAIL ?? 'translator@fluent.local',
-      password: process.env.SEED_TRANSLATOR_PASSWORD ?? 'Translator@1234',
+      email: process.env.SEED_TRANSLATOR_EMAIL ?? 't@fluent.local',
+      password: process.env.SEED_TRANSLATOR_PASSWORD ?? 't@123456',
       username: 'translator',
       roleName: ROLES.TRANSLATOR,
     },
@@ -34,11 +34,11 @@ export async function seedDevUsers() {
   const [defaultOrg] = await db
     .select({ id: organizations.id })
     .from(organizations)
-    .where(eq(organizations.name, 'ETEN Tech'))
+    .where(eq(organizations.name, 'Fluent Dev'))
     .limit(1);
 
   if (!defaultOrg) {
-    throw new Error('Default organization "ETEN Tech" not found. Run seedOrganizations first.');
+    throw new Error('Default organization "Fluent Dev" not found. Run seedOrganizations first.');
   }
 
   const allRoles = await db.select({ id: roles.id, name: roles.name }).from(roles);
