@@ -24,7 +24,8 @@ async function createNewUser() {
     const [existingAuthUser] = await db
       .select()
       .from(schema.authUser)
-      .where(eq(schema.authUser.email, email));
+      .where(eq(schema.authUser.email, email))
+      .limit(1);
 
     if (existingAuthUser) {
       console.error(`User with email ${email} already exists in auth_user. Use db:set-password instead.`);
@@ -34,7 +35,8 @@ async function createNewUser() {
     const [existingUser] = await db
       .select()
       .from(schema.users)
-      .where(eq(schema.users.email, email));
+      .where(eq(schema.users.email, email))
+      .limit(1);
 
     if (existingUser) {
       console.error(`User with email ${email} already exists in users. Use db:set-password instead.`);
