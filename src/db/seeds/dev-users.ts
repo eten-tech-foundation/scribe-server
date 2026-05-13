@@ -15,22 +15,22 @@ type DevUserConfig = {
   roleName: RoleName;
 };
 
-const DEV_USERS: DevUserConfig[] = [
-  {
-    email: process.env.SEED_MANAGER_EMAIL ?? 'admin@fluent.local',
-    password: process.env.SEED_MANAGER_PASSWORD ?? 'Manager@1234',
-    username: 'admin',
-    roleName: ROLES.PROJECT_MANAGER,
-  },
-  {
-    email: process.env.SEED_TRANSLATOR_EMAIL ?? 'translator@fluent.local',
-    password: process.env.SEED_TRANSLATOR_PASSWORD ?? 'Translator@1234',
-    username: 'translator',
-    roleName: ROLES.TRANSLATOR,
-  },
-];
-
 export async function seedDevUsers() {
+  const DEV_USERS: DevUserConfig[] = [
+    {
+      email: process.env.SEED_MANAGER_EMAIL ?? 'admin@fluent.local',
+      password: process.env.SEED_MANAGER_PASSWORD ?? 'Manager@1234',
+      username: 'admin',
+      roleName: ROLES.PROJECT_MANAGER,
+    },
+    {
+      email: process.env.SEED_TRANSLATOR_EMAIL ?? 'translator@fluent.local',
+      password: process.env.SEED_TRANSLATOR_PASSWORD ?? 'Translator@1234',
+      username: 'translator',
+      roleName: ROLES.TRANSLATOR,
+    },
+  ];
+
   const [defaultOrg] = await db
     .select({ id: organizations.id })
     .from(organizations)
@@ -51,7 +51,7 @@ export async function seedDevUsers() {
     }
 
     const [existingAuthUser] = await db
-      .select()
+      .select({ id: authUser.id })
       .from(authUser)
       .where(eq(authUser.email, config.email))
       .limit(1);
@@ -61,50 +61,63 @@ export async function seedDevUsers() {
       continue;
     }
 
-    const [existingUser] = await db
-      .select()
+    const [existingUserByEmail] = await db
+      .select({ id: users.id })
       .from(users)
       .where(eq(users.email, config.email))
       .limit(1);
 
-    if (existingUser) {
+    if (existingUserByEmail) {
       console.log(`Skipping ${config.email} — already exists in users.`);
+      continue;
+    }
+
+    const [existingUserByUsername] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.username, config.username))
+      .limit(1);
+
+    if (existingUserByUsername) {
+      console.log(`Skipping ${config.username} — username already exists in users.`);
       continue;
     }
 
     const authUserId = crypto.randomUUID();
     const hashedPassword = await hashPassword(config.password);
 
-    await db.insert(authUser).values({
-      id: authUserId,
-      email: config.email,
-      name: config.username,
-      emailVerified: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    await db.transaction(async (tx) => {
+      await tx.insert(authUser).values({
+        id: authUserId,
+        email: config.email,
+        name: config.username,
+        emailVerified: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-    await db.insert(authAccount).values({
-      id: crypto.randomUUID(),
-      userId: authUserId,
-      accountId: config.email,
-      providerId: 'credential',
-      password: hashedPassword,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+      await tx.insert(authAccount).values({
+        id: crypto.randomUUID(),
+        userId: authUserId,
+        accountId: config.email,
+        providerId: 'credential',
+        password: hashedPassword,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-    await db.insert(users).values({
-      username: config.username,
-      email: config.email,
-      firstName: config.username,
-      lastName: '(Dev)',
-      role: roleId,
-      organization: defaultOrg.id,
-      status: 'verified',
-      authUserId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      await tx.insert(users).values({
+        username: config.username,
+        email: config.email,
+        firstName: config.username,
+        lastName: '(Dev)',
+        role: roleId,
+        organization: defaultOrg.id,
+        status: 'verified',
+        authUserId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
     });
 
     console.log(`Created dev user: ${config.email} (${config.roleName})`);
