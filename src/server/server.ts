@@ -44,12 +44,7 @@ export function createServer() {
   app.use(
     '*',
     cors({
-      origin: [
-        env.FRONTEND_URL,
-        'http://localhost:5173',
-        'https://dev.app.fluent.bible',
-        'https://app.fluent.bible',
-      ],
+      origin: [env.FRONTEND_URL],
       credentials: true,
     })
   );
