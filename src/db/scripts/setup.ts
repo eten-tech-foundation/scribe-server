@@ -29,8 +29,13 @@ async function setup() {
   console.log('');
 
   console.log('=== Setup complete ===');
-  console.log('Manager:    admin@fluent.local     / Manager@1234    (or SEED_MANAGER_* env vars)');
-  console.log('Translator: translator@fluent.local / Translator@1234 (or SEED_TRANSLATOR_* env vars)');
+  const managerEmail = process.env.SEED_MANAGER_EMAIL ?? 'admin@fluent.local';
+  const managerPassword = process.env.SEED_MANAGER_PASSWORD ?? 'Manager@1234';
+  const translatorEmail = process.env.SEED_TRANSLATOR_EMAIL ?? 'translator@fluent.local';
+  const translatorPassword = process.env.SEED_TRANSLATOR_PASSWORD ?? 'Translator@1234';
+
+  console.log(`Manager:    ${managerEmail} / ${managerPassword}`);
+  console.log(`Translator: ${translatorEmail} / ${translatorPassword}`);
   process.exit(0);
 }
 

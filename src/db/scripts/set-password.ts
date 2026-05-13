@@ -20,7 +20,8 @@ async function setPassword() {
     const [user] = await db
       .select()
       .from(schema.authUser)
-      .where(eq(schema.authUser.email, email));
+      .where(eq(schema.authUser.email, email))
+      .limit(1);
 
     if (!user) {
       console.error(`User with email ${email} not found in auth_user table.`);

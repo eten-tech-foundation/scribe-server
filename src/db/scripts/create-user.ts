@@ -44,39 +44,40 @@ async function createNewUser() {
     }
 
     const authUserId = crypto.randomUUID();
-
-    await db.insert(schema.authUser).values({
-      id: authUserId,
-      email,
-      name: username,
-      emailVerified: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
     const hashedPassword = await hashPassword(rawPassword);
 
-    await db.insert(schema.authAccount).values({
-      id: crypto.randomUUID(),
-      userId: authUserId,
-      accountId: email,
-      providerId: 'credential',
-      password: hashedPassword,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    await db.transaction(async (tx) => {
+      await tx.insert(schema.authUser).values({
+        id: authUserId,
+        email,
+        name: username,
+        emailVerified: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-    await db.insert(schema.users).values({
-      username,
-      email,
-      firstName: username,
-      lastName: '(QA)',
-      role: roleId,
-      organization: organizationId,
-      status: 'verified',
-      authUserId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      await tx.insert(schema.authAccount).values({
+        id: crypto.randomUUID(),
+        userId: authUserId,
+        accountId: email,
+        providerId: 'credential',
+        password: hashedPassword,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await tx.insert(schema.users).values({
+        username,
+        email,
+        firstName: username,
+        lastName: '(QA)',
+        role: roleId,
+        organization: organizationId,
+        status: 'verified',
+        authUserId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
     });
 
     console.log(`Successfully created user: ${email}`);
