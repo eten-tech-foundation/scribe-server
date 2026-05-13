@@ -55,8 +55,8 @@ export const auth = betterAuth({
 
   // ─── Session Config ──────────────────────────────────────────────
   session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days (web default)
-    updateAge: 60 * 60 * 24, // refresh session daily
+    expiresIn: env.BETTER_AUTH_SESSION_EXPIRY_SECONDS,
+    updateAge: Math.floor(env.BETTER_AUTH_SESSION_EXPIRY_SECONDS / 7), // refresh ~daily relative to expiry
     cookieCache: { enabled: true, maxAge: 300 },
   },
 
@@ -64,7 +64,7 @@ export const auth = betterAuth({
   advanced: {
     crossSubDomainCookies: {
       enabled: env.NODE_ENV === 'production',
-      domain: '.fluent.bible',
+      domain: env.BETTER_AUTH_COOKIE_DOMAIN,
     },
     defaultCookieAttributes: {
       sameSite: 'lax',
