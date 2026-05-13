@@ -4,17 +4,10 @@ import { HTTPException } from 'hono/http-exception';
 
 import type { AppEnv } from '@/server/context.types';
 
+import env from '@/env';
+import { auth } from '@/lib/auth';
 import { logger } from '@/lib/logger';
-
-const processEmailFromUI = async (c: any, next: any) => {
-  const emailFromUI = c.req.header('x-user-email');
-
-  if (emailFromUI) {
-    c.set('loggedInUserEmail', emailFromUI);
-  }
-
-  await next();
-};
+import { authenticate } from '@/middlewares/authenticate';
 
 export function createServer() {
   const app = new OpenAPIHono<AppEnv>({
@@ -35,16 +28,6 @@ export function createServer() {
     });
     return c.json({ message: 'Internal Server Error' }, 500);
   });
-
-  app.use('*', cors());
-
-  app.use('*', processEmailFromUI);
-
-  app.use('*', async (c, next) => {
-    c.set('logger', logger as any);
-    await next();
-  });
-
   app.use('*', async (c, next) => {
     const start = Date.now();
     await next();
@@ -52,6 +35,45 @@ export function createServer() {
 
     logger.info(`${c.req.method} ${c.req.path} - ${c.res.status} - ${duration}ms`);
   });
+
+  app.use('*', async (c, next) => {
+    c.set('logger', logger as any);
+    await next();
+  });
+  // ─── CORS with credentials (criterion #5) ──────────────────────
+  app.use(
+    '*',
+    cors({
+      origin: [
+        env.FRONTEND_URL,
+        'http://localhost:5173',
+        'https://dev.app.fluent.bible',
+        'https://app.fluent.bible',
+      ],
+      credentials: true,
+    })
+  );
+
+  // ─── Mount BetterAuth routes at /api/auth/* (criterion #4) ────
+  app.post('/api/auth/password/set', async (c) => {
+    try {
+      const body = await c.req.json();
+      const result = await auth.api.setPassword({
+        body,
+        headers: c.req.raw.headers,
+      });
+      return c.json(result);
+    } catch (err) {
+      console.error('Password set error:', err);
+      return c.json({ error: { message: 'Unauthorized or invalid request' } }, 401);
+    }
+  });
+
+  app.all('/api/auth/*', (c) => {
+    return auth.handler(c.req.raw);
+  });
+
+  app.use('*', authenticate);
 
   app.use('*', async (c, next) => {
     await next();

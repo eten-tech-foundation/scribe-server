@@ -17,11 +17,10 @@ const EnvSchema = z.object({
     .default('info')
     .optional(),
   DATABASE_URL: z.string().url(),
-  AUTH0_DOMAIN: z.string(),
-  AUTH0_AUDIENCE: z.string(),
+  BETTER_AUTH_SECRET: z.string().min(32),
+  BETTER_AUTH_URL: z.string().url(),
   APPLICATIONINSIGHTS_CONNECTION_STRING: z.string(),
-  AUTH0_M2M_CLIENT_ID: z.string(),
-  AUTH0_M2M_CLIENT_SECRET: z.string(),
+
   EMAIL_SERVICE_API_KEY: z.string(),
   EMAIL_SERVICE_DOMAIN: z.string(),
   EMAIL_SERVICE_SENDER: z.string(),
