@@ -41,7 +41,7 @@ export const auth = betterAuth({
                 <p style="font-size: 18px; color: #374151;">Hello,</p>
                 <p style="font-size: 16px; color: #4b5563; line-height: 1.5;">We received a request to reset your password for your Fluent account. Click the button below to choose a new password.</p>
                 <div style="text-align: center; margin: 40px 0;">
-                  <a href="${url.replace(`${env.BETTER_AUTH_URL  }/reset-password/`, `${env.FRONTEND_URL.replace(/\/$/, '')  }/reset-password?token=`).replace(/\?token=([^&]+)\?/, '?token=$1&')}" style="background-color: #0052cc; color: white; padding: 16px 32px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block;">Reset Password</a>
+                  <a href="${url.replace(`${env.BETTER_AUTH_URL}/reset-password/`, `${env.FRONTEND_URL.replace(/\/$/, '')}/reset-password?token=`).replace(/\?token=([^&]+)\?/, '?token=$1&')}" style="background-color: #0052cc; color: white; padding: 16px 32px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block;">Reset Password</a>
                 </div>
                 <p style="font-size: 14px; color: #6b7280;">If you didn't request this, you can safely ignore this email. This link will expire in 1 hour.</p>
                 <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
