@@ -1,19 +1,20 @@
-import { fileURLToPath } from 'node:url';
-
 import { hashPassword } from 'better-auth/crypto';
 import { eq } from 'drizzle-orm';
 import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+
+import type {RoleName} from '@/lib/roles';
 
 import { db } from '@/db';
 import { authAccount, authUser, organizations, roles, users } from '@/db/schema';
-import { ROLES, type RoleName } from '@/lib/roles';
+import {  ROLES } from '@/lib/roles';
 
-type DevUserConfig = {
+interface DevUserConfig {
   email: string;
   password: string;
   username: string;
   roleName: RoleName;
-};
+}
 
 export async function seedDevUsers() {
   const DEV_USERS: DevUserConfig[] = [

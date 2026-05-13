@@ -28,7 +28,9 @@ async function createNewUser() {
       .limit(1);
 
     if (existingAuthUser) {
-      console.error(`User with email ${email} already exists in auth_user. Use db:set-password instead.`);
+      console.error(
+        `User with email ${email} already exists in auth_user. Use db:set-password instead.`
+      );
       process.exit(1);
     }
 
@@ -39,7 +41,9 @@ async function createNewUser() {
       .limit(1);
 
     if (existingUser) {
-      console.error(`User with email ${email} already exists in users. Use db:set-password instead.`);
+      console.error(
+        `User with email ${email} already exists in users. Use db:set-password instead.`
+      );
       process.exit(1);
     }
 

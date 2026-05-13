@@ -39,10 +39,7 @@ async function migrateUsers() {
         updatedAt: user.updatedAt || new Date(),
       });
 
-      await db
-        .update(schema.users)
-        .set({ authUserId })
-        .where(eq(schema.users.id, user.id));
+      await db.update(schema.users).set({ authUserId }).where(eq(schema.users.id, user.id));
 
       console.log(`Migrated user ${user.username} → authUserId: ${authUserId}`);
     }
