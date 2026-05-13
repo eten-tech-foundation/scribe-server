@@ -50,43 +50,43 @@ export async function seedDevUsers() {
       throw new Error(`Role "${config.roleName}" not found. Run seedRoles first.`);
     }
 
-    const [existingAuthUser] = await db
-      .select({ id: authUser.id })
-      .from(authUser)
-      .where(eq(authUser.email, config.email))
-      .limit(1);
-
-    if (existingAuthUser) {
-      console.log(`Skipping ${config.email} — already exists in auth_user.`);
-      continue;
-    }
-
-    const [existingUserByEmail] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, config.email))
-      .limit(1);
-
-    if (existingUserByEmail) {
-      console.log(`Skipping ${config.email} — already exists in users.`);
-      continue;
-    }
-
-    const [existingUserByUsername] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.username, config.username))
-      .limit(1);
-
-    if (existingUserByUsername) {
-      console.log(`Skipping ${config.username} — username already exists in users.`);
-      continue;
-    }
-
     const authUserId = crypto.randomUUID();
     const hashedPassword = await hashPassword(config.password);
 
     await db.transaction(async (tx) => {
+      const [existingAuthUser] = await tx
+        .select({ id: authUser.id })
+        .from(authUser)
+        .where(eq(authUser.email, config.email))
+        .limit(1);
+
+      if (existingAuthUser) {
+        console.log(`Skipping ${config.email} — already exists in auth_user.`);
+        return;
+      }
+
+      const [existingUserByEmail] = await tx
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, config.email))
+        .limit(1);
+
+      if (existingUserByEmail) {
+        console.log(`Skipping ${config.email} — already exists in users.`);
+        return;
+      }
+
+      const [existingUserByUsername] = await tx
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.username, config.username))
+        .limit(1);
+
+      if (existingUserByUsername) {
+        console.log(`Skipping ${config.username} — username already exists in users.`);
+        return;
+      }
+
       await tx.insert(authUser).values({
         id: authUserId,
         email: config.email,
@@ -118,9 +118,9 @@ export async function seedDevUsers() {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
-    });
 
-    console.log(`Created dev user: ${config.email} (${config.roleName})`);
+      console.log(`Created dev user: ${config.email} (${config.roleName})`);
+    });
   }
 
   console.log('Dev users seeded.');
