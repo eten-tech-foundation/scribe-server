@@ -3,11 +3,11 @@ import { eq } from 'drizzle-orm';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-import type {RoleName} from '@/lib/roles';
+import type { RoleName } from '@/lib/roles';
 
 import { db } from '@/db';
 import { authAccount, authUser, organizations, roles, users } from '@/db/schema';
-import {  ROLES } from '@/lib/roles';
+import { ROLES } from '@/lib/roles';
 
 interface DevUserConfig {
   email: string;
