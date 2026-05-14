@@ -19,6 +19,8 @@ const EnvSchema = z.object({
   DATABASE_URL: z.string().url(),
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().url(),
+  BETTER_AUTH_COOKIE_DOMAIN: z.string().default('.fluent.bible'),
+  BETTER_AUTH_SESSION_EXPIRY_SECONDS: z.coerce.number().default(60 * 60 * 24 * 7), // 7 days
   APPLICATIONINSIGHTS_CONNECTION_STRING: z.string(),
 
   EMAIL_SERVICE_API_KEY: z.string(),

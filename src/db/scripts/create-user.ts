@@ -2,7 +2,6 @@ import { hashPassword } from 'better-auth/crypto';
 import { eq } from 'drizzle-orm';
 import crypto from 'node:crypto';
 
-import { logger } from '../../lib/logger';
 import { db } from '../index';
 import * as schema from '../schema';
 
@@ -18,63 +17,78 @@ async function createNewUser() {
   const email = args[0].toLowerCase();
   const rawPassword = args[1];
   const username = args[2];
-  const roleId = args.length > 3 ? Number.parseInt(args[3], 10) : 2; // Default to Translator
-  const organizationId = 1; // Default to first organization
+  const roleId = args.length > 3 ? Number.parseInt(args[3], 10) : 2;
+  const organizationId = 1;
 
   try {
-    // 1. Check if user already exists
-    const existingUsers = await db.select().from(schema.users).where(eq(schema.users.email, email));
+    const [existingAuthUser] = await db
+      .select()
+      .from(schema.authUser)
+      .where(eq(schema.authUser.email, email))
+      .limit(1);
 
-    if (existingUsers.length > 0) {
-      logger.error(`User with email ${email} already exists! Use db:set-password instead.`);
+    if (existingAuthUser) {
+      console.error(
+        `User with email ${email} already exists in auth_user. Use db:set-password instead.`
+      );
+      process.exit(1);
+    }
+
+    const [existingUser] = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, email))
+      .limit(1);
+
+    if (existingUser) {
+      console.error(
+        `User with email ${email} already exists in users. Use db:set-password instead.`
+      );
       process.exit(1);
     }
 
     const authUserId = crypto.randomUUID();
-
-    // 2. Create BetterAuth user
-    await db.insert(schema.authUser).values({
-      id: authUserId,
-      email,
-      name: username,
-      emailVerified: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    // 3. Hash the password and create auth_account
     const hashedPassword = await hashPassword(rawPassword);
 
-    await db.insert(schema.authAccount).values({
-      id: crypto.randomUUID(),
-      userId: authUserId,
-      accountId: email,
-      providerId: 'credential',
-      password: hashedPassword,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    await db.transaction(async (tx) => {
+      await tx.insert(schema.authUser).values({
+        id: authUserId,
+        email,
+        name: username,
+        emailVerified: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await tx.insert(schema.authAccount).values({
+        id: crypto.randomUUID(),
+        userId: authUserId,
+        accountId: email,
+        providerId: 'credential',
+        password: hashedPassword,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await tx.insert(schema.users).values({
+        username,
+        email,
+        firstName: username,
+        lastName: '(QA)',
+        role: roleId,
+        organization: organizationId,
+        status: 'verified',
+        authUserId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
     });
 
-    // 4. Create application user profile
-    await db.insert(schema.users).values({
-      username,
-      email,
-      firstName: username,
-      lastName: '(QA)',
-      role: roleId,
-      organization: organizationId,
-      status: 'verified',
-      authUserId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    logger.info(`Successfully created user: ${email}`);
-    logger.info(`Username: ${username}, Role: ${roleId === 1 ? 'Manager' : 'Translator'}`);
-
+    console.log(`Successfully created user: ${email}`);
+    console.log(`Username: ${username}, Role: ${roleId === 1 ? 'Manager' : 'Translator'}`);
     process.exit(0);
   } catch (error) {
-    logger.error('Failed to create user:', error);
+    console.error('Failed to create user:', error);
     process.exit(1);
   }
 }
