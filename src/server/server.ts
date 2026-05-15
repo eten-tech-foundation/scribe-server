@@ -58,7 +58,9 @@ export function createServer() {
   // Handle preflight OPTIONS for all /api/auth/* routes
   app.options('/api/auth/*', (c) => {
     const origin = c.req.header('Origin') ?? null;
-    const isAllowed = origin && (origin === env.FRONTEND_URL.replace(/\/$/, '') || origin.endsWith('.fluent.bible'));
+    const isAllowed =
+      origin &&
+      (origin === env.FRONTEND_URL.replace(/\/$/, '') || origin.endsWith('.fluent.bible'));
     if (!isAllowed) return c.text('Forbidden', 403);
     return new Response(null, {
       status: 204,
