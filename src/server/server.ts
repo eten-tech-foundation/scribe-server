@@ -44,12 +44,54 @@ export function createServer() {
   app.use(
     '*',
     cors({
-      origin: [env.FRONTEND_URL],
+      origin: (origin) => {
+        if (!origin) return null;
+        if (origin === env.FRONTEND_URL || origin.endsWith('.fluent.bible')) {
+          return origin;
+        }
+        return null;
+      },
       credentials: true,
     })
   );
 
-  // ─── Mount BetterAuth routes at /api/auth/* (criterion #4) ────
+  // ─── BetterAuth CORS helper ──────────────────────────────────────
+  // auth.handler() returns a raw Response that bypasses Hono middleware,
+  // so we must inject the CORS headers into it manually.
+  function getAllowedOrigin(origin: string | null): string | null {
+    if (!origin) return null;
+    if (origin === env.FRONTEND_URL || origin.endsWith('.fluent.bible')) return origin;
+    return null;
+  }
+
+  function addCorsHeaders(response: Response, origin: string | null): Response {
+    const allowed = getAllowedOrigin(origin);
+    if (!allowed) return response;
+    const headers = new Headers(response.headers);
+    headers.set('Access-Control-Allow-Origin', allowed);
+    headers.set('Access-Control-Allow-Credentials', 'true');
+    headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-better-auth-*');
+    return new Response(response.body, { status: response.status, headers });
+  }
+
+  // Handle preflight OPTIONS for all /api/auth/* routes
+  app.options('/api/auth/*', (c) => {
+    const origin = c.req.header('Origin') ?? null;
+    const allowed = getAllowedOrigin(origin);
+    if (!allowed) return c.text('Forbidden', 403);
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': allowed,
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-better-auth-*',
+        'Access-Control-Max-Age': '86400',
+      },
+    });
+  });
+
   app.post('/api/auth/password/set', async (c) => {
     try {
       const body = await c.req.json();
@@ -64,8 +106,10 @@ export function createServer() {
     }
   });
 
-  app.all('/api/auth/*', (c) => {
-    return auth.handler(c.req.raw);
+  app.all('/api/auth/*', async (c) => {
+    const origin = c.req.header('Origin') ?? null;
+    const response = await auth.handler(c.req.raw);
+    return addCorsHeaders(response, origin);
   });
 
   app.use('*', authenticate);
