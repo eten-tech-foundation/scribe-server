@@ -7,6 +7,7 @@ import { ai_suggestion_jobs, ai_suggestions } from '@/db/schema';
 import { logger } from '@/lib/logger';
 import { err, ErrorCode, ok } from '@/lib/types';
 
+
 export async function queueAiSuggestionJobs(
   jobs: {
     projectUnitId: number;
@@ -25,6 +26,8 @@ export async function queueAiSuggestionJobs(
     await database
       .insert(ai_suggestion_jobs)
       .values(jobs)
+      // If the frontend fires multiple queue requests rapidly for the same verse,
+      // the unique constraint ensures we safely ignore duplicate jobs.
       .onConflictDoNothing({
         target: [
           ai_suggestion_jobs.projectUnitId,

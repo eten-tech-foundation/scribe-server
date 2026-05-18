@@ -27,7 +27,10 @@ const getAiSuggestionsRoute = createRoute({
     query: getAiSuggestionsQuerySchema,
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(aiSuggestionsListResponseSchema, 'List of AI suggestions'),
+    [HttpStatusCodes.OK]: jsonContent(
+      aiSuggestionsListResponseSchema,
+      'List of AI suggestions'
+    ),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
       createMessageObjectSchema('Bad Request'),
       'Validation error'
@@ -52,6 +55,9 @@ const getAiSuggestionsRoute = createRoute({
 server.openapi(getAiSuggestionsRoute, async (c) => {
   const query = c.req.valid('query');
 
+  // Fetches pre-generated AI suggestions from the database.
+  // This is called periodically by the frontend polling mechanism to retrieve
+  // suggestions that the background worker has finished processing.
   const result = await aiSuggestionsService.getAiSuggestions(query);
   if (result.ok) {
     return c.json(result.data, HttpStatusCodes.OK);
@@ -71,7 +77,10 @@ const queueNextVersesRoute = createRoute({
     body: jsonContent(queueNextVersesRequestSchema, 'Verses context'),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(createMessageObjectSchema('Successfully queued'), 'Queued'),
+    [HttpStatusCodes.OK]: jsonContent(
+      createMessageObjectSchema('Successfully queued'),
+      'Queued'
+    ),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(
       createMessageObjectSchema('Bad Request'),
       'Validation error'
@@ -90,13 +99,16 @@ const queueNextVersesRoute = createRoute({
     ),
   },
   summary: 'Queue pre-generation of AI suggestions',
-  description:
-    'Triggers the queue to generate suggestions for the next few verses ahead of the drafter.',
+  description: 'Triggers the queue to generate suggestions for the next few verses ahead of the drafter.',
 });
 
 server.openapi(queueNextVersesRoute, async (c) => {
   const body = c.req.valid('json');
 
+  // Triggers the "Stay Ahead" workflow: when a drafter moves to a new verse,
+  // this endpoint computes the next N verses and queues them as background jobs.
+  // The API responds immediately, letting the frontend stay responsive while
+  // the AI worker processes the jobs asynchronously.
   const result = await aiSuggestionsService.queueNextVerses(
     body.projectUnitId,
     body.bibleId,

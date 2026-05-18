@@ -10,6 +10,7 @@ import {
   json,
   jsonb,
   pgEnum,
+  pgSchema,
   pgTable,
   primaryKey,
   serial,
@@ -40,7 +41,9 @@ export const chapterStatusEnum = pgEnum('chapter_status', [
   'complete',
 ]);
 export const assignmentRoleEnum = pgEnum('assignment_role', ['drafter', 'peer_checker']);
-export const aiSuggestionJobStatusEnum = pgEnum('ai_suggestion_job_status', [
+export const aiSchema = pgSchema('ai');
+
+export const aiSuggestionJobStatusEnum = aiSchema.enum('ai_suggestion_job_status', [
   'queued',
   'processing',
   'completed',
@@ -771,7 +774,7 @@ export const patchUsersClientSchema = patchUsersSchema.omit({
   organization: true,
 });
 
-export const ai_suggestion_jobs = pgTable(
+export const ai_suggestion_jobs = aiSchema.table(
   'ai_suggestion_jobs',
   {
     id: serial('id').primaryKey(),
@@ -804,7 +807,7 @@ export const ai_suggestion_jobs = pgTable(
   ]
 );
 
-export const ai_suggestions = pgTable(
+export const ai_suggestions = aiSchema.table(
   'ai_suggestions',
   {
     id: serial('id').primaryKey(),
@@ -823,35 +826,3 @@ export const ai_suggestions = pgTable(
     uniqueIndex('uq_ai_suggestions_per_text_unit').on(table.bibleTextId, table.projectUnitId),
   ]
 );
-
-export const selectAiSuggestionJobsSchema = createSelectSchema(ai_suggestion_jobs);
-export const selectAiSuggestionsSchema = createSelectSchema(ai_suggestions);
-
-export const insertAiSuggestionJobsSchema = createInsertSchema(ai_suggestion_jobs, {
-  projectUnitId: (schema) => schema.int(),
-  bibleId: (schema) => schema.int(),
-  bookCode: (schema) => schema.min(1),
-  chapterNumber: (schema) => schema.int().min(1),
-  verseStart: (schema) => schema.int().min(1),
-  verseEnd: (schema) => schema.int().min(1),
-})
-  .required({
-    projectUnitId: true,
-    bibleId: true,
-    bookCode: true,
-    chapterNumber: true,
-    verseStart: true,
-    verseEnd: true,
-  })
-  .omit({ id: true, status: true, createdAt: true, updatedAt: true });
-
-export const insertAiSuggestionsSchema = createInsertSchema(ai_suggestions, {
-  bibleTextId: (schema) => schema.int(),
-  projectUnitId: (schema) => schema.int(),
-  suggestedText: (schema) => schema.min(1),
-})
-  .required({ bibleTextId: true, projectUnitId: true, suggestedText: true })
-  .omit({ id: true, createdAt: true });
-
-export const patchAiSuggestionJobsSchema = insertAiSuggestionJobsSchema.partial();
-export const patchAiSuggestionsSchema = insertAiSuggestionsSchema.partial();

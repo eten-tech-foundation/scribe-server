@@ -46,7 +46,8 @@ export async function queueNextVerses(
   lookahead: number = 5
 ): Promise<Result<void>> {
   try {
-    // 1. Find the next few verses
+    // 1. Find the upcoming verses that the drafter hasn't reached yet.
+    // We look ahead up to 'lookahead' verses in the same chapter.
     const nextVerses = await db
       .select({ verseNumber: bible_texts.verseNumber })
       .from(bible_texts)
@@ -54,7 +55,7 @@ export async function queueNextVerses(
       .where(
         and(
           eq(bible_texts.bibleId, bibleId),
-          eq(books.code, bookCode),
+          eq(books.code, bookCode.trim().toUpperCase()),
           eq(bible_texts.chapterNumber, chapterNumber),
           gt(bible_texts.verseNumber, currentVerse)
         )
@@ -64,7 +65,8 @@ export async function queueNextVerses(
 
     if (nextVerses.length === 0) return ok(undefined);
 
-    // 2. Queue them
+    // 2. Queue the upcoming verses as jobs.
+    // The background Python worker will pick these up and process them asynchronously.
     const jobs = nextVerses.map((v) => ({
       projectUnitId,
       bibleId,

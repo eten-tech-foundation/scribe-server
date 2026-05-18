@@ -20,12 +20,12 @@ export const aiSuggestionsListResponseSchema = z.object({
 export type AiSuggestionsListResponse = z.infer<typeof aiSuggestionsListResponseSchema>;
 
 export const queueNextVersesRequestSchema = z.object({
-  projectUnitId: z.number().int().positive(),
-  bibleId: z.number().int().positive(),
+  projectUnitId: z.coerce.number().int().positive(),
+  bibleId: z.coerce.number().int().positive(),
   bookCode: z.string().min(3).max(3),
-  chapterNumber: z.number().int().positive(),
-  currentVerse: z.number().int().positive(),
-  lookahead: z.number().int().positive().max(20).default(5),
+  chapterNumber: z.coerce.number().int().positive(),
+  currentVerse: z.coerce.number().int().nonnegative(),
+  lookahead: z.coerce.number().int().positive().max(20).default(5),
 });
 
 export type QueueNextVersesRequest = z.infer<typeof queueNextVersesRequestSchema>;
