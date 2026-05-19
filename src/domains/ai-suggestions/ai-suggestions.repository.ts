@@ -22,6 +22,12 @@ export async function queueAiSuggestionJobs(
   try {
     if (jobs.length === 0) return ok(undefined);
 
+    logger.debug({
+      msg: '[AI Suggestions] inserting jobs into ai.ai_suggestion_jobs',
+      jobCount: jobs.length,
+      firstJob: jobs[0],
+    });
+
     await database
       .insert(ai_suggestion_jobs)
       .values(jobs)
@@ -37,6 +43,7 @@ export async function queueAiSuggestionJobs(
         ],
       });
 
+    logger.debug({ msg: '[AI Suggestions] jobs inserted successfully' });
     return ok(undefined);
   } catch (error) {
     logger.error({
@@ -57,6 +64,13 @@ export async function getAiSuggestions(
   try {
     if (bibleTextIds.length === 0) return ok([]);
 
+    logger.debug({
+      msg: '[AI Suggestions] fetching from ai.ai_suggestions',
+      projectUnitId,
+      bibleTextIdCount: bibleTextIds.length,
+      bibleTextIds,
+    });
+
     const results = await database
       .select()
       .from(ai_suggestions)
@@ -66,6 +80,11 @@ export async function getAiSuggestions(
           inArray(ai_suggestions.bibleTextId, bibleTextIds)
         )
       );
+
+    logger.debug({
+      msg: '[AI Suggestions] fetch result',
+      resultsCount: results.length,
+    });
 
     return ok(results);
   } catch (error) {

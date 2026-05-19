@@ -46,6 +46,11 @@ export async function queueNextVerses(
   lookahead: number = 5
 ): Promise<Result<void>> {
   try {
+    logger.debug({
+      msg: '[AI Suggestions] queueNextVerses called',
+      projectUnitId, bibleId, bookCode, chapterNumber, currentVerse, lookahead,
+    });
+
     // 1. Find the upcoming verses that the drafter hasn't reached yet.
     // We look ahead up to 'lookahead' verses in the same chapter.
     const nextVerses = await db
@@ -63,6 +68,13 @@ export async function queueNextVerses(
       .orderBy(asc(bible_texts.verseNumber))
       .limit(lookahead);
 
+    logger.debug({
+      msg: '[AI Suggestions] verse lookup result',
+      bookCodeUsed: bookCode.trim().toUpperCase(),
+      versesFound: nextVerses.length,
+      verses: nextVerses,
+    });
+
     if (nextVerses.length === 0) return ok(undefined);
 
     // 2. Queue the upcoming verses as jobs.
@@ -75,6 +87,12 @@ export async function queueNextVerses(
       verseStart: v.verseNumber,
       verseEnd: v.verseNumber,
     }));
+
+    logger.debug({
+      msg: '[AI Suggestions] queuing jobs',
+      jobCount: jobs.length,
+      jobs,
+    });
 
     return await queueAiSuggestionJobs(jobs);
   } catch (error) {

@@ -9,6 +9,8 @@ import { getHttpStatus } from '@/lib/types';
 import { authenticateUser, requirePermission } from '@/middlewares/role-auth';
 import { server } from '@/server/server';
 
+import { logger } from '@/lib/logger';
+
 import * as aiSuggestionsService from './ai-suggestions.service';
 import {
   aiSuggestionsListResponseSchema,
@@ -51,15 +53,18 @@ const getAiSuggestionsRoute = createRoute({
 
 server.openapi(getAiSuggestionsRoute, async (c) => {
   const query = c.req.valid('query');
+  logger.debug({ msg: '[AI Suggestions] GET /ai-suggestions', query });
 
   // Fetches pre-generated AI suggestions from the database.
   // This is called periodically by the frontend polling mechanism to retrieve
   // suggestions that the background worker has finished processing.
   const result = await aiSuggestionsService.getAiSuggestions(query);
   if (result.ok) {
+    logger.debug({ msg: '[AI Suggestions] GET response OK', count: result.data.data.length });
     return c.json(result.data, HttpStatusCodes.OK);
   }
 
+  logger.debug({ msg: '[AI Suggestions] GET response ERROR', error: result.error.message });
   return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
 
@@ -99,6 +104,7 @@ const queueNextVersesRoute = createRoute({
 
 server.openapi(queueNextVersesRoute, async (c) => {
   const body = c.req.valid('json');
+  logger.debug({ msg: '[AI Suggestions] POST /ai-suggestions/queue-next', body });
 
   // Triggers the "Stay Ahead" workflow: when a drafter moves to a new verse,
   // this endpoint computes the next N verses and queues them as background jobs.
@@ -113,8 +119,10 @@ server.openapi(queueNextVersesRoute, async (c) => {
     body.lookahead
   );
   if (result.ok) {
+    logger.debug({ msg: '[AI Suggestions] POST queue-next OK' });
     return c.json({ message: 'Queued' }, HttpStatusCodes.OK);
   }
 
+  logger.debug({ msg: '[AI Suggestions] POST queue-next ERROR', error: result.error.message });
   return c.json({ message: result.error.message }, getHttpStatus(result.error) as never);
 });
